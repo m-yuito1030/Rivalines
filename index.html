@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b1a2b" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="シミュレーター" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <title>シミュレーター</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="game"></div>
+
+    <div id="hud" hidden>
+      <div id="stats"></div>
+      <div id="clock"></div>
+      <div id="status">
+        <div id="rank" title="時価総額の順位。クリックでランキング"></div>
+        <div id="cash" title="現金。クリックで経営画面(売上・費用・融資・買収)"></div>
+        <div id="rating" title="会社の評価。最悪になると新規の開発ができません"></div>
+      </div>
+      <div id="toolbar">
+        <div class="group">
+          <button data-tool="pan" class="on" title="移動 (V)">✋ 移動</button>
+          <div class="dd">
+            <button class="ddbtn" type="button" data-def="🛣 道路">🛣 道路 ▾</button>
+            <div class="ddmenu">
+              <button data-tool="road" title="道路 (R) ドラッグで敷設。1段差までスロープでつながる">🛣 道路 (R)</button>
+              <button data-tool="oneway" title="一方通行 (O) ドラッグ方向に通行">➡ 一方通行 (O)</button>
+              <button data-tool="twoway" title="双方向に戻す (T)">⇄ 双方向化 (T)</button>
+              <button data-tool="stop" title="バス停 (B) クリックで道路上に設置">🚏 バス停 (B)</button>
+              <button data-tool="depot" title="車両基地 道路・直線の線路・空港ターミナルの上をクリック。タップして車両を購入">🏭 車両基地</button>
+              <button data-tool="roadspan" title="道路の橋/トンネル (Y) 両端をドラッグ">🌉 橋・トンネル (Y)</button>
+            </div>
+          </div>
+          <div class="dd">
+            <button class="ddbtn" type="button" data-def="🛤 鉄道">🛤 鉄道 ▾</button>
+            <div class="ddmenu">
+              <button data-tool="rail" title="線路 (L) ドラッグで敷設(約45度なら斜め)">🛤 線路 (L)</button>
+              <button data-tool="station" title="駅 (K) 番線数・ホーム長・デザインを選んでクリックで設置">🚉 駅 (K)</button>
+              <button data-tool="waypoint" title="経由点 直線の線路をクリック。路線に加えると、その線路を通る(番線・待避線の指定)">📍 経由点</button>
+              <button data-tool="depot" title="車両基地 直線の線路の上をクリック。タップして車両を購入">🏭 車両基地</button>
+              <button data-tool="railauto" title="線路の自動敷設: 始点から終点までドラッグすると、既存の線路を使いながら障害物・段差を避けて最短でつなぐ">🪄 自動敷設</button>
+              <button data-tool="signalline" title="信号を並べる: 線路をドラッグすると、ドラッグの向きの一方向信号を一定間隔で置く">🚦 信号を並べる</button>
+              <button data-tool="signal" title="信号 (N) 直線の線路(斜めも可)をクリックで切替: なし → 向き1 → 向き2 → なし(一方向。複線向け)">🚦 信号 (N)</button>
+              <button data-tool="railspan" title="線路の橋/トンネル (H) 両端をドラッグ">🌉 橋・トンネル (H)</button>
+            </div>
+          </div>
+          <button data-tool="airport" title="空港 (P) 3x3の平地に設置">🛫 空港</button>
+          <div class="dd">
+            <button class="ddbtn" type="button" data-def="⛰ 地形">⛰ 地形 ▾</button>
+            <div class="ddmenu">
+              <button data-tool="raise" title="地面を上げる (U) ドラッグで範囲">⬆ 上げる (U)</button>
+              <button data-tool="lower" title="地面を下げる (J) ドラッグで範囲">⬇ 下げる (J)</button>
+              <button data-tool="level" title="整地 (G) 最初のタイルの高さに揃える">▬ 整地 (G)</button>
+            </div>
+          </div>
+          <div class="dd">
+            <button class="ddbtn" type="button" data-def="🏟 施設">🏟 施設 ▾</button>
+            <div class="ddmenu">
+              <button data-tool="stadium" title="スタジアム 4×4。ナイター時間帯に周辺の駅・バス停の乗客が増える">🏟 スタジアム</button>
+              <button data-tool="amusement" title="遊園地 5×5。日中に家族連れが来る">🎡 遊園地</button>
+              <button data-tool="mall" title="ショッピングモール 4×3。日中〜夜に買い物客が来る">🏬 ショッピングモール</button>
+              <button data-tool="park" title="公園 3×3。少しずつ人が訪れる">🌳 公園</button>
+              <button data-tool="department" title="百貨店 4×3。駅前に置くと売上が大きい">🏢 百貨店</button>
+              <button data-tool="hotel" title="ホテル 3×3。一日を通して宿泊客が来る">🏨 ホテル</button>
+            </div>
+          </div>
+          <button data-tool="bulldoze" title="撤去 (X)">🧹 撤去</button>
+        </div>
+        <div class="group">
+          <div class="dd">
+            <button class="ddbtn" type="button" data-def="☰ メニュー" data-fixed="1">☰ メニュー ▾</button>
+            <div class="ddmenu">
+              <button id="menuBtn" title="セーブ/ロード (Ctrl+S)">💾 セーブ / ロード</button>
+              <button id="routesBtn" title="路線パネル">📋 路線</button>
+              <button id="finBtn" title="経営: 資金・売上と費用・融資・買収 (F)">💴 経営 (F)</button>
+              <button id="listBtn" title="一覧: 街・駅・バス停・基地・施設をグループ別に。タップでその場所へ移動">📍 一覧</button>
+              <button id="diaBtn" title="ダイヤ(運行図表): 時刻表をスジ図で見て、ドラッグで直す。待避の提案・路線の複製">📈 ダイヤ</button>
+              <button id="rankBtn" title="ランキング: 会社・街・駅・路線">🏆 ランキング</button>
+              <button id="statsBtn" title="統計 (I)">📊 統計 (I)</button>
+              <button id="dnBtn" title="昼夜の色味">🌓 昼夜</button>
+              <button id="mapBtn" title="右下のマップの表示/非表示 (M)">🗺 マップ表示 (M)</button>
+            </div>
+          </div>
+        </div>
+        <div class="group" id="speeds" hidden>
+          <button data-speed="0" title="一時停止 (Space)">⏸</button>
+          <div class="dd">
+            <button class="ddbtn" type="button" id="speedLabel" data-def="x1" data-fixed="1">x1 ▾</button>
+            <div class="ddmenu">
+              <button data-speed="1" class="on">x1</button>
+              <button data-speed="2">x2</button>
+              <button data-speed="4">x4</button>
+              <button data-speed="8">x8</button>
+              <button data-speed="16">x16</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div id="signalOpts" hidden>🚦 信号の間隔 <input id="optSigInt" type="number" min="1" max="20" value="3" style="width:3.5em"> タイルおき(ドラッグの向きの一方向)</div>
+      <div id="stationOpts" hidden>
+        <b>🚉 駅の設置</b>
+        <label>番線数 <select id="optTracks"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
+        <label>ホーム長 <input id="optLen" type="range" min="1" max="15" value="4"><span id="optLenVal">4</span>タイル</label>
+        <label>デザイン <span class="row"><select id="optDesign"></select><button id="optRand" type="button" title="ランダム">🎲</button></span></label>
+        <small id="optDesignInfo"></small>
+        <label>向き <select id="optAxis"><option value="1" selected>東西</option><option value="0">南北</option></select></label>
+        <small>クリックした位置が左上。線路は範囲内に自動で敷きます。外側は線路でつなぎます。</small>
+      </div>
+      <div id="info" hidden></div>
+      <div id="routes"></div>
+      <canvas id="minimap"></canvas>
+      <div id="help">右/中ドラッグ・WASD: 移動 ・ ホイール/Q,E: ズーム ・ 建設: 左ドラッグ ・ Esc: キャンセル</div>
+    </div>
+
+    <div id="menu" hidden>
+      <div class="box">
+        <h2>プレイヤー</h2>
+        <div id="menuPlayers"></div>
+        <div class="row">
+          <button type="button" id="logoutBtn">ログアウト</button>
+          <button type="button" id="menuClose">閉じる</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="fin-modal" hidden>
+      <div class="box">
+        <h2>経営 <button type="button" id="finClose">閉じる</button></h2>
+        <div id="finBody"></div>
+      </div>
+    </div>
+
+    <div id="rank-modal" hidden>
+      <div class="box">
+        <h2>ランキング <button type="button" id="rankClose">閉じる</button></h2>
+        <div id="rankBody"></div>
+      </div>
+    </div>
+
+    <div id="list-modal" hidden>
+      <div class="box">
+        <h2>一覧 <button type="button" id="listClose">閉じる</button></h2>
+        <div id="listBody"></div>
+      </div>
+    </div>
+
+    <div id="dia-modal" hidden>
+      <div class="box">
+        <h2>ダイヤ(運行図表) <button type="button" id="diaClose">閉じる</button></h2>
+        <div id="diaBody"></div>
+      </div>
+    </div>
+
+    <div id="stats-modal" hidden>
+      <div class="box">
+        <h2>統計 <button type="button" id="statsClose">閉じる</button></h2>
+        <div id="statsBody"></div>
+      </div>
+    </div>
+
+    <div id="start">
+      <form id="startForm">
+        <h1>シミュレーター マルチプレイ</h1>
+        <label>名前 <input id="uname" placeholder="2〜16文字" autocomplete="username" /></label>
+        <label>パスワード <input id="upw" type="password" placeholder="6文字以上" autocomplete="current-password" /></label>
+        <div class="row"><button type="submit" id="go">ログイン</button><button type="button" id="register">新規登録</button></div>
+        <p id="err" style="color:#ff8a80"></p>
+        <p id="note"></p>
+      </form>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

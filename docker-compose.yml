@@ -1,0 +1,19 @@
+services:
+  web:
+    build: { context: ., target: web }
+    container_name: simulator-multi-web
+    restart: unless-stopped
+    depends_on: [server]
+    ports:
+      - "8092:80"
+  server:
+    build: { context: ., target: server }
+    container_name: simulator-multi-server
+    restart: unless-stopped
+    environment:
+      WORLD_SIZE: "65535"
+      MAX_USERS: "100"
+    volumes:
+      - multi-data:/data
+volumes:
+  multi-data:

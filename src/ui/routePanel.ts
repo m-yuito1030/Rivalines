@@ -1,0 +1,343 @@
+import { type Mode, clampCars, kindsFor, modelOf, modelsFor } from '../data/models';
+import type { Order, Route, Transit } from '../sim/transit';
+import { DAY_TICKS, type OrderCond, PERIOD_OPTIONS, RANKS, todOf } from '../sim/transit';
+import type { Company } from '../sim/economy';
+import { net } from '../multi/net';
+import type { Cmd } from '../multi/protocol';
+
+const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
+const MODE_ICON: Record<Mode, string> = { road: '🚌', rail: '🚆', air: '✈' };
+const MODE_LABEL: Record<Mode, string> = { road: 'バス', rail: '鉄道', air: '航空' };
+const KIND_HINT: Record<Mode, string> = { road: '道路上をクリック(自動で停留所を設置)', rail: '駅(または経由点)をクリック。線路上の何もない所は簡易駅になります。経由点は鉄道▾の📍で先に置く', air: '空港をクリック' };
+
+const PERIODS = PERIOD_OPTIONS;
+
+/** ゲーム内時刻(HH:MM)⇔1日内tick。0:00 = 0 */
+const todToHM = (tod: number) => {
+  const mins = Math.floor(((((tod % DAY_TICKS) + DAY_TICKS) % DAY_TICKS) / DAY_TICKS) * 24 * 60);
+  return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+};
+const hmToTod = (hm: string) => {
+  const [h, m] = hm.split(':').map(Number);
+  return Math.round(((h * 60 + m) / (24 * 60)) * DAY_TICKS);
+};
+/** tick → ゲーム内「分」 */
+const ticksToMin = (t: number) => Math.round((t / DAY_TICKS) * 24 * 60);
+
+/**
+ * 路線パネル: 路線の一覧と編集(停車順・待ち方式・車種・時刻表周期)、路線作成中の表示。
+ * 構造が変わったとき(transit.version)だけ再描画し、入力中のフォームを壊さない。
+ */
+export class RoutePanel {
+  /** 路線作成中の種別と停留所(順) */
+  building: { kind: Mode; stops: number[] } | null = null;
+  /** 既存路線へ停留所(オーダー)を挿入中: index の位置に入る */
+  inserting: { routeId: number; index: number } | null = null;
+  /** 一覧の開閉: ジャンル → 路線 → 車両 */
+  private openMode: Mode | null = null;
+  private openRoute = -1;
+  private seen = -1;
+  private seenBuild = '';
+
+  constructor(
+    private el: HTMLElement,
+    private transit: Transit,
+    private getTick: () => number,
+    private onStartBuild: () => void,
+    private onEndBuild: () => void,
+    _company: () => Company | null = () => null,
+  ) {
+    el.addEventListener('click', (e) => this.onClick(e));
+    el.addEventListener('change', (e) => this.onChange(e));
+  }
+
+  startBuild(kind: Mode): void {
+    this.building = { kind, stops: [] };
+    this.onStartBuild();
+    this.render();
+  }
+
+  addToBuild(stopId: number): void {
+    this.building?.stops.push(stopId);
+    this.render();
+  }
+
+  /** 操作をサーバーへ送る。失敗したら理由を表示する */
+  private async send(cmd: Cmd): Promise<boolean> {
+    const r = await net.cmd(cmd);
+    if (!r.ok && r.msg) alert(r.msg);
+    return r.ok;
+  }
+
+  finishBuild(): void {
+    const b = this.building;
+    if (b && b.stops.length >= 2) {
+      void net.cmd({ t: 'routeCreate', stops: b.stops }).then((r) => {
+        if (r.ok && r.id !== undefined) {
+          this.openMode = b.kind;
+          this.openRoute = r.id;
+          this.transit.version++;
+        } else if (r.msg) alert(r.msg);
+      });
+    }
+    this.cancelBuild();
+  }
+
+  startInsert(routeId: number, index: number): void {
+    this.inserting = { routeId, index };
+    this.onStartBuild();
+    this.render();
+  }
+
+  /** 挿入する停留所がクリックされた */
+  completeInsert(stopId: number): void {
+    const ins = this.inserting;
+    if (!ins) return;
+    void this.send({ t: 'tx', m: 'insertOrder', a: [ins.routeId, ins.index, stopId] });
+    this.inserting = null;
+    this.onEndBuild();
+    this.render();
+  }
+
+  cancelBuild(): void {
+    this.inserting = null;
+    this.building = null;
+    this.onEndBuild();
+    this.render();
+  }
+
+  /** 毎フレーム呼んでよい(変化があった時だけ再描画) */
+  refresh(live = true): void {
+    const key = (this.building ? this.building.kind + this.building.stops.join(',') : '') + (this.inserting ? `i${this.inserting.routeId}:${this.inserting.index}` : '');
+    if (this.transit.version !== this.seen || key !== this.seenBuild) this.render();
+    else if (live) this.updateLive();
+  }
+
+  private stopName(id: number) {
+    return esc(this.transit.stops.get(id)?.name ?? '?');
+  }
+
+  private render(): void {
+    this.seen = this.transit.version;
+    this.seenBuild = (this.building ? this.building.kind + this.building.stops.join(',') : '') + (this.inserting ? `i${this.inserting.routeId}:${this.inserting.index}` : '');
+    const t = this.transit;
+    let html = `<div class="ph">路線 <span>
+      <button data-act="build" data-kind="road" title="バス路線を作成">＋🚌</button>
+      <button data-act="build" data-kind="rail" title="鉄道路線を作成">＋🚆</button>
+      <button data-act="build" data-kind="air" title="航空路線を作成">＋✈</button></span></div>`;
+    if (this.building) {
+      const b = this.building;
+      html += `<div class="build">${MODE_ICON[b.kind]} ${MODE_LABEL[b.kind]}路線: ${KIND_HINT[b.kind]}<ol>${b.stops.map((id) => `<li>${this.stopName(id)}</li>`).join('')}</ol>
+        <button data-act="finish" ${b.stops.length < 2 ? 'disabled' : ''}>確定 (Enter)</button>
+        <button data-act="cancel">キャンセル (Esc)</button></div>`;
+    }
+    if (this.inserting) {
+      const r = t.routes.get(this.inserting.routeId);
+      html += `<div class="build">${r ? esc(r.name) : ''} の ${this.inserting.index + 1} 番に追加する停留所(経由点)をクリック<br><button data-act="cancel">キャンセル (Esc)</button></div>`;
+    }
+    if (t.routes.size === 0 && !this.building) html += `<div class="muted">上の ＋🚌 ＋🚆 ＋✈ で路線を作成します。バス停(B)・駅(K)・空港(P)は路線作成中にクリックしても設置されます。車両は車両基地(🏭)から購入します。</div>`;
+    for (const m of ['road', 'rail', 'air'] as Mode[]) {
+      const rs = [...t.routes.values()].filter((r) => r.mode === m && (r.owner === undefined || r.owner === net.id)); // 自社の路線だけ一覧に出す
+      const open = this.openMode === m;
+      const vcount = t.vehicles.filter((v) => t.routes.get(v.routeId)?.mode === m && (t.routes.get(v.routeId)?.owner ?? net.id) === net.id).length;
+      html += `<div class="genre"><button data-act="gen" data-kind="${m}">${open ? '▼' : '▶'} ${MODE_ICON[m]} ${MODE_LABEL[m]} (${rs.length}路線・車両${vcount})</button></div>`;
+      if (!open) continue;
+      for (const r of rs) {
+        const on = this.openRoute === r.id;
+        html += `<div class="rl"><button data-act="pick" data-r="${r.id}"><i style="background:${hex(r.color)}"></i> ${on ? '▼' : '▶'} ${esc(r.name)}${r.rank ? ` <b class="rk">${RANKS[r.rank].name}</b>` : ''} <em>ID:${r.id}・車両${t.vehicles.filter((v) => v.routeId === r.id).length}</em></button></div>`;
+        if (on) html += this.routeHtml(r);
+      }
+    }
+    html += `<div class="muted">停留所 ${[...t.stops.values()].filter((s) => !s.waypoint).length} / 車両 ${t.vehicles.length} / 輸送人数 <span id="delivered"></span> / 乗換 <span id="transfers"></span></div>`;
+    this.el.innerHTML = html;
+    this.updateLive();
+  }
+
+  /** 構造を変えずに数値だけ更新(待ち人数・積載・遅延・輸送人数) */
+  private updateLive(): void {
+    const set = (el: Element, text: string) => {
+      if (el.textContent !== text) el.textContent = text;
+    };
+    const d = this.el.querySelector('#delivered');
+    if (d) set(d, String(Math.floor(this.transit.delivered)));
+    const tf = this.el.querySelector('#transfers');
+    if (tf) set(tf, String(Math.floor(this.transit.transfers)));
+    this.el.querySelectorAll('[data-wait]').forEach((el) => set(el, String(Math.floor(this.transit.stops.get(Number((el as HTMLElement).dataset.wait))?.waiting ?? 0))));
+    this.el.querySelectorAll('[data-load]').forEach((el) => {
+      const rid = Number((el as HTMLElement).dataset.load);
+      const vs = this.transit.vehicles.filter((v) => v.routeId === rid);
+      const cap = vs.reduce((s, v) => s + v.cap, 0);
+      const load = vs.reduce((s, v) => s + v.load, 0);
+      set(el, cap ? `${Math.round((load / cap) * 100)}%` : '-');
+    });
+    this.el.querySelectorAll('[data-stuck]').forEach((el) => {
+      const rid = Number((el as HTMLElement).dataset.stuck);
+      set(el, String(this.transit.vehicles.filter((v) => v.routeId === rid && v.stuck > 20).length));
+    });
+    this.el.querySelectorAll('[data-late]').forEach((el) => {
+      const r = this.transit.routes.get(Number((el as HTMLElement).dataset.late));
+      set(el, r ? `${ticksToMin(r.late)}分` : '-');
+    });
+  }
+
+  private routeHtml(r: Route): string {
+    const veh = this.transit.vehicles.filter((v) => v.routeId === r.id).length;
+    const hasTimed = r.orders.some((o) => o.kind === 'timed');
+    const rows = r.orders
+      .map((o, i) =>
+        this.transit.stops.get(o.stopId)?.waypoint
+          ? `<div class="orderw muted" data-r="${r.id}" data-o="${i}">${i + 1}. ↪ 経由 ${this.stopName(o.stopId)} ${this.orderBtns(r, i)}</div>`
+          : `<div class="order" data-r="${r.id}" data-o="${i}">
+        <span class="stopn">${i + 1}. ${this.stopName(o.stopId)} <em>待ち<span data-wait="${o.stopId}">0</span>人</em> <label class="pass" title="通過: この駅には停まらず通り抜ける(快速・特急)"><input type="checkbox" data-f="pass" ${o.pass ? 'checked' : ''}> 通過</label> ${this.orderBtns(r, i)}</span>
+        <select data-f="kind">
+          <option value="dwell" ${o.kind === 'dwell' ? 'selected' : ''}>間隔(停車)</option>
+          <option value="full" ${o.kind === 'full' ? 'selected' : ''}>満載待ち</option>
+          <option value="timed" ${o.kind === 'timed' ? 'selected' : ''}>時刻表</option>
+        </select>${this.orderParams(o)}${this.condHtml(r, o)}</div>`,
+      )
+      .join('');
+    const cur = modelOf(r.modelId);
+    const kinds = kindsFor(r.mode)
+      .map((k) => `<option value="${esc(k)}" ${k === cur.kind ? 'selected' : ''}>${esc(k)}</option>`)
+      .join('');
+    const models = modelsFor(r.mode)
+      .filter((m) => m.kind === cur.kind)
+      .map((m) => {
+        const spec = r.mode === 'rail' ? `1両${m.cap}人・${m.minCars === m.maxCars ? '単行' : `${m.minCars}〜${m.maxCars}両`}` : `定員${m.cap}`;
+        return `<option value="${m.id}" ${m.id === cur.id ? 'selected' : ''}>${esc(m.name)} (${spec})</option>`;
+      })
+      .join('');
+    // 鉄道: 1両のみの車種は1両固定、2両以上の車種は任意の両数
+    const cars = clampCars(cur, r.cars ?? cur.defaultCars);
+    const carsHtml =
+      r.mode === 'rail'
+        ? cur.minCars === cur.maxCars
+          ? `<span>1両(単行)</span>`
+          : `<label>編成 <input data-f="cars" type="number" min="${cur.minCars}" max="${cur.maxCars}" value="${cars}">両(${cur.minCars}〜${cur.maxCars})・定員${cur.cap * cars}人</label>`
+        : '';
+    const periods = PERIODS.map(([l, v]) => `<option value="${v}" ${v === r.period ? 'selected' : ''}>${l}</option>`).join('');
+    return `<div class="route" data-r="${r.id}">
+      <div class="rh"><i style="background:${hex(r.color)}"></i><b>${MODE_ICON[r.mode]}</b> <input data-f="rname" type="text" maxlength="24" value="${esc(r.name)}" title="路線名(入力して確定)" style="width:9em"> <em class="muted">ID:${r.id}</em> 車両 ${veh}
+        <button data-act="addveh" data-r="${r.id}" title="最寄りの車両基地から、この路線の既定の車種・両数で購入">＋車両</button>
+        <button data-act="delveh" data-r="${r.id}" ${veh ? '' : 'disabled'}>－</button>
+        <button data-act="delroute" data-r="${r.id}">削除</button></div>
+      <div class="rm">
+        <button data-act="share" data-r="${r.id}" title="同じオーダーで別の車種・本数を走らせる路線を作る(オーダーを編集すると全員に反映)">共有コピー</button>
+        ${r.shared !== undefined ? `<span>🔗 共有${[...this.transit.routes.values()].filter((x) => x.shared === r.shared).length}路線</span><button data-act="unshare" data-r="${r.id}">共有解除</button>` : ''}
+        <button data-act="oins" data-r="${r.id}" data-o="${r.orders.length}" title="路線の最後に停留所を追加">＋停留所</button>
+        <button data-act="autotime" data-r="${r.id}" title="区間の走行時間(実際に走った実測があれば実測、なければ経路からの見積もり)から時刻表(出発時刻と周期)を自動で作る">時刻表を自動作成</button>
+      </div>
+      <div class="rm">種別 <select data-f="rank">${RANKS.map((k, i) => `<option value="${i}" ${(r.rank ?? 0) === i ? 'selected' : ''}>${k.name}</option>`).join('')}</select> <span class="muted">選ぶと通過駅を自動設定(各駅は「通過」で調整)</span></div>
+      <div class="rm"><select data-f="mkind">${kinds}</select><select data-f="model">${models}</select></div>
+      ${carsHtml ? `<div class="rm">${carsHtml}</div>` : ''}
+      <div class="rm"><button data-act="replace" data-r="${r.id}" title="この路線の全車両を、上で選んだ車種に置き換える(旧車両は評価額の50%で下取り)">🔁 全車両をこの車種に置き換え</button></div>
+      <div class="rm">積載 <b data-load="${r.id}">-</b> / 停滞 <b data-stuck="${r.id}">0</b>台${hasTimed ? ` / 周期 <select data-f="period">${periods}</select> / 遅延 <b data-late="${r.id}">-</b>` : ''}</div>
+      ${rows}
+      <div class="rm muted">車両: ${this.transit.vehicles.filter((v) => v.routeId === r.id).map((v) => `#${v.id}${r.mode === 'rail' ? `(${v.cars}両)` : ''}`).join(' ') || 'なし'}</div></div>`;
+  }
+
+  /** オーダー行の操作: 上へ・下へ・削除・この後ろに挿入 */
+  private orderBtns(r: Route, i: number): string {
+    const n = r.orders.length;
+    return `<span class="ob"><button data-act="omove" data-r="${r.id}" data-o="${i}" data-d="-1" ${i === 0 ? 'disabled' : ''} title="上へ">▲</button><button data-act="omove" data-r="${r.id}" data-o="${i}" data-d="1" ${i === n - 1 ? 'disabled' : ''} title="下へ">▼</button><button data-act="oins" data-r="${r.id}" data-o="${i + 1}" title="この後ろに停留所を追加">＋</button><button data-act="odel" data-r="${r.id}" data-o="${i}" title="このオーダーを削除">✕</button></span>`;
+  }
+
+  /** 出発時の条件付きジャンプ(条件を満たしたら N 番のオーダーへ) */
+  private condHtml(r: Route, o: Order): string {
+    const c = o.cond;
+    const kinds: [string, string][] = [['', 'なし'], ['load', '積載率'], ['wait', '待ち人数'], ['tod', '時刻']];
+    const kindSel = `<select data-f="ckind">${kinds.map(([k, l]) => `<option value="${k}" ${(c?.kind ?? '') === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
+    if (!c) return `<div class="cond">出発時の条件 ${kindSel}</div>`;
+    const real = r.orders.map((x, i) => [x, i] as const).filter(([x]) => !this.transit.stops.get(x.stopId)?.waypoint);
+    const to = `<select data-f="cto">${real.map(([, i]) => `<option value="${i}" ${c.to === i ? 'selected' : ''}>${i + 1}</option>`).join('')}</select>`;
+    const val =
+      c.kind === 'tod'
+        ? `<input data-f="cval" type="time" value="${todToHM((c.value / 1440) * DAY_TICKS)}">`
+        : `<input data-f="cval" type="number" min="0" max="${c.kind === 'load' ? 100 : 9999}" value="${c.value}">${c.kind === 'load' ? '%' : '人'}`;
+    return `<div class="cond">出発時の条件 ${kindSel} <select data-f="cop"><option value="ge" ${c.op === 'ge' ? 'selected' : ''}>以上</option><option value="lt" ${c.op === 'lt' ? 'selected' : ''}>未満</option></select> ${val} なら ${to}番へ</div>`;
+  }
+
+  private orderParams(o: Order): string {
+    if (o.kind === 'dwell') return `<label>停車 <input data-f="dwell" type="number" min="1" max="600" value="${Math.round(o.dwell / 10)}">秒</label>`;
+    if (o.kind === 'full') return `<label>最大 <input data-f="maxWait" type="number" min="1" max="3600" value="${Math.round(o.maxWait / 10)}">秒</label>`;
+    return `<label>発 <input data-f="departTod" type="time" value="${todToHM(o.departTod)}"></label>`;
+  }
+
+  private onClick(e: Event): void {
+    const b = (e.target as HTMLElement).closest('button');
+    if (!b) return;
+    const act = b.dataset.act;
+    const rid = Number(b.dataset.r);
+    const tx = (m: 'removeRoute' | 'moveOrder' | 'removeOrder' | 'shareRoute' | 'unshareRoute' | 'autoTimetable' | 'removeVehicle', a: number[]) => void this.send({ t: 'tx', m, a });
+    if (act === 'build') this.startBuild(b.dataset.kind as Mode);
+    else if (act === 'gen') {
+      const k = b.dataset.kind as Mode;
+      this.openMode = this.openMode === k ? null : k;
+      this.openRoute = -1;
+      this.transit.version++;
+    } else if (act === 'pick') {
+      this.openRoute = this.openRoute === rid ? -1 : rid;
+      this.transit.version++;
+    } else if (act === 'finish') this.finishBuild();
+    else if (act === 'cancel') this.cancelBuild();
+    else if (act === 'addveh') {
+      // 車両は最寄りの自社の車両基地から購入する(サーバーが検証・課金)
+      const route = this.transit.routes.get(rid);
+      if (!route) return;
+      const m = modelOf(route.modelId);
+      void this.send({ t: 'buyVehicle', routeId: rid, modelId: route.modelId, cars: route.cars ?? m.defaultCars });
+    } else if (act === 'delveh') {
+      const last = [...this.transit.vehicles].reverse().find((v) => v.routeId === rid);
+      if (last) tx('removeVehicle', [last.id]);
+    } else if (act === 'replace') void this.send({ t: 'routeReplace', routeId: rid });
+    else if (act === 'delroute') tx('removeRoute', [rid]);
+    else if (act === 'omove') tx('moveOrder', [rid, Number(b.dataset.o), Number(b.dataset.d)]);
+    else if (act === 'odel') tx('removeOrder', [rid, Number(b.dataset.o)]);
+    else if (act === 'oins') this.startInsert(rid, Number(b.dataset.o));
+    else if (act === 'share') tx('shareRoute', [rid]);
+    else if (act === 'unshare') tx('unshareRoute', [rid]);
+    else if (act === 'autotime') tx('autoTimetable', [rid, todOf(this.getTick())]);
+  }
+
+  private onChange(e: Event): void {
+    const el = e.target as HTMLInputElement | HTMLSelectElement;
+    const f = el.dataset.f;
+    const routeEl = el.closest<HTMLElement>('.route');
+    const route = routeEl && this.transit.routes.get(Number(routeEl.dataset.r));
+    if (!route) return;
+    const set = (patch: { name?: string; modelId?: string; cars?: number; period?: number }) => void this.send({ t: 'routeSet', routeId: route.id, patch });
+    if (f === 'rname') return set({ name: el.value });
+    if (f === 'rank') return void this.send({ t: 'routeRank', routeId: route.id, rank: Number(el.value), copy: false });
+    if (f === 'mkind') {
+      const first = modelsFor(route.mode).find((m) => m.kind === el.value);
+      if (first) set({ modelId: first.id });
+      return;
+    }
+    if (f === 'model') return set({ modelId: el.value });
+    if (f === 'cars') return set({ cars: clampCars(modelOf(route.modelId), Number(el.value)) });
+    if (f === 'period') return set({ period: Number(el.value) });
+    const row = el.closest<HTMLElement>('.order');
+    const index = row ? Number(row.dataset.o) : -1;
+    const o = route.orders[index];
+    if (!o) return;
+    const patch: Record<string, unknown> = {};
+    if (f === 'ckind') {
+      if (!el.value) patch.cond = null;
+      else {
+        const k = el.value as OrderCond['kind'];
+        const n = route.orders.length;
+        patch.cond = { kind: k, op: 'ge', value: k === 'load' ? 80 : k === 'wait' ? 100 : 720, to: (index + 2) % n };
+      }
+    } else if (o.cond && f === 'cop') patch.cond = { ...o.cond, op: el.value };
+    else if (o.cond && f === 'cval') patch.cond = { ...o.cond, value: o.cond.kind === 'tod' ? Math.round((hmToTod(el.value) / DAY_TICKS) * 1440) : Math.max(0, Number(el.value)) };
+    else if (o.cond && f === 'cto') patch.cond = { ...o.cond, to: Number(el.value) };
+    else if (f === 'pass') patch.pass = (el as HTMLInputElement).checked;
+    else if (f === 'kind') patch.kind = el.value;
+    else if (f === 'dwell') patch.dwell = Math.max(10, Number(el.value) * 10);
+    else if (f === 'maxWait') patch.maxWait = Math.max(10, Number(el.value) * 10);
+    else if (f === 'departTod') patch.departTod = hmToTod(el.value);
+    else return;
+    void this.send({ t: 'orderSet', routeId: route.id, index, patch });
+  }
+}

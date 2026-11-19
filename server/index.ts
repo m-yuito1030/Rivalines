@@ -1,0 +1,218 @@
+import { createServer, type IncomingMessage } from 'node:http';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { WebSocketServer } from 'ws';
+import { Simulation } from '../src/sim/simulation';
+import { calendarOf } from '../src/sim/calendar';
+import { makeWorldMap } from '../src/world/bigTerrain';
+import { applyLayers, decodeSave, encodeSave } from '../src/save/serialize';
+import { Accounts } from './accounts';
+import { execute } from './commands';
+import { Replicator, type Client } from './replicate';
+import type { ClientMsg } from '../src/multi/protocol';
+
+const PORT = Number(process.env.PORT ?? 8091);
+const DATA = process.env.DATA_DIR ?? './data';
+const SIZE = Number(process.env.WORLD_SIZE ?? 65535);
+const SEED = Number(process.env.WORLD_SEED ?? 20260401);
+const MAX_USERS = Number(process.env.MAX_USERS ?? 100);
+const SAVE_FILE = `${DATA}/world.sav`;
+
+mkdirSync(DATA, { recursive: true });
+const accounts = new Accounts(`${DATA}/accounts.json`);
+
+/** 世界を作る(巨大マップ)。セーブがあれば続きから */
+async function loadWorld(): Promise<Simulation> {
+  const map = makeWorldMap(SIZE, SEED);
+  if (existsSync(SAVE_FILE)) {
+    try {
+      const d = await decodeSave(new Uint8Array(readFileSync(SAVE_FILE)) as Uint8Array<ArrayBuffer>);
+      if (d.header.size === SIZE && d.header.seed === SEED) {
+        applyLayers(map, d);
+        console.log(`[world] セーブから再開 tick=${d.header.sim.tick}`);
+        return new Simulation(map, d.header.sim, { multi: true });
+      }
+    } catch (e) {
+      console.warn('[world] セーブを読めないので新規で開始:', (e as Error).message);
+    }
+  }
+  console.log(`[world] 新規ワールド ${SIZE}² seed ${SEED}`);
+  return new Simulation(map, undefined, { multi: true });
+}
+
+const sim = await loadWorld();
+sim.speed = Number(process.env.SPEED ?? 1);
+
+async function saveWorld(): Promise<void> {
+  const bytes = await encodeSave(sim.map, sim.state());
+  writeFileSync(SAVE_FILE + '.tmp', bytes);
+  renameSync(SAVE_FILE + '.tmp', SAVE_FILE);
+  console.log(`[world] 保存 tick=${sim.tick} ${(bytes.length / 1024).toFixed(0)}KB`);
+}
+
+// ---- 接続 ----
+const repl = new Replicator(sim, accounts);
+const clients = new Set<Client>();
+/** オンライン中の会社を反映する(切断した会社は止まる) */
+const syncOnline = () => sim.setOnline([...clients].map((c) => c.id));
+// 登録済みのアカウントは全て会社を持つ
+for (let id = 1; id <= accounts.count + 10; id++) if (accounts.byId(id)) sim.playerCompany(id);
+syncOnline();
+
+const json = (res: import('node:http').ServerResponse, code: number, body: unknown) => {
+  res.writeHead(code, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type' });
+  res.end(JSON.stringify(body));
+};
+const readBody = (req: IncomingMessage) =>
+  new Promise<Record<string, unknown>>((res, rej) => {
+    let s = '';
+    req.on('data', (c) => {
+      s += c;
+      if (s.length > 4096) req.destroy();
+    });
+    req.on('end', () => {
+      try {
+        res(JSON.parse(s || '{}'));
+      } catch (e) {
+        rej(e);
+      }
+    });
+  });
+
+// 総当たり対策: 同じIPからの認証は1分に10回まで
+const attempts = new Map<string, number[]>();
+const AUTH_RATE = Number(process.env.AUTH_RATE ?? 10);
+const throttled = (ip: string) => {
+  const now = Date.now();
+  const l = (attempts.get(ip) ?? []).filter((t) => now - t < 60000);
+  l.push(now);
+  attempts.set(ip, l);
+  return l.length > AUTH_RATE;
+};
+
+const server = createServer(async (req, res) => {
+  if (req.method === 'OPTIONS') return json(res, 204, {});
+  const url = req.url ?? '';
+  try {
+    if (req.method === 'GET' && url === '/api/status') return json(res, 200, status());
+    if (req.method === 'POST' && (url === '/api/register' || url === '/api/login')) {
+      if (throttled(req.socket.remoteAddress ?? '')) return json(res, 429, { ok: false, reason: '試行回数が多すぎます。少し待ってください' });
+      const b = await readBody(req);
+      const name = String(b.name ?? '');
+      const password = String(b.password ?? '');
+      if (url === '/api/register') {
+        const r = await accounts.register(name, password, MAX_USERS);
+        if (!r.ok) return json(res, 400, r);
+        sim.playerCompany(r.account.id);
+        return json(res, 200, { ok: true, token: accounts.issueToken(r.account.id), name: r.account.name });
+      }
+      const a = await accounts.verify(name, password);
+      if (!a) return json(res, 401, { ok: false, reason: '名前またはパスワードが違います' });
+      return json(res, 200, { ok: true, token: accounts.issueToken(a.id), name: a.name });
+    }
+    json(res, 404, { ok: false });
+  } catch {
+    json(res, 400, { ok: false, reason: '不正なリクエスト' });
+  }
+});
+
+const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
+server.on('upgrade', (req, socket, head) => {
+  const token = new URL(req.url ?? '', 'http://x').searchParams.get('token') ?? '';
+  const a = accounts.fromToken(token);
+  if (!a) {
+    socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+    return socket.destroy();
+  }
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    // 同じアカウントの二重接続は古い方を切る
+    for (const c of clients) if (c.id === a.id) c.ws.close(4000, 'other login');
+    const c = repl.newClient(ws, a.id, a.name);
+    clients.add(c);
+    sim.playerCompany(a.id);
+    syncOnline();
+    ws.send(JSON.stringify({ type: 'init', you: a.name, id: a.id, world: { size: SIZE, seed: SEED }, tick: sim.tick, start: accounts.byId(a.id)?.last ?? null }));
+    let tokens = 30;
+    const refill = setInterval(() => (tokens = Math.min(30, tokens + 10)), 1000); // 操作は毎秒10回まで(瞬間30回)
+    ws.on('close', () => clearInterval(refill));
+    ws.on('message', (data) => {
+      let m: ClientMsg;
+      try {
+        m = JSON.parse(String(data)) as ClientMsg;
+      } catch {
+        return;
+      }
+      if (m.type === 'view') {
+        if ([m.x0, m.y0, m.x1, m.y1].every((n) => Number.isFinite(n))) {
+          repl.setView(c, m.x0, m.y0, m.x1, m.y1);
+          accounts.setLast(c.id, Math.round((m.x0 + m.x1) / 2), Math.round((m.y0 + m.y1) / 2));
+        }
+      } else if (m.type === 'cmd') {
+        if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: '操作が多すぎます。少し待ってください' } }));
+        tokens--;
+        let res;
+        try {
+          res = execute(sim, c.id, m.cmd);
+        } catch (e) {
+          console.warn('[cmd]', (e as Error).message);
+          res = { ok: false, msg: 'サーバーエラー' };
+        }
+        ws.send(JSON.stringify({ type: 'res', req: m.req, res }));
+      }
+    });
+    const drop = () => {
+      if (clients.delete(c)) {
+        syncOnline();
+        accounts.flush();
+        if (clients.size === 0) void saveWorld(); // 最後の人が抜けたら保存して停止
+      }
+    };
+    ws.on('close', drop);
+    ws.on('error', drop);
+  });
+});
+
+function status() {
+  const d = calendarOf(Math.floor((sim.tick + 18000 / 4) / 18000));
+  return {
+    tick: sim.tick,
+    date: `${d.year}/${d.month}/${d.day}`,
+    world: { size: SIZE, seed: SEED },
+    towns: sim.map.towns.length,
+    pop: Math.floor(sim.map.towns.reduce((s, t) => s + t.pop, 0)),
+    vehicles: sim.transit.vehicles.length,
+    accounts: accounts.count,
+    online: [...clients].map((c) => c.name),
+    maxUsers: MAX_USERS,
+    perf: { simMs: +perf.sim.toFixed(1), replMs: +perf.repl.toFixed(1), loopMs: +perf.loop.toFixed(1), throttled: sim.throttled },
+  };
+}
+
+// ---- 進行 ----
+let last = performance.now();
+let frameN = 0;
+const perf = { sim: 0, repl: 0, loop: 0 };
+setInterval(() => {
+  const now = performance.now();
+  // 誰もログインしていない間は世界(街・AI会社を含む)を進めない
+  if (clients.size === 0) {
+    last = now;
+    return;
+  }
+  sim.advance((now - last) / 1000, 60);
+  last = now;
+  const t1 = performance.now();
+  repl.frame(clients);
+  if (++frameN % 5 === 0) repl.structure(clients);
+  if (frameN % 10 === 0) repl.misc(clients);
+  const t2 = performance.now();
+  perf.sim = perf.sim * 0.9 + (t1 - now) * 0.1;
+  perf.repl = perf.repl * 0.9 + (t2 - t1) * 0.1;
+  perf.loop = perf.loop * 0.9 + (t2 - now) * 0.1;
+}, 100);
+setInterval(() => void saveWorld(), 5 * 60 * 1000);
+for (const sig of ['SIGINT', 'SIGTERM'] as const)
+  process.on(sig, () => {
+    void saveWorld().finally(() => process.exit(0));
+  });
+
+server.listen(PORT, () => console.log(`[server] http/ws :${PORT} (最大${MAX_USERS}人)`));

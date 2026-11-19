@@ -1,0 +1,17 @@
+{
+  "name": "シミュレーター",
+  "short_name": "シミュレーター",
+  "description": "街の成長と路線・車・飛行機を楽しむサンドボックス交通シミュレーション",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#0b1a2b",
+  "theme_color": "#0b1a2b",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

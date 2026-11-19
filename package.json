@@ -1,0 +1,26 @@
+{
+  "name": "simulator",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "tsc --noEmit && tsc --noEmit -p tsconfig.server.json && vite build",
+    "preview": "vite preview --host 0.0.0.0 --port 4173",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.server.json",
+    "test": "vitest run",
+    "server": "tsx server/index.ts"
+  },
+  "dependencies": {
+    "pixi.js": "^8.23.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0",
+    "@types/ws": "^8.5.12",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0"
+  }
+}
