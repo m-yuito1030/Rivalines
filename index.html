@@ -84,6 +84,8 @@
               <button id="listBtn" title="一覧: 街・駅・バス停・基地・施設をグループ別に。タップでその場所へ移動">📍 一覧</button>
               <button id="diaBtn" title="ダイヤ(運行図表): 時刻表をスジ図で見て、ドラッグで直す。待避の提案・路線の複製">📈 ダイヤ</button>
               <button id="rankBtn" title="ランキング: 会社・街・駅・路線">🏆 ランキング</button>
+              <button id="aucBtn" title="入札: 街ごとの独占権を競りで落札する">🏷 入札・独占権</button>
+              <button id="anaBtn" title="経営分析: 路線・停留所・施設の採算と混雑(赤字が上)">🧮 経営分析</button>
               <button id="statsBtn" title="統計 (I)">📊 統計 (I)</button>
               <button id="dnBtn" title="昼夜の色味">🌓 昼夜</button>
               <button id="mapBtn" title="右下のマップの表示/非表示 (M)">🗺 マップ表示 (M)</button>
@@ -183,6 +185,20 @@
       <div class="box">
         <h2>ダイヤ(運行図表) <button type="button" id="diaClose">閉じる</button></h2>
         <div id="diaBody"></div>
+      </div>
+    </div>
+
+    <div id="analysis-modal" hidden>
+      <div class="box">
+        <h2>経営分析 <button type="button" id="anaClose">閉じる</button></h2>
+        <div id="anaBody"></div>
+      </div>
+    </div>
+
+    <div id="auction-modal" hidden>
+      <div class="box">
+        <h2>入札・独占権 <button type="button" id="aucClose">閉じる</button></h2>
+        <div id="aucBody"></div>
       </div>
     </div>
 

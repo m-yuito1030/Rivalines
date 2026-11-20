@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { GameMap } from '../src/world/gameMap';
 import { Simulation } from '../src/sim/simulation';
 import { SEA_LEVEL } from '../src/world/constants';
+import { TOLL, TRAINING, trainingCost } from '../src/sim/economy';
+import { DEV, devCost, devIncome } from '../src/sim/development';
 import { execute } from './commands';
 import { Replicator } from './replicate';
 import { canConnectRail } from '../src/world/rails';
@@ -68,6 +70,12 @@ describe('マルチプレイ: 会社・コマンド・所有', () => {
     expect(execute(sim, 1, { t: 'routeSet', routeId: rt.id!, patch: { name: '朝の快速' } }).ok).toBe(true);
     expect(sim.transit.routes.get(rt.id!)!.name).toBe('朝の快速');
     expect(execute(sim, 2, { t: 'routeSet', routeId: rt.id!, patch: { name: 'x' } }).ok).toBe(false);
+    // 運賃の倍率: 範囲に収める。標準(1)に戻すと未設定に戻る。他社は変えられない
+    expect(execute(sim, 1, { t: 'routeSet', routeId: rt.id!, patch: { fareMul: 9 } }).ok).toBe(true);
+    expect(sim.transit.routes.get(rt.id!)!.fareMul).toBe(2.5);
+    expect(execute(sim, 1, { t: 'routeSet', routeId: rt.id!, patch: { fareMul: 1 } }).ok).toBe(true);
+    expect(sim.transit.routes.get(rt.id!)!.fareMul).toBeUndefined();
+    expect(execute(sim, 2, { t: 'routeSet', routeId: rt.id!, patch: { fareMul: 2 } }).ok).toBe(false);
   });
 
   it('切断中の会社の車両は止まり、日次の処理も止まる(そのまま止める)', () => {
@@ -407,6 +415,100 @@ describe('JGRPP風の線路・信号・車両操作', () => {
     expect(execute(sim, 1, { t: 'routeReplace', routeId: rt.id! }).ok).toBe(false); // もう置き換えるものがない
     sim.setOnline([1, 2]);
     expect(execute(sim, 2, { t: 'routeReplace', routeId: rt.id! }).ok).toBe(false);
+  });
+
+  it('従業員教育: 費用を払って研修し、日数が過ぎるとレベルが上がる。効果は運行費と乗客に出る', () => {
+    const sim = world();
+    sim.setOnline([1]);
+    const co = sim.playerCompany(1);
+    const cash = co.cash;
+    const r = execute(sim, 1, { t: 'fin', op: 'train' });
+    expect(r.ok).toBe(true);
+    expect(co.cash).toBe(cash - trainingCost(0));
+    expect(co.training).toBe(0); // 完了まではそのまま
+    expect(execute(sim, 1, { t: 'fin', op: 'train' }).ok).toBe(false); // 研修中
+    for (let d = 0; d < TRAINING.days; d++) co.endOfDay(d, sim.map, sim.transit, 50, [], 1);
+    expect(co.training).toBe(1);
+    expect(co.trainingPending).toBeUndefined();
+    expect(co.costMul).toBeCloseTo(1 - TRAINING.costCut);
+    expect(co.serviceMul).toBeCloseTo(1 + TRAINING.demandUp);
+    co.endOfDay(TRAINING.days, sim.map, sim.transit, 50, [], 1);
+    expect(co.total.training).toBe(trainingCost(0) + TRAINING.dailyPerLevel); // レベル1の研修費(毎日)も払う
+    co.cash = 0;
+    expect(execute(sim, 1, { t: 'fin', op: 'train' }).ok).toBe(false); // 資金不足
+    co.training = TRAINING.max;
+    co.cash = 1e9;
+    expect(execute(sim, 1, { t: 'fin', op: 'train' }).ok).toBe(false); // 最高レベル
+  });
+
+  it('沿線開発: 自社の停留所の開発度を上げる(建設費を払い、乗客と不動産収入が増える)。他社・経由点・最高は不可', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 90, y: 100 }, b: { x: 120, y: 100 } });
+    const a = execute(sim, 1, { t: 'ensureStop', x: 100, y: 100, kind: 'road' });
+    const st = sim.transit.stops.get(a.id!)!;
+    st.pop = 1000;
+    const co = sim.playerCompany(1);
+    const cash = co.cash;
+    expect(execute(sim, 2, { t: 'develop', stopId: a.id! }).ok).toBe(false); // 他社
+    expect(execute(sim, 1, { t: 'develop', stopId: a.id! }).ok).toBe(true);
+    expect(st.dev).toBe(1);
+    expect(co.cash).toBe(cash - devCost(0));
+    expect(devIncome(st)).toBe(1000 * DEV.incomePerPop);
+    const before = co.cash;
+    co.endOfDay(0, sim.map, sim.transit, 50, [], 1);
+    expect(co.total.realestate).toBe(devIncome(st));
+    expect(co.cash).toBeGreaterThan(before - 1_000_000); // 収入が入る(維持費などを引いても大きくは減らない)
+    st.dev = DEV.max;
+    expect(execute(sim, 1, { t: 'develop', stopId: a.id! }).ok).toBe(false); // 最高
+    expect(execute(sim, 1, { t: 'develop', stopId: 99999 }).ok).toBe(false);
+  });
+
+  it('提携: 申し込み・承諾・解消のコマンド。成立すると他社のインフラの通行料が割り引かれる', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    sim.playerCompany(1);
+    sim.playerCompany(2);
+    const tile = sim.map.idx(100, 100);
+    sim.map.rail.set(tile, 5);
+    sim.map.infraOwner.set(tile, 2); // 2社の線路を1社の列車が通る
+    const route = { owner: 1 } as never;
+    const toll = () => {
+      const c1 = sim.playerCompany(1);
+      const before = c1.cash;
+      sim.transit.onTile!({} as never, route, tile);
+      return before - c1.cash;
+    };
+    expect(toll()).toBe(TOLL.rail);
+    expect(execute(sim, 1, { t: 'pact', op: 'propose', to: 99, discount: 0.5 }).ok).toBe(false); // 相手がいない
+    expect(execute(sim, 1, { t: 'pact', op: 'propose', to: 2, discount: 0.5 }).ok).toBe(true);
+    expect(toll()).toBe(TOLL.rail); // 承諾前は割引なし
+    const id = sim.pacts.proposals[0].id;
+    expect(execute(sim, 1, { t: 'pact', op: 'accept', id }).ok).toBe(false); // 申し込んだ側は承諾できない
+    expect(execute(sim, 2, { t: 'pact', op: 'accept', id }).ok).toBe(true);
+    expect(toll()).toBe(TOLL.rail * 0.5);
+    const pid = sim.pacts.pacts[0].id;
+    expect(execute(sim, 1, { t: 'pact', op: 'cancel', id: pid }).ok).toBe(true);
+    expect(toll()).toBe(TOLL.rail);
+  });
+
+  it('入札: 競りに入札でき、独占権を持つ他社の街には同じ種類の施設を建てられない', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    sim.map.towns.push({ id: 1, name: 'T', x: 60, y: 60, pop: 5000, houses: 0, roads: [], nextGrowth: 1e12, pax: 0 });
+    const town = sim.map.towns[0];
+    const lot = sim.auctions.open(1, 'mall', 1_500_000)!;
+    expect(execute(sim, 1, { t: 'bid', lotId: 999, amount: 2_000_000 }).ok).toBe(false);
+    expect(execute(sim, 1, { t: 'bid', lotId: lot.id, amount: 1_000_000 }).ok).toBe(false); // 最低額未満
+    expect(execute(sim, 1, { t: 'bid', lotId: lot.id, amount: 1e12 }).ok).toBe(false); // 資金不足
+    expect(execute(sim, 1, { t: 'bid', lotId: lot.id, amount: 2_000_000 }).ok).toBe(true);
+    expect(execute(sim, 1, { t: 'bid', lotId: lot.id, amount: 3_000_000 }).ok).toBe(false); // 自分が最高額
+    expect(sim.playerCompany(1).cash).toBeGreaterThan(20_000_000); // 入札だけでは支払わない
+    sim.auctions.rights.push({ townId: 1, type: 'mall', owner: 2, paid: 1 });
+    expect(town).toBeDefined();
+    const r = execute(sim, 1, { t: 'place', tool: 'mall', x: town.x, y: town.y });
+    expect(r.ok).toBe(false);
+    expect(r.msg).toContain('独占権');
   });
 });
 

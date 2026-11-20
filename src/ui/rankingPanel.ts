@@ -2,11 +2,15 @@ import { type CompanyRow, routeRanking, stopRanking, townRanking } from '../sim/
 import { yen } from '../sim/economy';
 import type { GameMap } from '../world/gameMap';
 import type { Transit } from '../sim/transit';
+import { type WeeklyState, standings, winners } from '../sim/weekly';
+import type { PlayerInfo } from '../multi/protocol';
+import { net } from '../multi/net';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const ICON = { road: '🚌', rail: '🚆', air: '✈' } as const;
 const TABS = [
   ['company', '🏢 会社'],
+  ['week', '📅 週間'],
   ['town', '🏘 街'],
   ['stop', '🚏 駅・停留所'],
   ['route', '🛤 路線'],
@@ -24,6 +28,8 @@ export class RankingPanel {
     private companyRows: () => CompanyRow[],
     private map: GameMap,
     private transit: Transit,
+    private weekly: () => WeeklyState = () => ({ week: 1, base: [] }),
+    private players: () => PlayerInfo[] = () => [],
   ) {
     modal.querySelector('#rankClose')?.addEventListener('click', () => this.close());
     modal.addEventListener('pointerdown', () => (this.pressed = true));
@@ -72,6 +78,22 @@ export class RankingPanel {
       h += `<table><tr><th>順位</th><th>会社</th><th>時価総額</th><th>株価</th><th>純資産</th><th>利益/日</th><th>旅客数</th></tr>${rows
         .map((r, i) => `<tr class="${r.isPlayer ? 'me' : ''}"><td>${this.medal(i)}</td><td>${esc(r.name)}</td><td>${yen(r.marketCap)}</td><td>${yen(r.price)}</td><td>${yen(r.netWorth)}</td><td>${yen(r.profit)}</td><td>${r.passengers}</td></tr>`)
         .join('')}</table><div class="muted">時価総額=株価×発行済み株式数。競合会社は経営画面(F)から買収できます(買収すると傘下に入り、この表から外れて自社の資産になります)。</div>`;
+    } else if (this.tab === 'week') {
+      const ws = this.weekly();
+      const ps = this.players();
+      const nameOf = (id: number) => esc(ps.find((p) => p.id === id)?.name ?? `会社${id}`);
+      const rows = standings(ws, ps);
+      h += `<div class="muted">第${ws.week}週(7日ごとに結果を残して数え直します)。週の初めからの増加分で競います。</div>`;
+      h += rows.length
+        ? `<table><tr><th>順位</th><th>会社</th><th>純資産の増加</th><th>旅客数</th><th>利益</th></tr>${rows
+            .map((r, i) => `<tr class="${r.id === net.id ? 'me' : ''}"><td>${this.medal(i)}</td><td>${esc(r.name)}</td><td class="${r.d.nw < 0 ? 'neg' : ''}">${yen(r.d.nw)}</td><td>${r.d.pax}</td><td class="${r.d.profit < 0 ? 'neg' : ''}">${yen(r.d.profit)}</td></tr>`)
+            .join('')}</table>`
+        : '<div class="muted">まだデータがありません</div>';
+      if (ws.last) {
+        const w = winners(ws.last);
+        const who = (id?: number) => (id === undefined ? '-' : id === net.id ? '<b>自社</b>' : nameOf(id));
+        h += `<h3>先週(第${ws.last.week}週)の結果</h3><div>🥇 純資産の増加: ${who(w.nw)} / 旅客数: ${who(w.pax)} / 利益: ${who(w.profit)}</div>`;
+      }
     } else if (this.tab === 'town') {
       const rows = townRanking(this.map, this.transit);
       h += `<table><tr><th>順位</th><th>街</th><th>人口</th><th>停留所</th><th>待ち人数</th></tr>${rows

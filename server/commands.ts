@@ -6,11 +6,15 @@ import { disconnectRail, railLineTiles } from '../src/world/rails';
 import { disconnect, removeBuilding } from '../src/world/roads';
 import { removeSpansAround } from '../src/world/spans';
 import { removeAirport } from '../src/world/airports';
+import { TRAINING } from '../src/sim/economy';
 import { PRICES, acquirePrice, assetValueFor, facilityValue, vehiclePrice, yen } from './economyApi';
 import { FACILITY_SPECS, FACILITY_TYPES, type FacilityType, SPRITE_TYPES, DESIGN_COUNT, type FacilitySize, facilityCost, facilityDims, planFacility, placeFacility } from '../src/world/facilities';
 import { placeAirport } from '../src/world/airports';
 import { modelOf, clampCars } from '../src/data/models';
 import { DAY_TICKS, RANKS } from '../src/sim/transit';
+import { clampFareMul } from '../src/sim/fares';
+import { DEV, devCost } from '../src/sim/development';
+import { blockingRight } from '../src/sim/auctions';
 const MINT = DAY_TICKS / 1440;
 import { acquireRival, divestRival } from '../src/sim/rivals';
 import { AD_TYPES, adAvailable, adCost } from '../src/sim/facilityVisitors';
@@ -97,6 +101,7 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
           const type = tool as FacilityType;
           const spec = FACILITY_SPECS[type];
           const sprite = SPRITE_TYPES.includes(type);
+          if (blockingRight(sim.auctions, map.towns, who, type, x, y)) return fail(`この街の${spec.name}の独占権は他社が持っています(別の街に建てるか、次の競りに参加してください)`);
           // 好きなデザイン・大きさを選べる(指定がなければ最大の大きさ・場所で決まるデザイン)
           const nDesign = DESIGN_COUNT[type] ?? 20;
           const size: FacilitySize = cmd.fac?.size ?? 'L';
@@ -235,6 +240,7 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
           r.cars = m.defaultCars;
         }
         if (p.cars !== undefined) r.cars = clampCars(modelOf(r.modelId), Number(p.cars));
+        if (p.fareMul !== undefined) r.fareMul = clampFareMul(p.fareMul) === 1 ? undefined : clampFareMul(p.fareMul);
         if (p.period !== undefined && Number(p.period) > 0) {
           // 運行の周期は 15分〜7日(tick)の範囲だけ。極端な値でダイヤが壊れないように
           r.period = Math.max(DAY_TICKS / 96, Math.min(DAY_TICKS * 7, Number(p.period)));
@@ -494,6 +500,46 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
         t.version++;
         return { ok: true, msg: `${vs.length}本で運行(${Math.round(P / Math.min(n, Math.max(1, vs.length)) / MINT)}分間隔)${bought ? `、${bought}本を購入` : ''}${lack ? `。${lack}のため ${n} 本には届きませんでした` : ''}` };
       }
+      case 'bid': {
+        const lot = sim.auctions.lots.find((l) => l.id === Number(cmd.lotId));
+        if (!lot) return fail('競りが見つかりません');
+        const amount = Math.floor(Number(cmd.amount));
+        if (!co.afford(amount)) return fail(`資金が足りません(入札額 ${yen(amount)} / 現金 ${yen(co.cash)})`);
+        const err = sim.auctions.bid(who, lot.id, amount);
+        return err ? fail(err) : { ok: true, msg: `${yen(amount)}で入札しました(締め切りまで あと${lot.left}日。落札すると、その時点で支払います)` };
+      }
+      case 'pact': {
+        const pa = sim.pacts;
+        if (cmd.op === 'propose') {
+          const to = Number(cmd.to);
+          if (!sim.players.has(to)) return fail('相手が見つかりません');
+          const err = pa.propose(who, to, Number(cmd.discount));
+          return err ? fail(err) : { ok: true, msg: '提携を申し込みました。相手の承諾を待ちます' };
+        }
+        const id = Number(cmd.id);
+        if (cmd.op === 'accept' || cmd.op === 'reject') {
+          const err = pa.respond(who, id, cmd.op === 'accept');
+          return err ? fail(err) : { ok: true, msg: cmd.op === 'accept' ? '提携しました。互いの通行料が割り引かれます' : '申し込みを断りました' };
+        }
+        if (cmd.op === 'cancel') {
+          const err = pa.cancel(who, id);
+          return err ? fail(err) : { ok: true, msg: '提携を解消(または取り下げ)しました' };
+        }
+        return fail('不正な操作です');
+      }
+      case 'develop': {
+        const s = t.stops.get(cmd.stopId);
+        if (!s || s.waypoint) return fail('停留所が見つかりません');
+        if (s.owner !== who) return fail('自社の停留所だけ開発できます');
+        const lv = s.dev ?? 0;
+        if (lv >= DEV.max) return fail('最高の開発度です');
+        const cost = devCost(lv);
+        const bad = charge(cost, 'build', '沿線開発');
+        if (bad) return bad;
+        s.dev = lv + 1;
+        t.version++;
+        return { ok: true, msg: `${s.name}の周りを開発しました(開発度${s.dev}・${yen(cost)})。乗客が増え、不動産収入が毎日入ります` };
+      }
       case 'gift': {
         // 資金支援: 他の会社へ送金する(自社の現金の範囲で)
         const amount = Math.floor(Number(cmd.amount));
@@ -510,6 +556,10 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
           if (![0, 0.2, 0.4].includes(amount)) return fail('不正な値です');
           co.payout = amount;
           return { ok: true, msg: co.payout > 0 ? `配当性向を ${Math.round(co.payout * 100)}% にしました` : '配当をしないことにしました' };
+        }
+        if (cmd.op === 'train') {
+          const err = co.startTraining();
+          return err ? fail(err) : { ok: true, msg: `従業員の研修を始めました(${TRAINING.days}日後にレベル${co.trainingPending!.to}になります)` };
         }
         if (cmd.op === 'borrow') {
           const err = co.borrow(amount, co.credit, assets);

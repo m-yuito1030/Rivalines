@@ -1,5 +1,6 @@
 import { type Mode, clampCars, kindsFor, modelOf, modelsFor } from '../data/models';
 import type { Order, Route, Transit } from '../sim/transit';
+import { FARE_MUL_MAX, FARE_MUL_MIN, fareDemand, fareMulOf } from '../sim/fares';
 import { DAY_TICKS, type OrderCond, PERIOD_OPTIONS, RANKS, todOf } from '../sim/transit';
 import type { Company } from '../sim/economy';
 import { net } from '../multi/net';
@@ -232,6 +233,7 @@ export class RoutePanel {
       <div class="rm"><select data-f="mkind">${kinds}</select><select data-f="model">${models}</select></div>
       ${carsHtml ? `<div class="rm">${carsHtml}</div>` : ''}
       <div class="rm"><button data-act="replace" data-r="${r.id}" title="この路線の全車両を、上で選んだ車種に置き換える(旧車両は評価額の50%で下取り)">🔁 全車両をこの車種に置き換え</button></div>
+      <div class="rm">運賃 <input type="number" data-f="fare" min="${FARE_MUL_MIN * 100}" max="${FARE_MUL_MAX * 100}" step="10" value="${Math.round(fareMulOf(r) * 100)}" style="width:64px">% <span class="muted">標準=100%。高いと1人の収入は増えるが乗客が減る(需要 ${Math.round(fareDemand(fareMulOf(r)) * 100)}%)</span></div>
       <div class="rm">積載 <b data-load="${r.id}">-</b> / 停滞 <b data-stuck="${r.id}">0</b>台${hasTimed ? ` / 周期 <select data-f="period">${periods}</select> / 遅延 <b data-late="${r.id}">-</b>` : ''}</div>
       ${rows}
       <div class="rm muted">車両: ${this.transit.vehicles.filter((v) => v.routeId === r.id).map((v) => `#${v.id}${r.mode === 'rail' ? `(${v.cars}両)` : ''}`).join(' ') || 'なし'}</div></div>`;
@@ -306,7 +308,7 @@ export class RoutePanel {
     const routeEl = el.closest<HTMLElement>('.route');
     const route = routeEl && this.transit.routes.get(Number(routeEl.dataset.r));
     if (!route) return;
-    const set = (patch: { name?: string; modelId?: string; cars?: number; period?: number }) => void this.send({ t: 'routeSet', routeId: route.id, patch });
+    const set = (patch: { name?: string; modelId?: string; cars?: number; period?: number; fareMul?: number }) => void this.send({ t: 'routeSet', routeId: route.id, patch });
     if (f === 'rname') return set({ name: el.value });
     if (f === 'rank') return void this.send({ t: 'routeRank', routeId: route.id, rank: Number(el.value), copy: false });
     if (f === 'mkind') {
@@ -317,6 +319,7 @@ export class RoutePanel {
     if (f === 'model') return set({ modelId: el.value });
     if (f === 'cars') return set({ cars: clampCars(modelOf(route.modelId), Number(el.value)) });
     if (f === 'period') return set({ period: Number(el.value) });
+    if (f === 'fare') return set({ fareMul: Number(el.value) / 100 });
     const row = el.closest<HTMLElement>('.order');
     const index = row ? Number(row.dataset.o) : -1;
     const o = route.orders[index];

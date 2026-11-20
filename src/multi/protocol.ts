@@ -2,6 +2,9 @@
 import type { DragTool } from '../world/buildApply';
 import type { StationOptions } from '../world/stations';
 import type { Mode } from '../data/models';
+import type { PactState } from '../sim/pacts';
+import type { AuctionState } from '../sim/auctions';
+import type { WeeklyState } from '../sim/weekly';
 
 export type Pt = { x: number; y: number };
 
@@ -34,7 +37,7 @@ export type Cmd =
   | { t: 'ensureStop'; x: number; y: number; kind: Mode }
   | { t: 'routeCreate'; stops: number[] }
   | { t: 'tx'; m: TxMethod; a: number[] }
-  | { t: 'routeSet'; routeId: number; patch: { name?: string; modelId?: string; cars?: number; period?: number } }
+  | { t: 'routeSet'; routeId: number; patch: { name?: string; modelId?: string; cars?: number; period?: number; fareMul?: number } }
   | { t: 'orderSet'; routeId: number; index: number; patch: Record<string, unknown> }
   | { t: 'rename'; kind: 'stop' | 'depot'; id: number; name: string }
   | { t: 'buyVehicle'; depotId?: number; routeId: number; modelId: string; cars: number }
@@ -46,6 +49,12 @@ export type Cmd =
   | { t: 'ad'; facilityId: number; kind: 'news' | 'sns' | 'tv' }
   /** 要素ごとの撤去: 矩形(ドラッグした範囲)の中の、選んだ種類の要素だけを撤去する */
   | { t: 'bulldoze'; a: Pt; b: Pt; kinds: BulldozeKinds }
+  /** 沿線開発: 自社の停留所の開発度を1上げる */
+  | { t: 'develop'; stopId: number }
+  /** 入札: 競り lotId に amount 円で入札する */
+  | { t: 'bid'; lotId: number; amount: number }
+  /** 提携(乗り入れ契約): 申し込み・承諾・拒否・解消(取り下げ) */
+  | { t: 'pact'; op: 'propose' | 'accept' | 'reject' | 'cancel'; to?: number; id?: number; discount?: number }
   /** 信号を並べる: 始点→終点の直線の線路に、ドラッグの向きの一方向信号を interval タイルおきに置く */
   | { t: 'signalLine'; a: Pt; b: Pt; interval: number }
   /** 路線の全車両を、路線の既定の車種・両数に置き換える(旧車両は評価額の50%で下取り) */
@@ -59,7 +68,7 @@ export type Cmd =
   /** 種別: 通過駅を自動設定(copy=元の路線は変えず、種別の路線として複製して作る。startShiftMin 分ずらす) */
   | { t: 'routeRank'; routeId: number; rank: number; copy: boolean; shiftMin?: number }
   | { t: 'orderShift'; routeId: number; from: number; delta: number }
-  | { t: 'fin'; op: 'borrow' | 'repay' | 'payout' | 'rival-buy' | 'rival-sell' | 'acquire' | 'sell'; amount?: number; id?: number };
+  | { t: 'fin'; op: 'borrow' | 'repay' | 'payout' | 'train' | 'rival-buy' | 'rival-sell' | 'acquire' | 'sell'; amount?: number; id?: number };
 
 export interface CmdResult {
   ok: boolean;
@@ -119,6 +128,8 @@ export interface PlayerInfo {
   netWorth: number;
   profit: number;
   passengers: number;
+  /** 売上 − 費用の累計(週間ランキング用) */
+  profitTotal: number;
 }
 
 export type ServerMsg =
@@ -126,7 +137,7 @@ export type ServerMsg =
   | { type: 'frame'; tick: number; veh: VehMsg[]; gone: number[]; tiles: TileRec[] }
   | { type: 'chunk'; cx: number; cy: number; tiles: number[][]; edits: [number, number][] }
   | { type: 'struct'; nextId: number; routes: unknown[]; stops: unknown[]; depots: unknown[]; signals: [number, number][]; grants?: [number, number[]][] }
-  | { type: 'misc'; myVehicles: MyVeh[]; tick: number; company: unknown; rivals: unknown[]; rating: unknown; delivered: number; transfers: number; waiting: [number, number][]; players: PlayerInfo[]; online: string[] }
+  | { type: 'misc'; myVehicles: MyVeh[]; tick: number; company: unknown; rivals: unknown[]; rating: unknown; delivered: number; transfers: number; waiting: [number, number][]; players: PlayerInfo[]; online: string[]; pacts: PactState; auctions: AuctionState; weekly: WeeklyState }
   | { type: 'towns'; towns: unknown[] }
   | { type: 'fac'; facilities: unknown[] }
   | { type: 'res'; req: number; res: CmdResult };

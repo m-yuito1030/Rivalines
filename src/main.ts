@@ -17,12 +17,16 @@ import { RoutePanel } from './ui/routePanel';
 import { loadBuildingSprites } from './render/buildingSprites';
 import { loadVehicleSprites } from './render/vehicleSprites';
 import { StatsPanel } from './ui/statsPanel';
+import { AnalysisPanel } from './ui/analysisPanel';
+import { AuctionPanel } from './ui/auctionPanel';
 import { FinancePanel } from './ui/financePanel';
 import { RankingPanel } from './ui/rankingPanel';
 import { DiagramPanel } from './ui/diagramPanel';
 import { ListPanel } from './ui/listPanel';
 import type { CompanyRow } from './sim/ranking';
 import { WEEKDAYS } from './sim/calendar';
+import { WEATHER_ICON, WEATHER_NAME, eventsToday, isHoliday, weatherOf } from './sim/events';
+import { START_TOD, DAY_TICKS } from './sim/transit';
 import { yen } from './sim/economy';
 import { ratingName } from './sim/rating';
 import { InfoPanel, type Selection, findSelection } from './ui/infoPanel';
@@ -362,6 +366,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   let mmVersion = 0;
   let mmTime = 0;
   const clock = $('clock');
+  let lastEventDay = -1;
   const ratingEl = $('rating');
   ratingEl.addEventListener('click', () => statsPanel.toggle());
   let mouse = { x: 0, y: 0 };
@@ -513,7 +518,11 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   // 統計画面
   const statsPanel = new StatsPanel($('stats-modal'), $('statsBody'), transit, () => map.towns, () => sim.rating, () => sim.migrated);
   $('statsBtn').addEventListener('click', () => statsPanel.toggle());
-  const finPanel = new FinancePanel($('fin-modal'), $('finBody'), () => sim.company, map, transit, () => sim.rating, (msg) => tools.onMessage?.(msg), () => sim.rivals, () => sim.date);
+  const anaPanel = new AnalysisPanel($('analysis-modal'), $('anaBody'), transit, () => map.facilities, (x, y) => camera.centerOnTile(x, y), (m) => tools.onMessage?.(m));
+  $('anaBtn').addEventListener('click', () => anaPanel.toggle());
+  const aucPanel = new AuctionPanel($('auction-modal'), $('aucBody'), () => mirror.auctions, () => map.towns, () => mirror.players, (x, y) => camera.centerOnTile(x, y), (m) => tools.onMessage?.(m));
+  $('aucBtn').addEventListener('click', () => aucPanel.toggle());
+  const finPanel = new FinancePanel($('fin-modal'), $('finBody'), () => sim.company, map, transit, () => sim.rating, (msg) => tools.onMessage?.(msg), () => sim.rivals, () => sim.date, () => mirror.pacts, () => mirror.players);
   $('finBtn').addEventListener('click', () => finPanel.toggle());
   sim.onFiscalClose = (r) => {
     tools.onMessage?.(`第${r.period}期決算(${r.from}〜${r.to}): 当期純利益 ${yen(r.netIncome)}、法人税 ${yen(r.tax)}、配当 ${yen(r.dividend)}。経営画面(F)で決算書を確認できます`);
@@ -523,7 +532,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     for (const r of sim.rivals) if (!r.acquired) rows.push({ name: r.name, marketCap: r.value, price: r.value / 100000, netWorth: r.value * 0.8, profit: r.profit, passengers: r.passengers, isPlayer: false, subsidiary: false });
     return rows.sort((a, b) => b.marketCap - a.marketCap);
   };
-  const rankPanel = new RankingPanel($('rank-modal'), $('rankBody'), companyRows, map, transit);
+  const rankPanel = new RankingPanel($('rank-modal'), $('rankBody'), companyRows, map, transit, () => mirror.weekly, () => mirror.players);
   $('rankBtn').addEventListener('click', () => rankPanel.toggle());
   const diaPanel = new DiagramPanel($('dia-modal'), $('diaBody'), transit, () => sim.tick, (m) => tools.onMessage?.(m));
   $('diaBtn').addEventListener('click', () => diaPanel.toggle());
@@ -774,7 +783,17 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       cashEl.textContent = cashText;
       cashEl.className = sim.company.cash < 0 ? 'neg' : '';
     }
-    const ctext = `${d.year}年${d.month}月${d.day}日(${WEEKDAYS[d.weekday]}) ${pad(d.hour)}:${pad(d.minute)} 第${d.period}期Q${d.quarter}${sim.speed === 0 ? ' ⏸' : ''}`;
+    const dayNo = Math.floor((sim.tick + START_TOD) / DAY_TICKS);
+    const wx = weatherOf(map.seed, dayNo);
+    if (dayNo !== lastEventDay) {
+      if (lastEventDay >= 0) {
+        const mine = eventsToday(map.seed, map.facilities, dayNo, (f) => (f.owner ?? 'player') === 'player' && f.playerId === net.id);
+        const ev = mine.map((e) => `${e.facility.name}で${e.event.name}(需要${e.event.mul}倍)`).join('、');
+        tools.onMessage?.(`今日は${WEATHER_NAME[wx]}${isHoliday(dayNo) ? '・休日' : ''}${ev ? `。${ev}` : ''}`);
+      }
+      lastEventDay = dayNo;
+    }
+    const ctext = `${d.year}年${d.month}月${d.day}日(${WEEKDAYS[d.weekday]})${isHoliday(dayNo) ? '祝' : ''}${WEATHER_ICON[wx]} ${pad(d.hour)}:${pad(d.minute)} 第${d.period}期Q${d.quarter}${sim.speed === 0 ? ' ⏸' : ''}`;
     if (clock.textContent !== ctext) clock.textContent = ctext;
 
     if (!uiTick) return;

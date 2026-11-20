@@ -3,6 +3,9 @@ import type { Simulation } from '../sim/simulation';
 import { Company } from '../sim/economy';
 import { CHUNK, CHUNK_SHIFT } from '../world/tileLayer';
 import type { MyVeh, PlayerInfo, ServerMsg } from './protocol';
+import type { PactState } from '../sim/pacts';
+import type { AuctionState } from '../sim/auctions';
+import type { WeeklyState } from '../sim/weekly';
 import type { Route, Stop, Depot, Vehicle } from '../sim/transit';
 
 /** サーバーから届いた世界を、描画・UI用の GameMap / Simulation に反映する(クライアントは世界を進めない) */
@@ -11,6 +14,12 @@ export class Mirror {
   /** 自社の車両の概要(一覧用) */
   myVehicles: MyVeh[] = [];
   online: string[] = [];
+  /** 提携(乗り入れ契約)と申し込み */
+  pacts: PactState = { pacts: [], proposals: [], nextId: 1 };
+  /** 入札(競り)と独占権 */
+  auctions: AuctionState = { lots: [], rights: [], nextId: 1 };
+  /** 週間ランキング */
+  weekly: WeeklyState = { week: 1, base: [] };
   /** 最初の構造・経営データが届いたか */
   ready = { struct: false, misc: false, towns: false };
   onFirst: (() => void) | null = null;
@@ -72,6 +81,9 @@ export class Mirror {
         this.players = msg.players;
         this.myVehicles = msg.myVehicles;
         this.online = msg.online;
+        this.pacts = msg.pacts ?? this.pacts;
+        this.auctions = msg.auctions ?? this.auctions;
+        this.weekly = msg.weekly ?? this.weekly;
         this.ready.misc = true;
         break;
       case 'towns':
