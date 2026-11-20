@@ -259,3 +259,20 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 #list-modal .litem { display: flex; justify-content: space-between; text-align: left; background: #1b3350; }
 #list-modal .litem em { font-style: normal; color: #9ab; font-size: 12px; }
 #list-modal .muted { color: #9ab; }
+#analysis-modal { position: fixed; inset: 0; background: #0009; display: grid; place-items: center; z-index: 20; }
+#analysis-modal[hidden] { display: none; }
+#analysis-modal .box { width: 720px; max-width: 96vw; max-height: 88vh; overflow: auto; background: #15283f; border-radius: 12px; padding: 16px; font-size: 13px; }
+#analysis-modal h2 { margin: 0 0 8px; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
+#analysis-modal h3 { margin: 14px 0 6px; font-size: 14px; }
+#analysis-modal button { background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+#analysis-modal table { width: 100%; border-collapse: collapse; }
+#analysis-modal th, #analysis-modal td { padding: 3px 6px; border-bottom: 1px solid #345; text-align: right; white-space: nowrap; }
+#analysis-modal th:first-child, #analysis-modal td:first-child { text-align: left; }
+#analysis-modal th { color: #9ab; font-weight: normal; }
+#analysis-modal i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; }
+#analysis-modal .rbar { display: grid; grid-template-columns: 170px 1fr 30px; gap: 6px; align-items: center; margin: 2px 0; }
+#analysis-modal .rbar i { background: #0b1420; border-radius: 4px; height: 8px; display: block; overflow: hidden; }
+#analysis-modal .rbar b { background: #4bb36a; height: 8px; display: block; }
+#analysis-modal .bad { color: #ff8f8f; }
+#analysis-modal .neg { color: #f66; }
+#analysis-modal a { color: #8cf; }

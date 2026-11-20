@@ -14,6 +14,7 @@ import { RoutePanel } from './ui/routePanel';
 import { loadBuildingSprites } from './render/buildingSprites';
 import { loadVehicleSprites } from './render/vehicleSprites';
 import { StatsPanel } from './ui/statsPanel';
+import { AnalysisPanel } from './ui/analysisPanel';
 import { FinancePanel } from './ui/financePanel';
 import { RankingPanel } from './ui/rankingPanel';
 import { DiagramPanel } from './ui/diagramPanel';
@@ -442,6 +443,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   // 統計画面
   const statsPanel = new StatsPanel($('stats-modal'), $('statsBody'), transit, () => map.towns, () => sim.rating, () => sim.migrated);
   $('statsBtn').addEventListener('click', () => statsPanel.toggle());
+  const anaPanel = new AnalysisPanel($('analysis-modal'), $('anaBody'), transit, () => map.facilities, (x, y) => camera.centerOnTile(x, y));
+  $('anaBtn').addEventListener('click', () => anaPanel.toggle());
   const finPanel = new FinancePanel($('fin-modal'), $('finBody'), () => sim.company, map, transit, () => sim.rating, (msg) => tools.onMessage?.(msg), () => sim.rivals, () => sim.date);
   $('finBtn').addEventListener('click', () => finPanel.toggle());
   sim.onFiscalClose = (r) => {
