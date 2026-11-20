@@ -1,18 +1,21 @@
+import { $, isTouch } from './app/dom';
+import { initAuth } from './app/auth';
+import { Toast } from './app/toast';
+import { StationPicker } from './app/stationPicker';
+import { BulldozeOptions } from './app/bulldozeOptions';
+import { FacilityPicker } from './app/facilityPicker';
+import { Toolbar } from './app/toolbar';
+import { PlayerMenu } from './app/playerMenu';
 import { Application, Container, Graphics, Text } from 'pixi.js';
-import { Simulation, TICKS_PER_DAY, type SimState } from '../shared/sim/simulation';
+import { Simulation, TICKS_PER_DAY } from '../shared/sim/simulation';
 import { net } from './connection/net';
 import { Mirror } from './connection/mirror';
-import { makeWorldMap } from '../shared/world/bigTerrain';
 import { Camera } from './render/camera';
 import { ChunkRenderer, lodForZoom } from './render/chunkRenderer';
 import { Minimap } from './ui/minimap';
 import { ToolController, type Tool } from './ui/tools';
-import type { BulldozeKinds, Cmd, CmdResult, PlaceTool } from '../shared/protocol';
-import { type FacilityType, type FacilitySize, CHOOSABLE, DESIGN_COUNT, facilityCost, facilityDims, planFacility, placeFacility } from '../shared/world/facilities';
-import { FACILITY_SPECS } from '../shared/world/facilities';
-import { drawFacilityPreview } from './render/buildingSprites';
-import sheetInfo from '../shared/data/facilitySprites.json';
-import { BUILDING_STYLES, STATION_DESIGN_COUNT, designName, planStation, type StationOptions } from '../shared/world/stations';
+import type { Cmd, CmdResult, PlaceTool } from '../shared/protocol';
+import { type FacilityType, planFacility, placeFacility } from '../shared/world/facilities';
 import { RoutePanel } from './ui/routePanel';
 import { loadBuildingSprites } from './render/buildingSprites';
 import { loadVehicleSprites } from './render/vehicleSprites';
@@ -37,120 +40,9 @@ import { TIERS, townTier } from '../shared/world/town';
 import { placeAirport } from '../shared/world/airports';
 import type { GameMap } from '../shared/world/gameMap';
 
-const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-const note = $('note');
-const errEl = $('err');
 
-/** クライアントが持つ「ミラー」用の空の状態(世界はサーバーが進める) */
-const emptyState = (): SimState => ({
-  tick: 0, speed: 1, rng: 1, towns: [],
-  transit: { nextId: 1, delivered: 0, transfers: 0, stops: [], routes: [], vehicles: [] },
-  rivals: [],
-});
+initAuth(startGame);
 
-/** ログイン後、世界に入る */
-async function enterWorld(token: string): Promise<void> {
-  note.textContent = 'サーバーに接続中...';
-  const init = await net.connect(token);
-  const map = makeWorldMap(init.world.size, init.world.seed);
-  const sim = new Simulation(map, emptyState(), { multi: true });
-  const mirror = new Mirror(map, sim);
-  net.onMessage = (m) => mirror.apply(m);
-  const start = init.start ?? { x: map.size / 2, y: map.size / 2 };
-  const R = 48;
-  net.sendView(start.x - R, start.y - R, start.x + R, start.y + R);
-  note.textContent = '世界を受信中...';
-  await new Promise<void>((res) => {
-    mirror.onFirst = res;
-    setTimeout(res, 8000);
-  });
-  const first = !init.start ? map.towns[0] : null;
-  const cam = init.start ? undefined : undefined;
-  await startGame(map, sim, mirror, first ? { x: first.x, y: first.y } : start, cam);
-}
-
-const authBusy = (b: boolean) => document.querySelectorAll<HTMLButtonElement>('#startForm button').forEach((x) => (x.disabled = b));
-/** 再ビルド後に古い画面が残っていて、消えた配信物を読めなかった場合は、画面を読み直す(1回だけ) */
-const reloadOnStale = () => {
-  if (sessionStorage.getItem('stale-reload')) return;
-  sessionStorage.setItem('stale-reload', '1');
-  location.reload();
-};
-window.addEventListener('vite:preloadError', (e) => {
-  e.preventDefault();
-  reloadOnStale();
-});
-window.addEventListener('load', () => setTimeout(() => sessionStorage.removeItem('stale-reload'), 5000));
-
-async function doAuth(kind: 'login' | 'register'): Promise<void> {
-  errEl.textContent = '';
-  authBusy(true);
-  try {
-    const r = await net.auth(kind, $<HTMLInputElement>('uname').value, $<HTMLInputElement>('upw').value);
-    if (!r.ok) {
-      errEl.textContent = r.reason ?? '失敗しました';
-      return authBusy(false);
-    }
-    await enterWorld(r.token!);
-  } catch (e) {
-    const msg = (e as Error).message;
-    if (/module script|dynamically imported module|Failed to fetch dynamically/i.test(msg)) return reloadOnStale();
-    errEl.textContent = msg;
-    authBusy(false);
-  }
-}
-$('startForm').addEventListener('submit', (e) => {
-  e.preventDefault();
-  void doAuth('login');
-});
-$('register').addEventListener('click', () => void doAuth('register'));
-void fetch('/api/status')
-  .then((r) => r.json())
-  .then((s: { world: { size: number }; accounts: number; maxUsers: number; online: string[] }) => (note.textContent = `サーバー稼働中: ${s.world.size}² / 登録${s.accounts}/${s.maxUsers}人 / オンライン${s.online.length}人`))
-  .catch(() => (note.textContent = 'サーバーに接続できません'));
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const serverUp = () => fetch('/api/status').then((r) => r.ok).catch(() => false);
-/** 保存済みのログインで入り直す。サーバーが落ちている間は待って再試行し、トークンが無効なときだけログイン画面に戻す */
-async function resume(token: string): Promise<void> {
-  for (let i = 0; i < 90; i++) {
-    try {
-      await enterWorld(token);
-      return;
-    } catch {
-      if (await serverUp()) {
-        net.logout(); // サーバーは生きているのに入れない = トークンが無効
-        note.textContent = '';
-        return;
-      }
-      note.textContent = 'サーバーに再接続しています…';
-      await sleep(2000);
-    }
-  }
-  note.textContent = 'サーバーに接続できません。しばらくしてから再読み込みしてください';
-}
-{
-  const saved = net.saved();
-  if (saved) void resume(saved.token);
-}
-net.onClose = (code) => {
-  if (code === 4000) {
-    alert('別の場所でログインされたため切断されました');
-    location.reload();
-    return;
-  }
-  // 回線の切り替え・スマホのバックグラウンド・サーバーの再起動などで切れたとき: 戻るまで待って自動で入り直す(ログインは保存済みなのでそのまま再開)
-  const bar = document.createElement('div');
-  bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:100;background:#b3261e;color:#fff;padding:10px;text-align:center;font-size:14px';
-  bar.textContent = '接続が切れました。再接続しています…';
-  document.body.appendChild(bar);
-  void (async () => {
-    while (!(await serverUp())) await sleep(2000);
-    location.reload();
-  })();
-};
-
-/** スマホ/タブレット(タッチ主体)かどうか */
-const isTouch = window.matchMedia('(pointer: coarse)').matches;
 /** 時刻(0〜24)ごとの乗算色: 夜は青く暗く、朝夕は暖色 */
 const TINTS: [number, [number, number, number]][] = [
   [0, [78, 90, 140]],
@@ -240,57 +132,10 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     () => sim.company,
   );
   const facOcc = (i: number) => !!transit.stopAtTile(i % map.size, Math.floor(i / map.size)) || !!transit.depotAtTile(i % map.size, Math.floor(i / map.size));
-  // 駅の設置オプション(番線数・ホーム長・デザイン・向き)
-  const stationOpts: StationOptions = { axis: 1, len: 4, tracks: 1, design: 51 };
-  const optsEl = $('stationOpts');
-  const bindOpt = (id: string, apply: (v: number) => void) => {
-    const el = $<HTMLSelectElement | HTMLInputElement>(id);
-    const sync = () => {
-      apply(Number(el.value));
-      const lab = document.getElementById(id + 'Val');
-      if (lab) lab.textContent = el.value;
-    };
-    el.addEventListener('input', sync);
-    sync();
-  };
-  // デザイン 100 種(屋根 × 配色 × 駅舎)を駅舎ごとのグループで選べるようにする
-  const designSel = $<HTMLSelectElement>('optDesign');
-  for (let g = 0; g < 4; g++) {
-    const og = document.createElement('optgroup');
-    og.label = BUILDING_STYLES[g];
-    for (let k = 0; k < 25; k++) {
-      const d = g * 25 + k;
-      const op = document.createElement('option');
-      op.value = String(d);
-      op.textContent = `${String(d + 1).padStart(3, '0')} ${designName(d)}`;
-      og.appendChild(op);
-    }
-    designSel.appendChild(og);
-  }
-  designSel.value = String(stationOpts.design);
-  $('optRand').addEventListener('click', () => {
-    designSel.value = String(Math.floor(Math.random() * STATION_DESIGN_COUNT));
-    designSel.dispatchEvent(new Event('input'));
-  });
-  bindOpt('optTracks', (v) => (stationOpts.tracks = v));
-  bindOpt('optLen', (v) => (stationOpts.len = v));
-  bindOpt('optDesign', (v) => {
-    stationOpts.design = v;
-    $('optDesignInfo').textContent = `デザイン ${v + 1} / ${STATION_DESIGN_COUNT}: ${designName(v)}`;
-  });
-  bindOpt('optAxis', (v) => (stationOpts.axis = v as 0 | 1));
-  /** 撤去する要素(チェックボックスの状態) */
-  const readBulldozeKinds = (): BulldozeKinds => {
-    const k = {} as Record<string, boolean>;
-    document.querySelectorAll<HTMLInputElement>('#bulldozeOpts [data-bk]').forEach((el) => (k[el.dataset.bk!] = el.checked));
-    return k as unknown as BulldozeKinds;
-  };
-  document.querySelectorAll<HTMLButtonElement>('#bulldozeOpts [data-bkset]').forEach((b) =>
-    b.addEventListener('click', () => {
-      const only = b.dataset.bkset!; // all / none / 要素名(その要素だけ)
-      document.querySelectorAll<HTMLInputElement>('#bulldozeOpts [data-bk]').forEach((el) => (el.checked = only === 'all' ? ['road', 'rail', 'signal', 'stop', 'depot', 'waypoint', 'span'].includes(el.dataset.bk!) : only === 'none' ? false : el.dataset.bk === only));
-    }),
-  );
+  const stationPicker = new StationPicker();
+  const bulldozeOptions = new BulldozeOptions();
+  const facilityPicker = new FacilityPicker();
+  const toast = new Toast();
   /** 操作をサーバーへ送り、結果のメッセージを表示する */
   const run = async (cmd: Cmd): Promise<CmdResult> => {
     const r = await net.cmd(cmd);
@@ -309,65 +154,17 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       void run({ t: 'ensureStop', x: tile.x, y: tile.y, kind: b.kind }).then((r) => {
         if (r.ok && r.id !== undefined && b.stops[b.stops.length - 1] !== r.id) panel.addToBuild(r.id);
       });
-    } else if (tool === 'station') void run({ t: 'place', tool, x: tile.x, y: tile.y, opts: { ...stationOpts } });
-    else if (tool !== 'route' && tool !== 'pan') void run({ t: 'place', tool: tool as PlaceTool, x: tile.x, y: tile.y, ...((CHOOSABLE as string[]).includes(tool) ? { fac: { design: facSel.design, size: facSel.size } } : {}) });
+    } else if (tool === 'station') void run({ t: 'place', tool, x: tile.x, y: tile.y, opts: { ...stationPicker.opts } });
+    else if (tool !== 'route' && tool !== 'pan') void run({ t: 'place', tool: tool as PlaceTool, x: tile.x, y: tile.y, ...(FacilityPicker.choosable(tool) ? { fac: { ...facilityPicker.sel } } : {}) });
   });
   tools.remoteBuild = (tool, a, b) => {
-    if ((tool as string) === 'bulldoze') void run({ t: 'bulldoze', a, b, kinds: readBulldozeKinds() });
+    if ((tool as string) === 'bulldoze') void run({ t: 'bulldoze', a, b, kinds: bulldozeOptions.kinds() });
     else if ((tool as string) === 'signalline') void run({ t: 'signalLine', a, b, interval: Number($<HTMLInputElement>('optSigInt').value) || 3 });
     else void run({ t: 'build', tool, a, b });
   };
-  // 操作結果のトースト(橋・トンネルの可否など)
-  const toast = document.createElement('div');
-  toast.id = 'toast';
-  document.body.appendChild(toast);
-  let toastTimer = 0;
-  tools.onMessage = (msg) => {
-    toast.textContent = msg;
-    toast.classList.add('show');
-    clearTimeout(toastTimer);
-    toastTimer = window.setTimeout(() => toast.classList.remove('show'), 2500);
-  };
-  // 施設(ホテル・公園・百貨店・モール)のデザインと大きさを選ぶ
-  const facSel = { design: 0, size: 'L' as FacilitySize };
-  const facDesignEl = $<HTMLSelectElement>('facDesign');
-  let facType: FacilityType | null = null;
-  const facNames = (t: FacilityType): string[] => ((sheetInfo as Record<string, { names: string[] }>)[t]?.names) ?? [];
-  const refreshFac = () => {
-    if (!facType) return;
-    facSel.design = Math.min(Number(facDesignEl.value) || 0, (DESIGN_COUNT[facType] ?? 1) - 1);
-    document.querySelectorAll<HTMLButtonElement>('#facSizes [data-fsize]').forEach((b) => b.classList.toggle('on', b.dataset.fsize === facSel.size));
-    const d = facilityDims(facType, facSel.size);
-    $('facInfo').textContent = `${FACILITY_SPECS[facType].name} ${d.w}×${d.h} タイル・建設費 ${facilityCost(facType, facSel.size).toLocaleString()}円 ・ クリックした位置が中心`;
-    drawFacilityPreview($<HTMLCanvasElement>('facPreview'), facType, facSel.design, facSel.size);
-  };
-  const setupFacility = (t: string) => {
-    const on = (CHOOSABLE as string[]).includes(t);
-    $('facilityOpts').hidden = !on;
-    if (!on) { facType = null; return; }
-    if (facType !== t) {
-      facType = t as FacilityType;
-      $('facTitle').textContent = `${FACILITY_SPECS[facType].icon} ${FACILITY_SPECS[facType].name}を建てる`;
-      facDesignEl.innerHTML = '';
-      const names = facNames(facType);
-      for (let i = 0; i < (DESIGN_COUNT[facType] ?? 1); i++) {
-        const op = document.createElement('option');
-        op.value = String(i);
-        op.textContent = `${String(i + 1).padStart(2, '0')} ${names[i] ?? ''}`;
-        facDesignEl.appendChild(op);
-      }
-      facDesignEl.value = '0';
-    }
-    refreshFac();
-  };
-  facDesignEl.addEventListener('input', refreshFac);
-  $('facRand').addEventListener('click', () => {
-    facDesignEl.value = String(Math.floor(Math.random() * (DESIGN_COUNT[facType ?? 'hotel'] ?? 1)));
-    refreshFac();
-  });
-  document.querySelectorAll<HTMLButtonElement>('#facSizes [data-fsize]').forEach((b) => b.addEventListener('click', () => { facSel.size = b.dataset.fsize as FacilitySize; refreshFac(); }));
-  tools.facilityPlanner = (x, y, type) => planFacility(map, x, y, type, facOcc, (CHOOSABLE as string[]).includes(type) ? facilityDims(type, facSel.size) : undefined);
-  tools.stationPlanner = (x, y) => planStation(map, x, y, stationOpts, (i) => !!transit.stopAtTile(i % map.size, Math.floor(i / map.size)));
+  tools.onMessage = (msg) => toast.show(msg);
+  tools.facilityPlanner = (x, y, type) => facilityPicker.plan(map, x, y, type, facOcc);
+  tools.stationPlanner = (x, y) => stationPicker.plan(map, x, y, (i) => !!transit.stopAtTile(i % map.size, Math.floor(i / map.size)));
   worldRoot.addChild(tools.overlay);
 
   const minimap = new Minimap($<HTMLCanvasElement>('minimap'), map, (tx, ty) => camera.centerOnTile(tx, ty));
@@ -425,57 +222,14 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     close: () => routesEl.classList.remove('open'),
   };
 
-  // ツールバー
-  // ツールバーのドロップダウン: メニューは overflow/backdrop の影響を避けるため body 直下へ移す
-  const menus: { btn: HTMLButtonElement; menu: HTMLElement }[] = [];
-  let pickedMenu: HTMLElement | null = null;
-  const closeMenus = () => menus.forEach((m) => m.menu.classList.remove('open'));
-  document.querySelectorAll<HTMLElement>('.dd').forEach((dd) => {
-    const btn = dd.querySelector<HTMLButtonElement>('.ddbtn')!;
-    const menu = dd.querySelector<HTMLElement>('.ddmenu')!;
-    document.body.appendChild(menu);
-    menus.push({ btn, menu });
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const was = menu.classList.contains('open');
-      closeMenus();
-      if (was) return;
-      const r = btn.getBoundingClientRect();
-      menu.style.left = `${Math.max(4, Math.min(r.left, window.innerWidth - 190))}px`;
-      if (r.top > window.innerHeight / 2) {
-        menu.style.top = 'auto';
-        menu.style.bottom = `${window.innerHeight - r.top + 4}px`;
-      } else {
-        menu.style.bottom = 'auto';
-        menu.style.top = `${r.bottom + 4}px`;
-      }
-      menu.classList.add('open');
-    });
-    menu.addEventListener('click', () => {
-      pickedMenu = menu; // 同じ道具(車両基地など)が複数のメニューにあるとき、選んだ側だけを強調する
-      closeMenus();
-    });
-  });
-  document.addEventListener('click', closeMenus);
-  const syncMenus = (t: Tool) => {
-    const has = menus.filter((m) => m.menu.querySelector(`[data-tool="${t}"]`));
-    const target = has.find((m) => m.menu === pickedMenu) ?? has[0]; // 含むメニューのうち、選んだ側(なければ最初)だけ
-    for (const { btn, menu } of menus) {
-      if (btn.dataset.fixed) continue;
-      const item = menu === target?.menu ? menu.querySelector<HTMLButtonElement>(`[data-tool="${t}"]`) : null;
-      btn.classList.toggle('on', !!item);
-      btn.textContent = `${(item ? item.textContent!.replace(/\s*\(.\)$/, '') : btn.dataset.def) ?? ''} ▾`;
-    }
-  };
+  const toolbar = new Toolbar();
   const setTool = (t: Tool) => {
     tools.setTool(t);
-    optsEl.hidden = t !== 'station';
-    setupFacility(t);
+    stationPicker.setVisible(t === 'station');
+    facilityPicker.setTool(t);
     $('signalOpts').hidden = t !== 'signalline';
-    $('bulldozeOpts').hidden = t !== 'bulldoze';
-    syncMenus(t);
-    const targetMenu = menus.filter((m) => m.menu.querySelector(`[data-tool="${t}"]`)).find((m) => m.menu === pickedMenu)?.menu ?? menus.find((m) => m.menu.querySelector(`[data-tool="${t}"]`))?.menu;
-    document.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === t && (!b.closest('.ddmenu') || b.closest('.ddmenu') === targetMenu)));
+    bulldozeOptions.setVisible(t === 'bulldoze');
+    toolbar.highlight(t);
     if (t !== 'route' && (panel.building || panel.inserting)) panel.cancelBuild();
   };
   setToolRef = setTool;
@@ -586,7 +340,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   if (isTouch) windows.push(routesWin, infoWin);
   const closeWindows = (except?: unknown) => {
     for (const w of windows) if (w !== except && w.isOpen) w.close();
-    if (except !== 'menu') $('menu').hidden = true;
+    if (except !== 'menu') playerMenu.close();
   };
   for (const w of windows) {
     if (w === infoWin) continue;
@@ -607,48 +361,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     else if (e.key === 'Escape' && info.isOpen) info.close();
   });
 
-  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-  // メニュー: プレイヤー一覧とログアウト
-  const menu = $('menu');
-  const menuList = $('menuPlayers');
-  const openMenu = () => {
-    closeWindows('menu');
-    menuList.innerHTML = mirror.players
-      .map((p) => `<div class="im"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#${p.color.toString(16).padStart(6, '0')}"></i> ${p.online ? '🟢' : '⚪'} ${esc(p.company)}<small class="muted"> (${esc(p.name)})</small> ・ 時価総額 ${yen(p.marketCap)}${p.bio ? `<div class="muted">${esc(p.bio)}</div>` : ''}${p.id === net.id ? ' (あなた)' : ` <button data-gift="${p.id}">送金</button> <label class="muted" title="自社の全停留所をこの会社の路線が使えるようにします"><input type="checkbox" data-cgrant="${p.id}" ${transit.grants.get(net.id)?.has(p.id) ? 'checked' : ''}> 全駅を許可</label>`}</div>`)
-      .join('');
-    menu.hidden = false;
-  };
-  // 会社名・プロフィール・色の設定
-  const profColor = $<HTMLInputElement>('profColor');
-  const fillProfile = () => {
-    const me = mirror.players.find((p) => p.id === net.id);
-    if (!me) return;
-    $<HTMLInputElement>('profCompany').value = me.company === me.name ? '' : me.company;
-    $<HTMLTextAreaElement>('profBio').value = me.bio;
-    profColor.value = `#${me.color.toString(16).padStart(6, '0')}`;
-  };
-  $('profSave').addEventListener('click', () => {
-    void net.profile($<HTMLInputElement>('profCompany').value, $<HTMLTextAreaElement>('profBio').value, parseInt(profColor.value.slice(1), 16)).then((r) => tools.onMessage?.(r.msg ?? (r.ok ? '保存しました' : '失敗しました')));
-  });
-  $('menuBtn').addEventListener('click', () => {
-    openMenu();
-    fillProfile();
-  });
-  $('menuClose').addEventListener('click', () => (menu.hidden = true));
-  menuList.addEventListener('change', (e) => {
-    const cb = e.target as HTMLInputElement;
-    if (cb.dataset.cgrant) void net.cmd({ t: 'companyAllow', who: Number(cb.dataset.cgrant), allow: cb.checked }).then((r) => r.msg && tools.onMessage?.(r.msg));
-  });
-  menuList.addEventListener('click', (e) => {
-    const b = (e.target as HTMLElement).closest<HTMLElement>('[data-gift]');
-    if (!b) return;
-    const v = window.prompt('送金額(円)。10,000円以上', '1000000');
-    if (v) void net.cmd({ t: 'gift', to: Number(b.dataset.gift), amount: Number(v.replace(/[,，]/g, '')) }).then((r) => tools.onMessage?.(r.msg ?? (r.ok ? '送金しました' : '失敗しました')));
-  });
-  $('logoutBtn').addEventListener('click', () => {
-    net.logout();
-    location.reload();
-  });
+  const playerMenu = new PlayerMenu({ transit, players: () => mirror.players, notify: (m) => tools.onMessage?.(m), beforeOpen: () => closeWindows('menu') });
 
   $('start').hidden = true;
   $('hud').hidden = false;
