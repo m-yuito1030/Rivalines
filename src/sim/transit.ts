@@ -8,6 +8,7 @@ import { makeRng } from '../world/towns';
 import { findPath } from './pathfinding';
 import { FACILITY_SPECS, facilitiesNear, facilityAttract, hourFactor } from '../world/facilities';
 import { FARE, fareDemand, fareMulOf } from './fares';
+import { facilityDayMul } from './events';
 import { type StationInfo, type StationOptions, layStationTracks, planStation, stationTile, stationTiles } from '../world/stations';
 import { Router } from './routing';
 
@@ -1275,13 +1276,24 @@ export class Transit {
   }
 
   /** 時刻に応じた施設の需要(人口換算)。施設ごとに人の集まる時間帯がある */
+  private dayMulDay = -1;
+  private dayMul = new Map<number, number>();
   private facilityDemand(s: Stop, tick: number): number {
     if (!s.facs || !s.facs.length) return 0;
     const hour = (todOf(tick) / DAY_TICKS) * 24;
+    const day = Math.floor((tick + START_TOD) / DAY_TICKS);
+    if (this.dayMulDay !== day) {
+      this.dayMulDay = day;
+      this.dayMul.clear();
+    }
     let d = 0;
     for (const id of s.facs) {
       const f = this.map.facilities.find((x) => x.id === id);
-      if (f) d += facilityAttract(f) * hourFactor(FACILITY_SPECS[f.type], hour);
+      if (f) {
+        let mul = this.dayMul.get(id);
+        if (mul === undefined) this.dayMul.set(id, (mul = facilityDayMul(this.map.seed, f, day)));
+        d += facilityAttract(f) * hourFactor(FACILITY_SPECS[f.type], hour) * mul;
+      }
     }
     return d;
   }

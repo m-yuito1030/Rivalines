@@ -21,6 +21,8 @@ import { DiagramPanel } from './ui/diagramPanel';
 import { ListPanel } from './ui/listPanel';
 import type { CompanyRow } from './sim/ranking';
 import { WEEKDAYS } from './sim/calendar';
+import { WEATHER_ICON, WEATHER_NAME, eventsToday, isHoliday, weatherOf } from './sim/events';
+import { START_TOD, DAY_TICKS } from './sim/transit';
 import { yen } from './sim/economy';
 import { ratingName } from './sim/rating';
 import { InfoPanel, type Selection, findSelection } from './ui/infoPanel';
@@ -295,6 +297,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   let mmVersion = 0;
   let mmTime = 0;
   const clock = $('clock');
+  let lastEventDay = -1;
   const ratingEl = $('rating');
   ratingEl.addEventListener('click', () => statsPanel.toggle());
   let mouse = { x: 0, y: 0 };
@@ -685,7 +688,17 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       cashEl.textContent = cashText;
       cashEl.className = sim.company.cash < 0 ? 'neg' : '';
     }
-    const ctext = `${d.year}年${d.month}月${d.day}日(${WEEKDAYS[d.weekday]}) ${pad(d.hour)}:${pad(d.minute)} 第${d.period}期Q${d.quarter}${sim.speed === 0 ? ' ⏸' : ''}`;
+    const dayNo = Math.floor((sim.tick + START_TOD) / DAY_TICKS);
+    const wx = weatherOf(map.seed, dayNo);
+    if (dayNo !== lastEventDay) {
+      if (lastEventDay >= 0) {
+        const mine = eventsToday(map.seed, map.facilities, dayNo, (f) => (f.owner ?? 'player') === 'player' && f.playerId === net.id);
+        const ev = mine.map((e) => `${e.facility.name}で${e.event.name}(需要${e.event.mul}倍)`).join('、');
+        tools.onMessage?.(`今日は${WEATHER_NAME[wx]}${isHoliday(dayNo) ? '・休日' : ''}${ev ? `。${ev}` : ''}`);
+      }
+      lastEventDay = dayNo;
+    }
+    const ctext = `${d.year}年${d.month}月${d.day}日(${WEEKDAYS[d.weekday]})${isHoliday(dayNo) ? '祝' : ''}${WEATHER_ICON[wx]} ${pad(d.hour)}:${pad(d.minute)} 第${d.period}期Q${d.quarter}${sim.speed === 0 ? ' ⏸' : ''}`;
     if (clock.textContent !== ctext) clock.textContent = ctext;
 
     if (!uiTick) return;
