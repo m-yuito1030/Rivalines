@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameMap } from '../src/world/gameMap';
 import { Simulation } from '../src/sim/simulation';
 import { SEA_LEVEL } from '../src/world/constants';
+import { TRAINING, trainingCost } from '../src/sim/economy';
 import { execute } from './commands';
 import { Replicator } from './replicate';
 import { Accounts } from './accounts';
@@ -412,5 +413,29 @@ describe('JGRPP風の線路・信号・車両操作', () => {
     expect(execute(sim, 1, { t: 'routeReplace', routeId: rt.id! }).ok).toBe(false); // もう置き換えるものがない
     sim.setOnline([1, 2]);
     expect(execute(sim, 2, { t: 'routeReplace', routeId: rt.id! }).ok).toBe(false);
+  });
+
+  it('従業員教育: 費用を払って研修し、日数が過ぎるとレベルが上がる。効果は運行費と乗客に出る', () => {
+    const sim = world();
+    sim.setOnline([1]);
+    const co = sim.playerCompany(1);
+    const cash = co.cash;
+    const r = execute(sim, 1, { t: 'fin', op: 'train' });
+    expect(r.ok).toBe(true);
+    expect(co.cash).toBe(cash - trainingCost(0));
+    expect(co.training).toBe(0); // 完了まではそのまま
+    expect(execute(sim, 1, { t: 'fin', op: 'train' }).ok).toBe(false); // 研修中
+    for (let d = 0; d < TRAINING.days; d++) co.endOfDay(d, sim.map, sim.transit, 50, [], 1);
+    expect(co.training).toBe(1);
+    expect(co.trainingPending).toBeUndefined();
+    expect(co.costMul).toBeCloseTo(1 - TRAINING.costCut);
+    expect(co.serviceMul).toBeCloseTo(1 + TRAINING.demandUp);
+    co.endOfDay(TRAINING.days, sim.map, sim.transit, 50, [], 1);
+    expect(co.total.training).toBe(trainingCost(0) + TRAINING.dailyPerLevel); // レベル1の研修費(毎日)も払う
+    co.cash = 0;
+    expect(execute(sim, 1, { t: 'fin', op: 'train' }).ok).toBe(false); // 資金不足
+    co.training = TRAINING.max;
+    co.cash = 1e9;
+    expect(execute(sim, 1, { t: 'fin', op: 'train' }).ok).toBe(false); // 最高レベル
   });
 });

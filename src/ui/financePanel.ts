@@ -1,4 +1,4 @@
-import { CAT_LABEL, COST_CATS, type Company, LOAN_STEP, PAYOUT_OPTIONS, REVENUE_CATS, SHARES, TAX_RATE, assetValue, facilityValue, gradeOf, yen } from '../sim/economy';
+import { TRAINING, trainingCost, CAT_LABEL, COST_CATS, type Company, LOAN_STEP, PAYOUT_OPTIONS, REVENUE_CATS, SHARES, TAX_RATE, assetValue, facilityValue, gradeOf, yen } from '../sim/economy';
 import { type Rival, acquirePrice, divestPrice } from '../sim/rivals';
 import { net } from '../multi/net';
 import { FACILITY_SPECS } from '../world/facilities';
@@ -56,7 +56,7 @@ export class FinancePanel {
   }
 
   private act(b: HTMLElement): void {
-    const a = b.dataset.fa as 'payout' | 'borrow' | 'repay' | 'rival-buy' | 'rival-sell' | 'acquire' | 'sell';
+    const a = b.dataset.fa as 'payout' | 'borrow' | 'repay' | 'rival-buy' | 'rival-sell' | 'acquire' | 'sell' | 'train';
     void net.cmd({ t: 'fin', op: a, amount: Number(b.dataset.amount), id: Number(b.dataset.id) }).then((r) => this.onMessage(r.msg ?? (r.ok ? '完了しました' : '失敗しました')));
   }
 
@@ -117,6 +117,13 @@ export class FinancePanel {
           .map((r) => `<tr title="${r.from}〜${r.to} / 運行費${yen(r.running)} 維持費${yen(r.upkeep)} 償却${yen(r.depreciation)} 利息${yen(r.interest)}"><td>第${r.period}期</td><td>${yen(r.revenue)}</td><td class="${r.opProfit < 0 ? 'neg' : ''}">${yen(r.opProfit)}</td><td>${yen(r.preTax)}</td><td>${yen(r.tax)}</td><td class="${r.netIncome < 0 ? 'neg' : ''}"><b>${yen(r.netIncome)}</b></td><td>${yen(r.dividend)}</td><td>${yen(r.netWorth)}</td><td>${yen(r.stock)}</td></tr>`)
           .join('')}</table><div class="muted">行にカーソルを置くと内訳(運行費・維持費・償却・利息)が出ます。営業利益 = 売上高 − 運行費 − 維持費 − 減価償却費。</div>`
       : '<div class="muted">最初の決算は 2027年3月31日です。</div>';
+    const lv = c.training;
+    h += `<h3>従業員教育</h3><div class="fgrid"><div>研修レベル</div><div class="n"><b>${lv}</b> / ${TRAINING.max}</div><div>効果(現在)</div><div class="n">運行費 −${Math.round(TRAINING.costCut * lv * 100)}% / 乗客 +${Math.round(TRAINING.demandUp * lv * 100)}%</div><div>研修費(毎日)</div><div class="n">${yen(lv * TRAINING.dailyPerLevel)}</div></div>`;
+    h += c.trainingPending
+      ? `<div class="muted">レベル${c.trainingPending.to}へ研修中(あと${c.trainingPending.left}日)</div>`
+      : lv >= TRAINING.max
+        ? '<div class="muted">最高レベルです</div>'
+        : `<div class="frow"><button data-fa="train" ${c.cash < trainingCost(lv) ? 'disabled' : ''}>研修してレベル${lv + 1}へ(${yen(trainingCost(lv))}・${TRAINING.days}日)</button><span class="muted"> レベルが上がるほど、研修費が毎日かかります</span></div>`;
     h += '<h3>競合会社(買収できます)</h3>';
     h += `<table><tr><th>会社</th><th>企業価値</th><th>利益/日</th><th>株価</th><th>買収額</th><th></th></tr>${rivals
       .map(

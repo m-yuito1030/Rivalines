@@ -98,6 +98,7 @@ export class Simulation {
       (this.multi && r?.owner ? this.playerCompany(r.owner) : this.company).fare(mode, amount);
       if (r) r.dayRevenue = (r.dayRevenue ?? 0) + amount;
     };
+    this.transit.serviceMul = (owner) => (this.multi && owner ? this.playerCompany(owner) : this.company).serviceMul;
     this.transit.onVisit = (stop, n, tick) => this.company.visits(this.map, stop, n, tick, this.multi ? (f) => (f.playerId ? this.playerCompany(f.playerId) : null) : undefined);
     // 他社のインフラを走ると通行料(線路・道路の共有)
     this.transit.onTile = (_v, route, tile) => {

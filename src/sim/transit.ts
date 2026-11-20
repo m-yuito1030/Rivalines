@@ -279,6 +279,8 @@ export class Transit {
   transfers = 0;
   /** 運賃が支払われた(経営用)。mode, 金額 */
   onFare?: (mode: Mode, amount: number, routeId: number) => void;
+  /** 停留所の持ち主の接客の質(乗客の発生にかかる倍率)。設定されていなければ 1 */
+  serviceMul?: (owner: number | undefined) => number;
   /** n 人が停留所 stop に到着して降りた(施設の来場者の集計用) */
   onVisit?: (stop: Stop, n: number, tick: number) => void;
   private router = new Router(
@@ -1372,7 +1374,7 @@ export class Transit {
   private generate(s: Stop, tick: number): void {
     const tbl = this.router.table(s.id, this.version);
     if (tbl.next.size === 0) return;
-    const n = (s.pop + this.facilityDemand(s, tick)) * PAX_RATE * GEN_EVERY * this.stopFareDemand(s.id) + s.frac;
+    const n = (s.pop + this.facilityDemand(s, tick)) * PAX_RATE * GEN_EVERY * this.stopFareDemand(s.id) * (this.serviceMul?.(s.owner) ?? 1) + s.frac;
     const whole = Math.floor(n);
     s.frac = n - whole;
     const room = WAIT_CAP[s.kind] - s.waiting;

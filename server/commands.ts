@@ -3,6 +3,7 @@ import type { Cmd, CmdResult } from '../src/multi/protocol';
 import { TX_METHODS } from '../src/multi/protocol';
 import { DRAG_TOOLS, applyBuild } from '../src/world/buildApply';
 import { railLineTiles } from '../src/world/rails';
+import { TRAINING } from '../src/sim/economy';
 import { PRICES, acquirePrice, assetValueFor, facilityValue, vehiclePrice, yen } from './economyApi';
 import { FACILITY_SPECS, FACILITY_TYPES, type FacilityType, SPRITE_TYPES, planFacility, placeFacility, spriteDims } from '../src/world/facilities';
 import { placeAirport } from '../src/world/airports';
@@ -389,6 +390,10 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
           if (![0, 0.2, 0.4].includes(amount)) return fail('不正な値です');
           co.payout = amount;
           return { ok: true, msg: co.payout > 0 ? `配当性向を ${Math.round(co.payout * 100)}% にしました` : '配当をしないことにしました' };
+        }
+        if (cmd.op === 'train') {
+          const err = co.startTraining();
+          return err ? fail(err) : { ok: true, msg: `従業員の研修を始めました(${TRAINING.days}日後にレベル${co.trainingPending!.to}になります)` };
         }
         if (cmd.op === 'borrow') {
           const err = co.borrow(amount, co.credit, assets);

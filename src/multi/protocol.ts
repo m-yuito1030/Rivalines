@@ -36,7 +36,7 @@ export type Cmd =
   /** 種別: 通過駅を自動設定(copy=元の路線は変えず、種別の路線として複製して作る。startShiftMin 分ずらす) */
   | { t: 'routeRank'; routeId: number; rank: number; copy: boolean; shiftMin?: number }
   | { t: 'orderShift'; routeId: number; from: number; delta: number }
-  | { t: 'fin'; op: 'borrow' | 'repay' | 'payout' | 'rival-buy' | 'rival-sell' | 'acquire' | 'sell'; amount?: number; id?: number };
+  | { t: 'fin'; op: 'borrow' | 'repay' | 'payout' | 'train' | 'rival-buy' | 'rival-sell' | 'acquire' | 'sell'; amount?: number; id?: number };
 
 export interface CmdResult {
   ok: boolean;

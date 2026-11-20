@@ -59,9 +59,14 @@ export const PAYOUT_OPTIONS = [0, 0.2, 0.4] as const;
 export const LOAN_STEP = 1_000_000;
 export const LOAN_MAX_CAP = 500_000_000;
 
+/** 従業員教育: 研修レベル(0〜MAX)ごとに、運行費が下がり、接客で乗客が増える。研修には費用と日数がかかり、レベルに応じた人件費(研修費)が毎日かかる */
+export const TRAINING = { max: 5, costCut: 0.04, demandUp: 0.03, days: 7, dailyPerLevel: 20_000 } as const;
+/** 研修レベル level → level+1 にする費用 */
+export const trainingCost = (level: number): number => Math.round((2_000_000 * Math.pow(level + 1, 1.5)) / 100_000) * 100_000;
+
 /** 経営の分類(売上・費用のラベル) */
 export const REVENUE_CATS = ['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'sale', 'toll-in', 'gift-in'] as const;
-export const COST_CATS = ['build', 'vehicle', 'running', 'upkeep', 'interest', 'acquire', 'tax', 'dividend', 'toll-out', 'gift-out'] as const;
+export const COST_CATS = ['build', 'vehicle', 'running', 'upkeep', 'interest', 'acquire', 'tax', 'dividend', 'toll-out', 'gift-out', 'training'] as const;
 export const CAT_LABEL: Record<string, string> = {
   'fare-road': '運賃(バス)',
   'fare-rail': '運賃(鉄道)',
@@ -81,6 +86,7 @@ export const CAT_LABEL: Record<string, string> = {
   'toll-out': '通行料(支払)',
   'gift-in': '資金支援(受取)',
   'gift-out': '資金支援(送金)',
+  training: '従業員の研修費',
 };
 
 export interface DayRecord {
@@ -135,6 +141,8 @@ export interface CompanyState {
   period?: number;
   payout?: number;
   reports?: FiscalReport[];
+  training?: number;
+  trainingPending?: { to: number; left: number };
 }
 
 /** マルチプレイ: 施設の日次収益の更新を1回だけにするため、締めを行う最初の会社のIDを Simulation が設定する */
@@ -167,6 +175,29 @@ export class Company {
   payout = 0;
   /** 過去の決算書(新しいものが末尾。直近10期) */
   reports: FiscalReport[] = [];
+  /** 従業員の研修レベル(0〜TRAINING.max)と、研修中(完了までの残り日数) */
+  training = 0;
+  trainingPending?: { to: number; left: number };
+
+  /** 運行費にかかる倍率(研修で下がる) */
+  get costMul(): number {
+    return 1 - TRAINING.costCut * this.training;
+  }
+
+  /** 停留所の乗客の発生にかかる倍率(接客の質。研修で上がる) */
+  get serviceMul(): number {
+    return 1 + TRAINING.demandUp * this.training;
+  }
+
+  /** 研修を始める。始められなければ理由を返す(費用は先払い。完了までは今のレベルのまま) */
+  startTraining(): string | null {
+    if (this.trainingPending) return `研修中です(あと${this.trainingPending.left}日)`;
+    if (this.training >= TRAINING.max) return 'これ以上は研修できません(最高レベル)';
+    const cost = trainingCost(this.training);
+    if (!this.spend('training', cost)) return `資金が足りません(研修費 ${yen(cost)})`;
+    this.trainingPending = { to: this.training + 1, left: TRAINING.days };
+    return null;
+  }
 
   afford(cost: number): boolean {
     return this.cash >= cost;
@@ -237,13 +268,19 @@ export class Company {
     let running = 0;
     const mine = (routeId: number) => ownerId === undefined || transit.routes.get(routeId)?.owner === ownerId;
     for (const v of transit.vehicles) if (mine(v.routeId)) running += vehiclePrice(modelOf(v.modelId), v.cars) * RUNNING_RATE;
-    this.pay('running', Math.round(running));
+    this.pay('running', Math.round(running * this.costMul));
     // 駅・停留所・基地・施設の維持費
     let upkeep = 0;
     for (const s of transit.stops.values()) if (ownerId === undefined || s.owner === ownerId) upkeep += stopUpkeep(s);
     for (const d of transit.depots.values()) if (ownerId === undefined || d.owner === ownerId) upkeep += 500;
     for (const f of map.facilities) if ((f.owner ?? 'player') === 'player' && (ownerId === undefined || f.playerId === ownerId)) upkeep += FACILITY_SPECS[f.type].upkeep;
     this.pay('upkeep', Math.round(upkeep));
+    // 研修費(レベルに応じた人件費)と、研修の進行
+    this.pay('training', this.training * TRAINING.dailyPerLevel);
+    if (this.trainingPending && --this.trainingPending.left <= 0) {
+      this.training = this.trainingPending.to;
+      this.trainingPending = undefined;
+    }
     // 利払い(日割り)
     this.pay('interest', Math.round((this.loan * this.interestRate(this.credit)) / 360));
     // 子会社(買収した競合会社)の利益
@@ -299,7 +336,7 @@ export class Company {
     const sum = (cats: readonly string[]) => cats.reduce((a, k) => a + (f[k] ?? 0), 0);
     const revenue = sum(['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'toll-in']);
     const running = f.running ?? 0;
-    const upkeep = (f.upkeep ?? 0) + (f['toll-out'] ?? 0);
+    const upkeep = (f.upkeep ?? 0) + (f['toll-out'] ?? 0) + (f.training ?? 0);
     const depreciation = Math.round(this.infra * DEPRECIATION_RATE);
     this.infra -= depreciation;
     const opProfit = revenue - running - upkeep - depreciation;
@@ -380,7 +417,7 @@ export class Company {
   }
 
   toJSON(): CompanyState {
-    return { cash: this.cash, loan: this.loan, today: this.today, total: this.total, history: this.history, lastDay: this.lastDay, credit: this.credit, stock: this.stock, stockHistory: this.stockHistory, fy: this.fy, infra: this.infra, loss: this.loss, period: this.period, payout: this.payout, reports: this.reports };
+    return { cash: this.cash, loan: this.loan, today: this.today, total: this.total, history: this.history, lastDay: this.lastDay, credit: this.credit, stock: this.stock, stockHistory: this.stockHistory, fy: this.fy, infra: this.infra, loss: this.loss, period: this.period, payout: this.payout, reports: this.reports, training: this.training, trainingPending: this.trainingPending };
   }
 
   static from(s: CompanyState): Company {
@@ -400,6 +437,8 @@ export class Company {
     c.period = s.period ?? 1;
     c.payout = s.payout ?? 0;
     c.reports = s.reports ?? [];
+    c.training = s.training ?? 0;
+    c.trainingPending = s.trainingPending;
     return c;
   }
 }
