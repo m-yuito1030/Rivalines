@@ -46,6 +46,8 @@ export class TransitLayer {
   /** 駅・車両基地より手前にある街の建物(駅の上に描き直して、重なりの前後を正しくする) */
   private front = new Container();
   private frontSprites: Sprite[] = [];
+  /** 駅の屋根・駅舎(車両より上に描く。列車が屋根の下に入って見えるように) */
+  private roofG = new Graphics();
   private frameTex = new Map<string, Texture>();
   private texCache = new Map<string, { tex: Texture; ax: number; ay: number }>();
   private infraView: View | null = null;
@@ -64,7 +66,7 @@ export class TransitLayer {
     private renderer: Renderer | null = null,
   ) {
     this.veh.sortableChildren = true;
-    this.g.addChild(this.infra, this.shad, this.veh, this.front, this.air, this.routeG);
+    this.g.addChild(this.infra, this.shad, this.veh, this.roofG, this.front, this.air, this.routeG);
   }
 
   /**
@@ -328,6 +330,9 @@ export class TransitLayer {
         this.person(U(along, platW(w) + jitter), V(along, platW(w) + jitter), lvl, slabH, i, s.id);
       }
     }
+    // ここから屋根・駅舎: 車両より上の層に描く
+    const gfxBefore = this.gfx;
+    this.gfx = this.roofG;
     const mid = len / 2;
     const pillar = (i: number, w: number, h: number) => this.box(U(i, platW(w)), V(i, platW(w)), lvl, ax, ay, 0.05, 0.05, h, palette.post, slabH);
     if (roof === 0) {
@@ -353,9 +358,9 @@ export class TransitLayer {
       // アーチ屋根: 段を重ねた丸みのある屋根が全体を覆う
       for (let i = 0; i <= len; i += 4) for (const w of [0, tracks]) pillar(Math.min(i + 0.5, len - 0.5), w, 17);
       const W = tracks + 0.1;
-      this.box(U(mid, tracks / 2), V(mid, tracks / 2), lvl, ax, ay, len, W, 1.6, col, slabH + 17);
-      this.box(U(mid, tracks / 2), V(mid, tracks / 2), lvl, ax, ay, len, W * 0.75, 1.6, shade(col, 1.08), slabH + 18.6);
-      this.box(U(mid, tracks / 2), V(mid, tracks / 2), lvl, ax, ay, len, W * 0.45, 1.6, shade(col, 1.16), slabH + 20.2);
+      this.box(U(mid, tracks / 2), V(mid, tracks / 2), lvl, ax, ay, len, W, 1.6, col, slabH + 17, 0.72);
+      this.box(U(mid, tracks / 2), V(mid, tracks / 2), lvl, ax, ay, len, W * 0.75, 1.6, shade(col, 1.08), slabH + 18.6, 0.72);
+      this.box(U(mid, tracks / 2), V(mid, tracks / 2), lvl, ax, ay, len, W * 0.45, 1.6, shade(col, 1.16), slabH + 20.2, 0.72);
     }
     // 駅舎(ホームの外側。端に寄せる)
     if (building > 0) {
@@ -367,6 +372,7 @@ export class TransitLayer {
       this.box(U(bi, -0.15), V(bi, -0.15), lvl, ax, ay, bl + 0.1, bw + 0.05, 2, palette.bldRoof, bh);
       if (building === 3) this.box(U(bi, -0.15), V(bi, -0.15), lvl, ax, ay, 0.16, 0.16, 8, shade(palette.wall, 0.9), bh + 2); // 時計塔
     }
+    this.gfx = gfxBefore;
   }
 
   draw(view: View, highlight: Set<number>): void {
@@ -375,9 +381,12 @@ export class TransitLayer {
     setVehicleSmoothing(view.zoom);
     if (view.zoom < 0.12) {
       this.infra.clear();
+      this.roofG.clear();
       this.infraView = null;
       this.hideSprites(0);
       this.hideFront(0);
+      this.staticFront = [];
+      this.vehTiles.length = 0;
       return;
     }
     // 静的な部分は、視点が描画済み範囲から出た・構造が変わった・選択が変わった・0.25秒経過のときだけ描き直す
@@ -392,6 +401,7 @@ export class TransitLayer {
       this.shownDt = Math.min(1, (now - this.shownAt) / 1000);
       this.shownAt = now;
       this.infra.clear();
+      this.roofG.clear();
       this.gfx = this.infra;
       this.drawInfra(wide, highlight);
       this.drawFront(wide);
@@ -401,6 +411,7 @@ export class TransitLayer {
       this.infraKey = key;
     }
     this.drawVehicles(view);
+    this.renderFront();
   }
 
   private drawInfra(view: View, highlight: Set<number>): void {
@@ -496,24 +507,105 @@ export class TransitLayer {
 
   }
 
+  /** 駅・車両基地・大型施設の手前にある建物(タイルindex)。構造が変わったときだけ計算し直す */
+  private staticFront: number[] = [];
+  /** 今のフレームで車両を描いたタイル(重複あり) */
+  private vehTiles: number[] = [];
+  /** タイルごとの「手前にある建物」の一覧(車両用。数秒ごとに作り直す) */
+  private nearCache = new Map<number, number[]>();
+  private nearCacheAt = 0;
+
   /**
-   * 駅・車両基地は街の建物とは別の層で描くため、そのままだと手前の建物にも常に上から被さる。
-   * 駅・基地の手前(x+y が大きい側)にある建物だけ、ここで駅の上に描き直す。
+   * 駅・車両基地・大型施設・車両は、街の建物とは別の層で描くため、そのままだと手前の建物にも常に上から被さる。
+   * これらの手前(x+y が大きい側)にある建物だけを、上に描き直して前後を正しくする。
+   * ここでは駅・基地・施設の分を求める(車両の分は毎フレーム renderFront で足す)。
    */
   private drawFront(view: View): void {
     const m = this.map;
     const inView = (wx: number, wy: number) => wx > view.left - 160 && wx < view.right + 160 && wy > view.top - 320 && wy < view.bottom + 160;
-    const seen = new Set<number>();
-    let n = 0;
+    const out = new Set<number>();
     const R = 7; // 建物の高さぶん、手前〜周囲の何タイルまで調べるか
-    const put = (tx: number, ty: number) => {
-      const k = m.idx(tx, ty);
-      if (seen.has(k)) return;
+    const scan = (tiles: [number, number][]) => {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const [x, y] of tiles) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+      if (!inView((x0 - y0) * 32, (x0 + y0) * 16)) return;
+      for (let ty = Math.max(0, y0 - 2); ty <= Math.min(m.size - 1, y1 + R); ty++) {
+        for (let tx = Math.max(0, x0 - 2); tx <= Math.min(m.size - 1, x1 + R); tx++) {
+          const b = m.building.get(m.idx(tx, ty));
+          if (!b || b === FACILITY_TILE) continue;
+          // 最も近いタイルより手前(x+y が大きい)にある建物だけ
+          let best = Infinity;
+          let bsum = 0;
+          for (const [x, y] of tiles) {
+            const d = Math.abs(tx - x) + Math.abs(ty - y);
+            if (d < best) { best = d; bsum = x + y; }
+          }
+          if (tx + ty > bsum) out.add(m.idx(tx, ty));
+        }
+      }
+    };
+    for (const s of this.transit.stops.values()) {
+      if (s.waypoint || s.kind !== 'rail') continue;
+      scan(s.station ? stationTiles(s.station) : [[s.x, s.y]]);
+    }
+    for (const d of this.transit.depots.values()) scan([[d.x, d.y]]);
+    for (const f of m.facilities) {
+      if (isSpriteFacility(f)) continue; // スプライトの施設は建物と同じ層
+      const tiles: [number, number][] = [];
+      for (let y = f.y0; y < f.y0 + f.h; y++) for (let x = f.x0; x < f.x0 + f.w; x++) tiles.push([x, y]);
+      scan(tiles);
+    }
+    this.staticFront = [...out];
+  }
+
+  /** 車両のいるタイルの手前にある建物(車両を建物の陰に隠す) */
+  private nearFront(tx: number, ty: number): number[] {
+    const m = this.map;
+    const key = ty * m.size + tx;
+    let l = this.nearCache.get(key);
+    if (l) return l;
+    l = [];
+    for (let y = Math.max(0, ty - 1); y <= Math.min(m.size - 1, ty + 7); y++) {
+      for (let x = Math.max(0, tx - 1); x <= Math.min(m.size - 1, tx + 7); x++) {
+        if (x + y <= tx + ty) continue;
+        const b = m.building.get(m.idx(x, y));
+        if (b && b !== FACILITY_TILE) l.push(m.idx(x, y));
+      }
+    }
+    this.nearCache.set(key, l);
+    return l;
+  }
+
+  /** 前面に描き直す建物のスプライトを更新する(毎フレーム) */
+  private renderFront(): void {
+    const m = this.map;
+    const now = performance.now();
+    if (now - this.nearCacheAt > 3000 || this.nearCache.size > 20000) {
+      this.nearCache.clear();
+      this.nearCacheAt = now;
+    }
+    const want = new Set<number>(this.staticFront);
+    const doneTiles = new Set<number>();
+    for (let i = 0; i < this.vehTiles.length; i += 2) {
+      const tx = this.vehTiles[i];
+      const ty = this.vehTiles[i + 1];
+      if (!m.inBounds(tx, ty)) continue;
+      const k = ty * m.size + tx;
+      if (doneTiles.has(k)) continue;
+      doneTiles.add(k);
+      for (const b of this.nearFront(tx, ty)) want.add(b);
+    }
+    this.vehTiles.length = 0;
+    this.front.sortableChildren = true;
+    let n = 0;
+    for (const k of want) {
+      if (n >= 3000) break;
+      const tx = k % m.size;
+      const ty = Math.floor(k / m.size);
       const b = m.building.get(k);
-      if (!b || b === FACILITY_TILE) return;
+      if (!b) continue;
       const r = buildingSpriteRect(b, hash2(tx, ty, m.seed + 17));
-      if (!r) return;
-      seen.add(k);
+      if (!r) continue;
       const lvl = m.levelAt(tx, ty);
       const px = (tx - ty) * 32;
       const py = (tx + ty) * 16 - lvl * LEVEL_PX;
@@ -535,31 +627,7 @@ export class TransitLayer {
       sp.texture = tex;
       sp.position.set(Math.round(px - 64), Math.round(cy - 150));
       sp.zIndex = tx + ty;
-    };
-    this.front.sortableChildren = true;
-    const scan = (tiles: [number, number][]) => {
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      for (const [x, y] of tiles) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-      if (!inView((x0 - y0) * 32, (x0 + y0) * 16)) return;
-      for (let ty = Math.max(0, y0 - 2); ty <= Math.min(m.size - 1, y1 + R); ty++) {
-        for (let tx = Math.max(0, x0 - 2); tx <= Math.min(m.size - 1, x1 + R); tx++) {
-          if (!m.building.get(m.idx(tx, ty))) continue;
-          // 最も近い駅のタイルより手前(x+y が大きい)にある建物だけ
-          let best = Infinity;
-          let bsum = 0;
-          for (const [x, y] of tiles) {
-            const d = Math.abs(tx - x) + Math.abs(ty - y);
-            if (d < best) { best = d; bsum = x + y; }
-          }
-          if (tx + ty > bsum) put(tx, ty);
-        }
-      }
-    };
-    for (const s of this.transit.stops.values()) {
-      if (s.waypoint || s.kind !== 'rail') continue;
-      scan(s.station ? stationTiles(s.station) : [[s.x, s.y]]);
     }
-    for (const d of this.transit.depots.values()) scan([[d.x, d.y]]);
     this.hideFront(n);
   }
 
@@ -615,6 +683,7 @@ export class TransitLayer {
 
   /** 作成済みのテクスチャ(車両スプライトなど)を (u,v,lvl) に置く。lift は地面からの高さ(px) */
   private putTex(e: { tex: Texture; ax: number; ay: number }, u: number, v: number, lvl: number, zBias = 0, lift = 0, scale = 1): void {
+    this.vehTiles.push(Math.floor(u), Math.floor(v));
     const sp = this.nextSprite();
     sp.texture = e.tex;
     sp.anchor.set(e.ax, e.ay);
