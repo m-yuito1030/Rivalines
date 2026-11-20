@@ -12,22 +12,35 @@ import { facilityDayMul } from '../world/events';
 import { DEV } from '../economy/development';
 import { type StationOptions, layStationTracks, planStation, stationTile, stationTiles } from '../../world/stations';
 import { Router } from './routing';
-import { CATCH, DAY_TICKS, DECEL_TILES, DEFAULT_DWELL, Departure, Depot, Flight, GEN_EVERY, KIND_INDEX, KIND_NAME, MAX_CARS, MirrorSnap, NET_LOG_MAX, OrderCond, PATH_CACHE_MAX, PATH_MARGIN, PAX_RATE, PERIOD_OPTIONS, PathEntry, RANKS, REVERSE_MIN_TILES, REVERSE_RATIO, ROUTE_COLORS, Route, START_TOD, Stop, TransitSave, Vehicle, WAIT_CAP, nearestDiff, signalPair, todOf, trainLen } from './types';
+import { CATCH, DAY_TICKS, DECEL_TILES, DEFAULT_DWELL, Departure, Depot, Flight, GEN_EVERY, KIND_INDEX, KIND_NAME, MirrorSnap, NET_LOG_MAX, OrderCond, PATH_CACHE_MAX, PATH_MARGIN, PAX_RATE, PathEntry, REVERSE_MIN_TILES, REVERSE_RATIO, ROUTE_COLORS, Route, START_TOD, Stop, TransitSave, Vehicle, WAIT_CAP, dirBetween, nearestDiff, todOf, trainLen } from './types';
+import { SignalSystem } from './signalSystem';
+import { TrainOps } from './trainOps';
+import { OrderEditor } from './orderEditor';
+import { Schedule } from './schedule';
 export * from './types';
 
 
 export class Transit {
+  /** 信号・閉塞(鉄道の予約) */
+  readonly signalsSys = new SignalSystem(this);
+  /** 列車の編成操作(分割・連結・待機中の出発) */
+  readonly trainOps = new TrainOps(this);
+  /** 路線のオーダー編集(挿入・削除・並べ替え・共有) */
+  readonly orderEdit = new OrderEditor(this);
+  /** ダイヤ・発車案内・時刻表の自動作成・種別・路線の複製 */
+  readonly schedule = new Schedule(this);
+
   stops = new Map<number, Stop>();
   routes = new Map<number, Route>();
   vehicles: Vehicle[] = [];
-  private stopAt = new Map<number, number>();
+  stopAt = new Map<number, number>();
   /** 鉄道の予約済みタイル(閉塞): tile → vehicle id */
-  private reserved = new Map<number, number>();
+  reserved = new Map<number, number>();
   /** 信号: 線路タイル → 方向ビット(1<<d: d 方向へ進む列車を制御する信号がある)。片方向だけなら逆走は禁止 */
   signals = new Map<number, number>();
   /** 道路の車線の占有: tile*4+向き → vehicle id(1タイル1車線に1台) */
-  private lane = new Map<number, number>();
-  private nextId = 1;
+  lane = new Map<number, number>();
+  nextId = 1;
   /** マルチプレイ: いま操作している会社(新設する停留所・路線・基地の持ち主になる) */
   actor = 0;
   /** マルチプレイ: 切断中の会社。その会社の路線は運行を止める(そのまま止める) */
@@ -45,24 +58,24 @@ export class Transit {
   serviceMul?: (owner: number | undefined) => number;
   /** n 人が停留所 stop に到着して降りた(施設の来場者の集計用) */
   onVisit?: (stop: Stop, n: number, tick: number) => void;
-  private router = new Router(
+  router = new Router(
     () => this.realRoutes(),
     (id) => (this.stops.get(id)?.pop ?? 0) + (this.stops.get(id)?.fpop ?? 0) + 1,
   );
   /** 停留所の配列(毎tickの走査でアロケーションしないためのキャッシュ) */
-  private stopList: Stop[] = [];
-  private stopListVer = -1;
+  stopList: Stop[] = [];
+  stopListVer = -1;
   /**
    * 経路キャッシュ。キーは `始点:終点`(巨大マップでは index が 2^32 に迫り、数値の積では 2^53 を超えて別の経路と衝突するため文字列)。
    * 使うたびに各辺・信号の向きを検査する。さらに、ネットワークが変わったとき(netLog)に、変更が「この経路の探索範囲(始点・終点・経路の外接矩形+余白)」に
    * かかっていれば、次に使うときに探し直す。離れた場所の変更では探し直さないので、多数の路線・多数のプレイヤーでも負荷が集中しない。
    */
-  private pathCache = new Map<string, PathEntry>();
+  pathCache = new Map<string, PathEntry>();
   /** ネットワーク(線路・道路・信号・駅)の世代。利用者の操作で変わるたびに touchNetwork が進める */
   netGen = 0;
   /** 変更の履歴(世代と矩形)。キャッシュの各件が、自分の世代以降の変更が範囲にかかるかを調べるのに使う */
-  private netLog: { gen: number; x0: number; y0: number; x1: number; y1: number }[] = [];
-  private netLogFloor = 0;
+  netLog: { gen: number; x0: number; y0: number; x1: number; y1: number }[] = [];
+  netLogFloor = 0;
   /** 経路キャッシュの上限(テストで小さくできる) */
   pathCacheMax = PATH_CACHE_MAX;
   /** 変更した個々のタイルを知らせる(線路・道路・信号の操作のあと)。そのタイルを通る走行中の編成は、次のタイルに入ったところで経路を探し直す */
@@ -71,7 +84,7 @@ export class Transit {
     const rects = tiles.length > 1500 ? [this.boundsOf(tiles)] : tiles.map(([x, y]) => ({ x0: x, y0: y, x1: x, y1: y }));
     this.applyChange(rects);
   }
-  private boundsOf(tiles: [number, number][]) {
+  boundsOf(tiles: [number, number][]) {
     let x0 = Infinity;
     let y0 = Infinity;
     let x1 = -Infinity;
@@ -86,7 +99,7 @@ export class Transit {
   }
 
   /** 変更の記録(世代・履歴)と、その変更を通る走行中の編成への「経路の探し直し」の印 */
-  private applyChange(rects: { x0: number; y0: number; x1: number; y1: number }[]): void {
+  applyChange(rects: { x0: number; y0: number; x1: number; y1: number }[]): void {
     this.netGen++;
     for (const r of rects) this.netLog.push({ gen: this.netGen, x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 });
     if (this.netLog.length > NET_LOG_MAX) {
@@ -129,7 +142,7 @@ export class Transit {
   }
 
   /** この記録(世代 ce.gen)以降の変更が、記録の探索範囲にかかっているか */
-  private pathAffected(ce: PathEntry): boolean {
+  pathAffected(ce: PathEntry): boolean {
     if (ce.gen >= this.netGen) return false;
     if (ce.gen < this.netLogFloor) return true; // 古い履歴は捨てたので、念のため探し直す
     for (let i = this.netLog.length - 1; i >= 0; i--) {
@@ -141,7 +154,7 @@ export class Transit {
     return false;
   }
   constructor(
-    private map: GameMap,
+    readonly map: GameMap,
     private rng: () => number = makeRng(1),
   ) {}
 
@@ -164,9 +177,9 @@ export class Transit {
     return this.nextId;
   }
 
-  private mirrorVeh = new Map<number, Vehicle>();
+  mirrorVeh = new Map<number, Vehicle>();
   /** クライアント: 車両ごとの直近2回のサーバー状態(なめらかに動かすための補間用) */
-  private snaps = new Map<number, MirrorSnap>();
+  snaps = new Map<number, MirrorSnap>();
 
   /** クライアント(閲覧側): サーバーから受け取った構造(停留所・路線・基地・信号)で置き換える。待ち人数の内訳は持たない */
   mirrorStruct(d: { nextId: number; routes: Route[]; stops: Stop[]; depots: Depot[]; signals: [number, number][]; grants?: [number, number[]][] }): void {
@@ -286,256 +299,20 @@ export class Transit {
     this.version++;
   }
 
-  // ---------------------------------------------------------------- 編成の分割・併合
-  private capPerCar(v: Vehicle): number {
-    return modelOf(v.modelId).cap; // 鉄道は1両あたりの定員
-  }
 
-  /** 軌道上で tile から次に進める、予約されていない隣接タイル(trail に含まれないもの) */
-  private freeNeighbor(tile: number, avoid: Set<number>): number {
-    const s = this.map.size;
-    for (let d = 0; d < 8; d++) {
-      if (!(this.map.rail.get(tile) & CONN(d))) continue;
-      const n = ((Math.floor(tile / s)) + DY8[d]) * s + (tile % s) + DX8[d];
-      if (!avoid.has(n) && !this.reserved.has(n)) return n;
-    }
-    return -1;
-  }
 
-  /**
-   * 停車中の編成の後ろ k 両を切り離す。切り離した編成は同じ路線の待機編成になる(departHeld で出発)。
-   * 後ろの線路が足りなければ null。
-   */
-  splitTrain(vid: number, k: number, tick: number): Vehicle | null {
-    const v = this.vehicles.find((x) => x.id === vid);
-    if (!v || v.mode !== 'rail' || v.state !== 'load' || !Number.isInteger(k) || k < 1 || k >= v.cars) return null;
-    const front = v.cars - k;
-    const lenA = trainLen(front);
-    const lenB = trainLen(k);
-    const trailA = v.trail.slice(0, lenA);
-    const trailB = v.trail.slice(trailA.length);
-    const used = new Set<number>(v.trail);
-    // 後ろの線路が足りなければ、さらに後方へ延ばす(予約されていない線路のみ)
-    while (trailB.length < lenB) {
-      const last = trailB.length ? trailB[trailB.length - 1] : trailA[trailA.length - 1];
-      const n = this.freeNeighbor(last, used);
-      if (n < 0) break;
-      trailB.push(n);
-      used.add(n);
-    }
-    if (!trailB.length) return null;
-    const per = this.capPerCar(v);
-    const cargoB = new Map<number, number>();
-    let loadB = 0;
-    for (const [d, n] of v.cargo) {
-      const nb = Math.floor((n * k) / v.cars);
-      if (nb <= 0) continue;
-      cargoB.set(d, nb);
-      v.cargo.set(d, n - nb);
-      if (n - nb <= 0) v.cargo.delete(d);
-      loadB += nb;
-    }
-    v.load -= loadB;
-    const b: Vehicle = {
-      ...v,
-      id: this.nextId++,
-      path: Uint32Array.of(trailB[0]),
-      pi: 0,
-      t: 0,
-      state: 'load',
-      arrived: tick,
-      until: tick,
-      retryAt: 0,
-      load: loadB,
-      cargo: cargoB,
-      cap: per * k,
-      trail: trailB,
-      len: lenB,
-      stuck: 0,
-      cars: k,
-      hold: true,
-      resTo: 0,
-    };
-    v.cars = front;
-    v.cap = per * front;
-    v.len = lenA;
-    v.trail = trailA;
-    for (const t of trailB) this.reserved.set(t, b.id);
-    this.vehicles.push(b);
-    this.version++;
-    return b;
-  }
 
-  /** 待機中の編成を出発させる */
-  departHeld(vid: number, tick: number): boolean {
-    const v = this.vehicles.find((x) => x.id === vid);
-    if (!v || !v.hold) return false;
-    v.hold = false;
-    v.until = tick;
-    this.version++;
-    return true;
-  }
 
-  /** 停車中の2編成の端同士が線路でつながっていれば、連結用の並びを返す(なければ null) */
-  private coupleOrder(a: Vehicle, b: Vehicle): number[] | null {
-    if (a === b || a.mode !== 'rail' || b.mode !== 'rail' || a.state !== 'load' || b.state !== 'load') return null;
-    if (a.cars + b.cars > MAX_CARS || !a.trail.length || !b.trail.length) return null;
-    const m = this.map;
-    const s = m.size;
-    const adj = (p: number, q: number) => {
-      const d = dirBetween(p, q, s);
-      return d >= 0 && (m.rail.get(p) & CONN(d)) !== 0 && (m.rail.get(q) & CONN(opposite8(d))) !== 0;
-    };
-    const aEnds: [number, boolean][] = [[a.trail[a.trail.length - 1], false], [a.trail[0], true]]; // [タイル, 先頭側か]
-    const bEnds: [number, boolean][] = [[b.trail[0], true], [b.trail[b.trail.length - 1], false]];
-    for (const [ea, aHead] of aEnds) {
-      for (const [eb, bHead] of bEnds) {
-        if (!adj(ea, eb)) continue;
-        const aSeq = aHead ? [...a.trail].reverse() : a.trail; // ea が末尾に来るように
-        const bSeq = bHead ? b.trail : [...b.trail].reverse(); // eb が先頭に来るように
-        return [...aSeq, ...bSeq];
-      }
-    }
-    return null;
-  }
 
-  canCouple(aId: number, bId: number): boolean {
-    const a = this.vehicles.find((x) => x.id === aId);
-    const b = this.vehicles.find((x) => x.id === bId);
-    return !!a && !!b && this.coupleOrder(a, b) !== null;
-  }
 
-  /** 2編成を連結して a に統合する(b は消える)。連結できなければ false */
-  coupleTrains(aId: number, bId: number): boolean {
-    const a = this.vehicles.find((x) => x.id === aId);
-    const b = this.vehicles.find((x) => x.id === bId);
-    if (!a || !b) return false;
-    const order = this.coupleOrder(a, b);
-    if (!order) return false;
-    this.releaseAll(b.id);
-    this.vehicles = this.vehicles.filter((x) => x.id !== b.id);
-    a.trail = order;
-    a.cars += b.cars;
-    a.cap += b.cap;
-    a.len = trainLen(a.cars);
-    for (const [d, n] of b.cargo) a.cargo.set(d, (a.cargo.get(d) ?? 0) + n);
-    a.load += b.load;
-    a.hold = a.hold && b.hold;
-    for (const t of order) this.reserved.set(t, a.id);
-    this.version++;
-    return true;
-  }
 
-  /** 駅の近く(Chebyshev 距離 r 以内。15両編成が収まる9タイル)に停まっている鉄道編成 */
-  trainsNear(stopId: number, r = 9): Vehicle[] {
-    const s = this.stops.get(stopId);
-    if (!s) return [];
-    const size = this.map.size;
-    const st = s.station;
-    const x0 = st ? st.x0 : s.x;
-    const y0 = st ? st.y0 : s.y;
-    const x1 = st ? st.x0 + (st.axis === 1 ? st.len : st.tracks) - 1 : s.x;
-    const y1 = st ? st.y0 + (st.axis === 1 ? st.tracks : st.len) - 1 : s.y;
-    return this.vehicles.filter(
-      (v) =>
-        v.mode === 'rail' &&
-        v.state === 'load' &&
-        v.trail.some((t) => {
-          const tx = t % size;
-          const ty = Math.floor(t / size);
-          return tx >= x0 - r && tx <= x1 + r && ty >= y0 - r && ty <= y1 + r;
-        }),
-    );
-  }
 
-  /** 信号の方向ビット。直線の線路でなくなっていたら信号を取り除く */
-  signalMask(idx: number): number {
-    const mk = this.signals.get(idx);
-    if (!mk) return 0;
-    if (!signalPair(this.map.rail.get(idx))) {
-      this.signals.delete(idx);
-      return 0;
-    }
-    return mk;
-  }
 
-  /**
-   * タイルの信号を切り替える: なし → 一方向 → 逆方向 → なし(両方向の信号はなし。単線では使わず、複線で上り下りを分ける)。
-   * 直線(南北/東西)の線路で、駅・橋・トンネルでないタイルのみ。戻り値は新しい方向ビット(置けなければ null)
-   */
-  cycleSignal(x: number, y: number): number | null {
-    const m = this.map;
-    if (!m.inBounds(x, y)) return null;
-    const i = m.idx(x, y);
-    const pair = signalPair(m.rail.get(i));
-    if (!pair || m.span.get(i) || this.stopAtTile(x, y, 'rail')) return null;
-    const [a, b] = pair;
-    const cur = this.signalMask(i);
-    const next = cur === 0 ? a : cur === a ? b : 0;
-    if (next) this.signals.set(i, next);
-    else this.signals.delete(i);
-    this.touchNetwork(x, y);
-    this.version++;
-    return next;
-  }
 
-  /** 信号を指定の向きビットで置く(既存は上書き)。直線の線路で駅・橋でなければ true。向きが線路の方向でなければ false */
-  setSignal(x: number, y: number, mask: number): boolean {
-    const m = this.map;
-    if (!m.inBounds(x, y)) return false;
-    const i = m.idx(x, y);
-    const pair = signalPair(m.rail.get(i));
-    if (!pair || m.span.get(i) || this.stopAtTile(x, y, 'rail')) return false;
-    if (mask !== pair[0] && mask !== pair[1]) return false;
-    this.signals.set(i, mask);
-    this.touchNetwork(x, y);
-    this.version++;
-    return true;
-  }
 
-  /** path[i] への進入が信号で制御されているか(path[i-1]→path[i] の向きの信号がある) */
-  private controlled(path: Uint32Array, i: number): boolean {
-    if (!this.signals.size) return false;
-    const d = dirBetween(path[i - 1], path[i], this.map.size);
-    return d >= 0 && d < 8 && (this.signalMask(path[i]) & (1 << d)) !== 0;
-  }
 
-  /**
-   * 次に予約する範囲の末尾(path の添字)。信号がなければ終点まで、
-   * 信号の手前までなら信号の1つ手前まで、信号の直前なら次の信号の手前まで(= 信号の先の閉塞を確保)。
-   */
-  private nextReserveEnd(v: Vehicle): number {
-    const p = v.path;
-    let m1 = -1;
-    for (let i = v.resTo + 1; i < p.length; i++) {
-      if (this.controlled(p, i)) {
-        m1 = i;
-        break;
-      }
-    }
-    if (m1 < 0) return p.length - 1;
-    if (m1 > v.resTo + 1) return m1 - 1;
-    for (let i = m1 + 1; i < p.length; i++) if (this.controlled(p, i)) return i - 1;
-    return p.length - 1;
-  }
 
-  /** 前方の閉塞を予約する。他編成が使っていれば何もせず false(赤信号) */
-  private extendReservation(v: Vehicle): boolean {
-    if (v.resTo >= v.path.length - 1) return true;
-    const end = this.nextReserveEnd(v);
-    for (let i = v.resTo + 1; i <= end; i++) {
-      const o = this.reserved.get(v.path[i]);
-      if (o !== undefined && o !== v.id) return false;
-    }
-    for (let i = v.resTo + 1; i <= end; i++) this.reserved.set(v.path[i], v.id);
-    v.resTo = end;
-    return true;
-  }
 
-  /** 信号が赤か(進入先の閉塞がすでに予約されている) */
-  signalIsRed(idx: number): boolean {
-    return this.reserved.has(idx);
-  }
 
   stopAtTile(x: number, y: number, kind?: Mode): Stop | undefined {
     const i = this.map.idx(x, y);
@@ -547,25 +324,25 @@ export class Transit {
   }
 
   /** 経由点を除いた路線(乗客の経路表用) */
-  private *realRoutes(): Generator<Route> {
+  *realRoutes(): Generator<Route> {
     for (const r of this.routes.values()) {
       yield r.orders.some((o) => o.pass || this.stops.get(o.stopId)?.waypoint) ? { ...r, orders: r.orders.filter((o) => !o.pass && !this.stops.get(o.stopId)?.waypoint) } : r;
     }
   }
 
   /** 停留所が占めるタイル(複数タイルの駅は全て) */
-  private stopTiles(s: Stop): number[] {
+  stopTiles(s: Stop): number[] {
     return s.station ? stationTiles(s.station).map(([x, y]) => this.map.idx(x, y)) : [s.idx];
   }
 
-  private stopValid(s: Stop): boolean {
+  stopValid(s: Stop): boolean {
     if (!s.station) return this.tileValid(s.kind, s.idx);
     // 複数タイルの駅は、1タイルでも壊されたら駅全体が無効(全体を撤去する)
     return this.stopTiles(s).every((i) => (this.map.rail.get(i) & 0xf) !== 0 && (this.map.rail.get(i) & 0xf0) === 0);
   }
 
   /** 駅の「停車位置」候補: 番線ごとの両端タイル。1タイルの駅は自分自身 */
-  private docks(s: Stop, trainTiles = 1): { a: number; b: number }[] {
+  docks(s: Stop, trainTiles = 1): { a: number; b: number }[] {
     if (!s.station) return [{ a: s.idx, b: s.idx }];
     const st = s.station;
     // 編成の中央がホームの中央にくる位置で停まる(編成がホームより長ければ端まで)。
@@ -582,7 +359,7 @@ export class Transit {
   }
 
   /** order i の次の「停車する」オーダーの添字(経由点を飛ばす) */
-  private realAfter(route: Route, i: number): number {
+  realAfter(route: Route, i: number): number {
     const n = route.orders.length;
     let j = (i + 1) % n;
     for (let g = 0; g < n && this.isWay(route, j); g++) j = (j + 1) % n;
@@ -590,7 +367,7 @@ export class Transit {
   }
 
   /** 停まらないオーダー(経由点、または通過に設定した駅) */
-  private isWay(route: Route, i: number): boolean {
+  isWay(route: Route, i: number): boolean {
     return !!route.orders[i].pass || !!this.stops.get(route.orders[i].stopId)?.waypoint;
   }
 
@@ -632,7 +409,7 @@ export class Transit {
     return stop;
   }
 
-  private tileValid(kind: Mode, idx: number): boolean {
+  tileValid(kind: Mode, idx: number): boolean {
     const m = this.map;
     if (m.span.get(idx)) return false;
     return kind === 'road' ? m.road.get(idx) !== 0 : kind === 'rail' ? (m.rail.get(idx) & 0xf) !== 0 && (m.rail.get(idx) & 0xf0) === 0 : m.air.get(idx) === 3;
@@ -721,17 +498,17 @@ export class Transit {
     this.version++;
   }
 
-  private dropVehicles(pred: (v: Vehicle) => boolean): void {
+  dropVehicles(pred: (v: Vehicle) => boolean): void {
     for (const v of this.vehicles) if (pred(v)) this.releaseAll(v.id);
     this.vehicles = this.vehicles.filter((v) => !pred(v));
   }
 
-  private releaseAll(vid: number): void {
+  releaseAll(vid: number): void {
     for (const [k, val] of this.reserved) if (val === vid) this.reserved.delete(k);
     for (const [k, val] of this.lane) if (val === vid) this.lane.delete(k);
   }
 
-  private laneKey(v: Vehicle): number {
+  laneKey(v: Vehicle): number {
     return v.path[Math.min(v.pi, v.path.length - 1)] * 4 + v.dir;
   }
 
@@ -803,7 +580,7 @@ export class Transit {
   // ---------------------------------------------------------------- 車両基地(デポ)
   /** 車両基地: 道路・線路・空港のタイルに置き、そこから車両を購入して路線(=共有オーダー)に配属する */
   depots = new Map<number, Depot>();
-  private depotAt = new Map<number, number>();
+  depotAt = new Map<number, number>();
 
   depotAtTile(x: number, y: number): Depot | undefined {
     if (!this.map.inBounds(x, y)) return undefined;
@@ -840,7 +617,7 @@ export class Transit {
     this.version++;
   }
 
-  private depotValid(d: Depot): boolean {
+  depotValid(d: Depot): boolean {
     const m = this.map;
     if (m.span.get(d.idx)) return false;
     if (d.kind === 'road') return m.road.get(d.idx) !== 0;
@@ -884,7 +661,7 @@ export class Transit {
   }
 
   /** 駅から線路を辿って編成の占有タイルを確保する */
-  private spawnTrail(v: Vehicle, start: number): boolean {
+  spawnTrail(v: Vehicle, start: number): boolean {
     const m = this.map;
     const s = m.size;
     if (this.reserved.has(start)) return false;
@@ -905,250 +682,13 @@ export class Transit {
     return true;
   }
 
-  /** 停留所 i → 次の停留所 の走行見込み時間(tick)。経路がなければ null */
-  legTicks(route: Route, i: number): number | null {
-    const a = this.stops.get(route.orders[i].stopId);
-    const j = this.realAfter(route, i);
-    const b = this.stops.get(route.orders[j].stopId);
-    if (!a || !b) return null;
-    const speed = modelOf(route.modelId).speed;
-    if (route.mode === 'air') return Math.hypot(a.x - b.x, a.y - b.y) / speed + 40; // 離着陸ぶん
-    // 経由点を通る経路: a → 経由点… → b
-    const tiles = [a.idx];
-    for (let k = (i + 1) % route.orders.length; k !== j; k = (k + 1) % route.orders.length) tiles.push(this.stops.get(route.orders[k].stopId)!.idx);
-    tiles.push(b.idx);
-    let len = 0;
-    for (let q = 0; q + 1 < tiles.length; q++) {
-      const p = this.route(tiles[q], tiles[q + 1], route.mode === 'rail');
-      if (!p) return null;
-      len += p.length - 1;
-      if (route.mode === 'rail') for (let k = 0; k + 1 < p.length; k++) if (dirBetween(p[k], p[k + 1], this.map.size) >= 4) len += Math.SQRT2 - 1;
-    }
-    return len / speed;
-  }
 
-  /**
-   * 停留所の発車案内: この停留所に停まる各路線について、次に来る(停車中の)車両ごとの到着/発車までの tick を返す。
-   * 見込みは走行時間(legTicks)と停車時間の積算で、渋滞などは反映しない。
-   */
-  departures(stopId: number, tick: number): Departure[] {
-    const out: Departure[] = [];
-    for (const route of this.routes.values()) {
-      const n = route.orders.length;
-      if (!route.orders.some((o, i) => o.stopId === stopId && !this.isWay(route, i)) || this.stops.get(stopId)?.waypoint) continue;
-      for (const v of this.vehicles) {
-        if (v.routeId !== route.id || v.hold) continue;
-        const cur = v.order;
-        const target = route.orders[cur];
-        if (!target) continue;
-        const nextName = (i: number) => this.stops.get(route.orders[this.realAfter(route, i)].stopId)?.name ?? '?';
-        if (v.state === 'load' && target.stopId === stopId) {
-          out.push({ routeId: route.id, vehicleId: v.id, eta: 0, stopped: true, leaveIn: Math.max(0, v.until - tick), toward: nextName(cur) });
-          continue;
-        }
-        // 現在の位置から次のオーダー到着までの残り
-        let acc: number;
-        let idx: number; // 次に到着するオーダー
-        if (v.state === 'load') {
-          acc = Math.max(0, v.until - tick);
-          const leg = this.legTicks(route, cur);
-          if (leg === null) continue;
-          acc += leg;
-          idx = this.realAfter(route, cur);
-        } else if (v.state === 'move') {
-          if (v.mode === 'air' && v.flight) acc = Math.max(0, (v.flight.dist - v.flight.done) / v.speed);
-          else acc = Math.max(0, v.path.length - 1 - v.pi - v.t) / v.speed;
-          idx = cur;
-        } else continue;
-        for (let k = 0; k < n; k++) {
-          if (route.orders[idx].stopId === stopId) {
-            out.push({ routeId: route.id, vehicleId: v.id, eta: acc, stopped: false, leaveIn: 0, toward: nextName(idx) });
-            break;
-          }
-          const leg = this.legTicks(route, idx);
-          if (leg === null) break;
-          acc += route.orders[idx].dwell + leg;
-          idx = this.realAfter(route, idx);
-        }
-      }
-    }
-    return out.sort((a, b) => a.eta - b.eta);
-  }
 
-  /** 時刻表(時刻指定オーダー)の次の発車: 路線ごとに最大 count 件、(現在から何tick後か) */
-  timetable(stopId: number, tick: number, count = 3): { routeId: number; etas: number[] }[] {
-    const res: { routeId: number; etas: number[] }[] = [];
-    for (const route of this.routes.values()) {
-      const o = route.orders.find((x) => x.stopId === stopId && x.kind === 'timed' && !x.pass);
-      if (!o) continue;
-      const P = route.period;
-      const first = (((o.departTod - todOf(tick)) % P) + P) % P;
-      res.push({ routeId: route.id, etas: Array.from({ length: count }, (_, i) => first + i * P) });
-    }
-    return res;
-  }
 
-  /** 走行時間から時刻表を自動作成する(全オーダーを時刻指定にし、周期を決める)。失敗したら false */
-  autoTimetable(routeId: number, startTod: number): boolean {
-    const route = this.routes.get(routeId);
-    if (!route) return false;
-    const n = route.orders.length;
-    const legs: number[] = [];
-    for (let i = 0; i < n; i++) {
-      if (this.isWay(route, i)) {
-        legs.push(0);
-        continue;
-      }
-      const l = route.legMeasured?.[i] ?? this.legTicks(route, i); // 実測があればそれを使う
-      if (l === null || l === undefined) return false;
-      legs.push(l);
-    }
-    const unit = DAY_TICKS / 1440; // 1分
-    let t = startTod;
-    let cycle = 0;
-    for (let i = 0; i < n; i++) {
-      if (this.isWay(route, i)) continue;
-      const o = route.orders[i];
-      o.kind = 'timed';
-      o.departTod = Math.round((t % DAY_TICKS) / unit) * unit;
-      const leg = legs[i] * 1.15 + unit; // 余裕15%+1分
-      const step = leg + o.dwell;
-      t += step;
-      cycle += step;
-    }
-    const fit = PERIOD_OPTIONS.filter(([, v]) => v >= cycle * 1.05).map(([, v]) => v);
-    route.period = fit.length ? Math.min(...fit) : DAY_TICKS;
-    this.version++;
-    return true;
-  }
 
-  /**
-   * 種別を設定し、停車駅を自動で選ぶ: 始発・折り返し(最も遠い駅)は必ず停車、途中駅は人口の多い駅・番線の多い駅を優先して残し、残りを通過にする。
-   * 時刻表があれば走行時間から組み直す。普通(0)は全駅停車に戻す。
-   */
-  applyRank(routeId: number, rank: number): boolean {
-    const r = this.routes.get(routeId);
-    if (!r || rank < 0 || rank >= RANKS.length) return false;
-    // 通過に設定済みの駅も対象にするため、経由点でない全オーダーを候補にする
-    const cand = r.orders.map((o, i) => (this.stops.get(o.stopId)?.waypoint ? -1 : i)).filter((i) => i >= 0);
-    const ids = [...new Set(cand.map((i) => r.orders[i].stopId))];
-    if (ids.length < 2) return false;
-    const first = this.stops.get(r.orders[cand[0]].stopId)!;
-    let far = ids[ids.length - 1];
-    let fd = -1;
-    for (const id of ids) {
-      const s = this.stops.get(id)!;
-      const d = Math.hypot(s.x - first.x, s.y - first.y);
-      if (d > fd) {
-        fd = d;
-        far = id;
-      }
-    }
-    const must = new Set([first.id, far]);
-    const mid = ids.filter((id) => !must.has(id));
-    const score = (id: number) => {
-      const s = this.stops.get(id)!;
-      return s.pop + (s.fpop ?? 0) + (s.station && s.station.tracks >= 2 ? 100000 : 0);
-    };
-    const keepN = rank === 0 ? mid.length : Math.ceil(mid.length * RANKS[rank].keep);
-    const keep = new Set([...mid].sort((a, b) => score(b) - score(a)).slice(0, keepN));
-    const firstTimed = r.orders.find((o, i) => o.kind === 'timed' && !this.isWay(r, i));
-    for (const o of r.orders) {
-      if (this.stops.get(o.stopId)?.waypoint) continue;
-      o.pass = must.has(o.stopId) || keep.has(o.stopId) ? undefined : true;
-    }
-    r.rank = rank;
-    r.legMeasured = undefined;
-    if (firstTimed && r.orders.some((o) => o.kind === 'timed')) this.autoTimetable(r.id, firstTimed.departTod);
-    this.syncOrders(r.id);
-    this.version++;
-    return true;
-  }
 
-  /**
-   * 車両がこの先に辿る経路の予定(表示用)。現在向かっている/停車中の停留所から、次の停車駅へ最大 maxLegs 区間。
-   * 鉄道は途中の経由点・通過駅を順に通る。各区間はタイル index の列。航空は空
-   */
-  planAhead(vehicleId: number, maxLegs = 3): { legs: number[][]; stops: number[] } | null {
-    const v = this.vehicles.find((x) => x.id === vehicleId);
-    const route = v && this.routes.get(v.routeId);
-    if (!v || !route) return null;
-    if (v.mode === 'air') return { legs: [], stops: [] };
-    const n = route.orders.length;
-    const legs: number[][] = [];
-    const stops: number[] = [];
-    let cur = v.order;
-    let total = 0;
-    for (let k = 0; k < maxLegs && total < 4000; k++) {
-      const from = this.stops.get(route.orders[cur]?.stopId);
-      if (!from) break;
-      const tiles = [from.idx];
-      let next = (cur + 1) % n;
-      for (let g = 0; g < n; g++) {
-        const w = this.stops.get(route.orders[next].stopId);
-        if (!w || !this.isWay(route, next)) break;
-        if (v.mode === 'rail') tiles.push(w.idx);
-        next = (next + 1) % n;
-      }
-      const dest = this.stops.get(route.orders[next].stopId);
-      if (!dest || next === cur) break;
-      tiles.push(dest.idx);
-      const leg: number[] = [];
-      let ok = true;
-      for (let q = 0; q + 1 < tiles.length; q++) {
-        const p = this.route(tiles[q], tiles[q + 1], v.mode === 'rail');
-        if (!p) {
-          ok = false;
-          break;
-        }
-        for (let i = leg.length ? 1 : 0; i < p.length; i++) leg.push(p[i]);
-      }
-      if (!ok) break;
-      legs.push(leg);
-      stops.push(next);
-      total += leg.length;
-      cur = next;
-    }
-    return { legs, stops };
-  }
 
-  /** 路線を複製する。reverse=逆向き(オーダーを逆順に)、shiftTicks=時刻表をずらす量。車両は複製しない */
-  cloneRoute(routeId: number, reverse: boolean, shiftTicks: number): Route | null {
-    const src = this.routes.get(routeId);
-    if (!src) return null;
-    const id = this.nextId++;
-    const list = reverse ? [...src.orders].reverse() : src.orders;
-    const copy: Route = {
-      ...src,
-      id,
-      name: `${src.name}${reverse ? '(逆)' : shiftTicks ? `(+${Math.round(shiftTicks / (DAY_TICKS / 1440))}分)` : '(複製)'}`,
-      color: ROUTE_COLORS[this.routes.size % ROUTE_COLORS.length],
-      orders: list.map((o) => ({ ...o, cond: undefined, departTod: o.kind === 'timed' ? (((o.departTod + shiftTicks) % DAY_TICKS) + DAY_TICKS) % DAY_TICKS : o.departTod })),
-      shared: undefined,
-      late: 0,
-      carried: 0,
-      legMeasured: undefined,
-      dayRevenue: 0,
-      income: 0,
-      profit: 0,
-      vs: undefined,
-      legs: undefined,
-      owner: this.actor || undefined,
-    };
-    this.routes.set(id, copy);
-    if (reverse && copy.orders.some((o) => o.kind === 'timed')) {
-      // 逆向きの時刻表は、元の最後の発車の少しあとから、走行時間で組み直す
-      const last = [...src.orders].reverse().find((o) => o.kind === 'timed');
-      if (last) this.autoTimetable(id, last.departTod + last.dwell + 5 * (DAY_TICKS / 1440) + shiftTicks);
-    }
-    this.version++;
-    return copy;
-  }
 
-  /** ダイヤ画面用: 路線のオーダーごとの次の停車駅までの走行時間(実測があれば実測)。時刻指定がなければ空 */
-  legsOf(route: Route): number[] {
-    return route.orders.map((_, i) => (this.isWay(route, i) ? 0 : (route.legMeasured?.[i] ?? this.legTicks(route, i) ?? 0)));
-  }
 
   removeVehicle(id: number): void {
     this.releaseAll(id);
@@ -1157,7 +697,7 @@ export class Transit {
   }
 
   /** 集客圏の人口と所属する街を数え直す */
-  private refreshCatchment(s: Stop): void {
+  refreshCatchment(s: Stop): void {
     const m = this.map;
     const R = CATCH[s.kind];
     let pop = 0;
@@ -1190,9 +730,9 @@ export class Transit {
   }
 
   /** 時刻に応じた施設の需要(人口換算)。施設ごとに人の集まる時間帯がある */
-  private dayMulDay = -1;
-  private dayMul = new Map<number, number>();
-  private facilityDemand(s: Stop, tick: number): number {
+  dayMulDay = -1;
+  dayMul = new Map<number, number>();
+  facilityDemand(s: Stop, tick: number): number {
     if (!s.facs || !s.facs.length) return 0;
     const hour = (todOf(tick) / DAY_TICKS) * 24;
     const day = Math.floor((tick + START_TOD) / DAY_TICKS);
@@ -1212,7 +752,7 @@ export class Transit {
     return d;
   }
 
-  private credit(stop: Stop, n: number): void {
+  credit(stop: Stop, n: number): void {
     const t = this.map.towns[stop.townId - 1];
     if (t) t.pax += n;
   }
@@ -1260,10 +800,10 @@ export class Transit {
   }
 
   /** 目的地を選んで乗客を発生させる(路線に接続された停留所のみ) */
-  private fareDemandVer = -1;
-  private fareDemandBy = new Map<number, number>();
+  fareDemandVer = -1;
+  fareDemandBy = new Map<number, number>();
   /** 停留所に停まる路線の運賃から決まる需要の倍率(路線の平均。構造が変わったときだけ作り直す) */
-  private stopFareDemand(stopId: number): number {
+  stopFareDemand(stopId: number): number {
     if (this.fareDemandVer !== this.version) {
       const sum = new Map<number, { s: number; n: number }>();
       for (const r of this.routes.values()) {
@@ -1282,7 +822,7 @@ export class Transit {
     return this.fareDemandBy.get(stopId) ?? 1;
   }
 
-  private generate(s: Stop, tick: number): void {
+  generate(s: Stop, tick: number): void {
     const tbl = this.router.table(s.id, this.version);
     if (tbl.next.size === 0) return;
     const n = (s.pop + this.facilityDemand(s, tick)) * PAX_RATE * GEN_EVERY * this.stopFareDemand(s.id) * (this.serviceMul?.(s.owner) ?? 1) * (1 + DEV.demandUp * (s.dev ?? 0)) + s.frac;
@@ -1309,13 +849,13 @@ export class Transit {
     }
   }
 
-  private addWaiting(s: Stop, dest: number, n: number): void {
+  addWaiting(s: Stop, dest: number, n: number): void {
     s.wait.set(dest, (s.wait.get(dest) ?? 0) + n);
     s.waiting += n;
   }
 
   /** 路線変更で行けなくなった目的地の乗客を取り除く */
-  private purgeUnreachable(s: Stop): void {
+  purgeUnreachable(s: Stop): void {
     const tbl = this.router.table(s.id, this.version);
     for (const [d, n] of s.wait) {
       if (!tbl.next.has(d)) {
@@ -1325,7 +865,7 @@ export class Transit {
     }
   }
 
-  private stepLoad(v: Vehicle, route: Route, tick: number): void {
+  stepLoad(v: Vehicle, route: Route, tick: number): void {
     if (v.hold) return; // 分割で切り離された待機編成
     const order = route.orders[v.order];
     const stop = order && this.stops.get(order.stopId);
@@ -1358,7 +898,7 @@ export class Transit {
   }
 
   /** 条件付きオーダーの条件が成り立つか */
-  private condHolds(v: Vehicle, route: Route, c: OrderCond, tick: number): boolean {
+  condHolds(v: Vehicle, route: Route, c: OrderCond, tick: number): boolean {
     let x: number;
     if (c.kind === 'load') x = v.cap > 0 ? (v.load / v.cap) * 100 : 0;
     else if (c.kind === 'wait') x = this.stops.get(route.orders[v.order].stopId)?.waiting ?? 0;
@@ -1366,125 +906,20 @@ export class Transit {
     return c.op === 'ge' ? x >= c.value : x < c.value;
   }
 
-  // ---------------------------------------------------------------- オーダーの編集(挿入・削除・並べ替え)
-  /** 同じ共有グループの路線(共有していなければ自分だけ) */
-  private groupOf(r: Route): Route[] {
-    return r.shared === undefined ? [r] : [...this.routes.values()].filter((x) => x.shared === r.shared);
-  }
 
-  /** オーダー番号の付け替え(old → new。undefined なら条件の飛び先を無効にする)を、路線の車両と条件に適用 */
-  private remapOrders(r: Route, f: (i: number) => number | undefined): void {
-    for (const o of r.orders) {
-      if (!o.cond) continue;
-      const to = f(o.cond.to);
-      if (to === undefined) o.cond = undefined;
-      else o.cond.to = to;
-    }
-    for (const v of this.vehicles) if (v.routeId === r.id) v.order = f(v.order) ?? v.order;
-  }
 
-  /** index の位置に停留所のオーダーを挿入する(0..n。共有している路線にも同じ操作) */
-  insertOrder(routeId: number, index: number, stopId: number): { ok: boolean; reason?: string } {
-    const r = this.routes.get(routeId);
-    const s = this.stops.get(stopId);
-    if (!r || !s) return { ok: false, reason: '路線または停留所がありません' };
-    if (s.kind !== r.mode) return { ok: false, reason: '種別の違う停留所は追加できません' };
-    if (this.actor && !this.mayUse(s, this.actor)) return { ok: false, reason: '他社の停留所は、持ち主の許可がないと使えません' };
-    index = Math.max(0, Math.min(r.orders.length, index));
-    for (const g of this.groupOf(r)) {
-      g.orders.splice(index, 0, { stopId, kind: 'dwell', dwell: DEFAULT_DWELL[g.mode], maxWait: 300, departTod: 0 });
-      // 挿入位置以降の番号をずらす(挿入した新オーダー自身は除く)
-      this.remapOrders(g, (i) => (i >= index ? i + 1 : i));
-      g.legMeasured = undefined;
-    }
-    this.version++;
-    return { ok: true };
-  }
 
-  /** index のオーダーを削除する。そのオーダーに向かう/停車中の車両がいる、または停車駅が2つ未満になるなら不可 */
-  removeOrder(routeId: number, index: number): { ok: boolean; reason?: string } {
-    const r = this.routes.get(routeId);
-    if (!r || index < 0 || index >= r.orders.length) return { ok: false, reason: 'オーダーがありません' };
-    const real = r.orders.filter((_o, i) => i !== index && !this.isWay(r, i)).length;
-    if (real < 2) return { ok: false, reason: '停車する停留所が2つ未満になります' };
-    const group = this.groupOf(r);
-    if (this.vehicles.some((v) => group.some((g) => g.id === v.routeId) && v.order === index)) return { ok: false, reason: 'このオーダーへ向かう/停車中の車両がいるため、今は削除できません' };
-    for (const g of group) {
-      g.orders.splice(index, 1);
-      this.remapOrders(g, (i) => (i === index ? undefined : i > index ? i - 1 : i));
-      for (const v of this.vehicles) if (v.routeId === g.id && v.order >= g.orders.length) v.order = 0;
-      g.legMeasured = undefined;
-    }
-    this.version++;
-    return { ok: true };
-  }
 
-  /** index のオーダーを dir(-1=前 / +1=後)へ動かす */
-  moveOrder(routeId: number, index: number, dir: -1 | 1): { ok: boolean; reason?: string } {
-    const r = this.routes.get(routeId);
-    const j = index + dir;
-    if (!r || index < 0 || index >= r.orders.length || j < 0 || j >= r.orders.length) return { ok: false, reason: 'これ以上動かせません' };
-    for (const g of this.groupOf(r)) {
-      [g.orders[index], g.orders[j]] = [g.orders[j], g.orders[index]];
-      this.remapOrders(g, (i) => (i === index ? j : i === j ? index : i));
-      g.legMeasured = undefined;
-    }
-    this.version++;
-    return { ok: true };
-  }
 
-  /** 路線のオーダーを共有する: 同じオーダー・周期の新しい路線を作り、共有グループに入れる */
-  shareRoute(routeId: number): Route | null {
-    const src = this.routes.get(routeId);
-    if (!src) return null;
-    const group = src.shared ?? src.id;
-    src.shared = group;
-    const id = this.nextId++;
-    const copy: Route = {
-      ...src,
-      id,
-      name: `${src.name}(共有)`,
-      color: ROUTE_COLORS[this.routes.size % ROUTE_COLORS.length],
-      orders: src.orders.map((o) => ({ ...o, cond: o.cond ? { ...o.cond } : undefined })),
-      shared: group,
-      late: 0,
-      carried: 0,
-      owner: this.actor || undefined,
-    };
-    this.routes.set(id, copy);
-    this.version++;
-    return copy;
-  }
 
-  /** 共有を解除する(オーダーは今の内容のまま独立) */
-  unshareRoute(routeId: number): void {
-    const r = this.routes.get(routeId);
-    if (!r || r.shared === undefined) return;
-    const group = r.shared;
-    r.shared = undefined;
-    const rest = [...this.routes.values()].filter((x) => x.shared === group);
-    if (rest.length === 1) rest[0].shared = undefined;
-    this.version++;
-  }
 
-  /** この路線のオーダー・周期を、共有している他の路線へ反映する(編集のたびに呼ぶ) */
-  syncOrders(routeId: number): void {
-    const src = this.routes.get(routeId);
-    if (!src || src.shared === undefined) return;
-    for (const r of this.routes.values()) {
-      if (r.id === src.id || r.shared !== src.shared) continue;
-      r.orders = src.orders.map((o) => ({ ...o, cond: o.cond ? { ...o.cond } : undefined }));
-      r.period = src.period;
-    }
-    this.version++;
-  }
 
   /** 次のオーダーへ向けて出発(経路がなければ noroute) */
-  private depart(v: Vehicle, route: Route, tick: number, advance: boolean): void {
+  depart(v: Vehicle, route: Route, tick: number, advance: boolean): void {
     this.departInner(v, route, tick, advance, route.orders.length);
   }
 
-  private departInner(v: Vehicle, route: Route, tick: number, advance: boolean, n: number): void {
+  departInner(v: Vehicle, route: Route, tick: number, advance: boolean, n: number): void {
     if (advance) {
       v.from = v.order;
       v.departedAt = tick;
@@ -1512,7 +947,7 @@ export class Transit {
   }
 
   /** 経路探索(結果をキャッシュ。使用時は各辺がまだ通れるか検査し、駄目なら探索し直す) */
-  private route(from: number, to: number, rail: boolean): Uint32Array | null {
+  route(from: number, to: number, rail: boolean): Uint32Array | null {
     const m = this.map;
     const s = m.size;
     const key = `${from}:${to}`;
@@ -1529,7 +964,7 @@ export class Transit {
         const d = dirBetween(c[i], c[i + 1], s);
         ok = d >= 0 && (layer.get(c[i]) & (rail ? CONN(d) : OUT(d))) !== 0 && (layer.get(c[i + 1]) & CONN(opposite8(d))) !== 0;
         if (ok && rail && this.signals.size && d < 8) {
-          const mk = this.signalMask(c[i + 1]);
+          const mk = this.signalsSys.signalMask(c[i + 1]);
           if (mk && !(mk & (1 << d))) ok = false; // 一方向の信号を逆走する経路は不可
         }
       }
@@ -1540,7 +975,7 @@ export class Transit {
         return c;
       }
     }
-    const p = findPath(m, from, to, rail, 300000, rail && this.signals.size ? (i) => this.signalMask(i) : undefined);
+    const p = findPath(m, from, to, rail, 300000, rail && this.signals.size ? (i) => this.signalsSys.signalMask(i) : undefined);
     const fx = from % s;
     const fy = Math.floor(from / s);
     const tx = to % s;
@@ -1577,13 +1012,13 @@ export class Transit {
     return p;
   }
 
-  private blocked(v: Vehicle, tick: number, wait: number): void {
+  blocked(v: Vehicle, tick: number, wait: number): void {
     v.state = 'noroute';
     v.retryAt = tick + wait;
     v.stuck += wait;
   }
 
-  private departRoad(v: Vehicle, dest: Stop, route: Route, tick: number): void {
+  departRoad(v: Vehicle, dest: Stop, route: Route, tick: number): void {
     const from = v.path[Math.min(v.pi, v.path.length - 1)];
     const path = this.route(from, dest.idx, false);
     if (!path) return this.blocked(v, tick, 30);
@@ -1599,7 +1034,7 @@ export class Transit {
    * 鉄道の出発経路の候補(短い順)。経由点を順に通り、最後は駅の番線(両端のうち進行方向の奥側)まで。
    * 折り返し(来た線路へ戻る)になる経路は除く。見つからなければ空。
    */
-  private railCandidates(v: Vehicle, vias: number[], dest: Stop): number[][] {
+  railCandidates(v: Vehicle, vias: number[], dest: Stop): number[][] {
     let cur = v.trail[0];
     let prev = v.trail.length > 1 ? v.trail[1] : -1;
     const base: number[] = [cur];
@@ -1627,7 +1062,7 @@ export class Transit {
     return out.sort((x, y) => x.length - y.length);
   }
 
-  private departRail(v: Vehicle, dest: Stop, route: Route, tick: number, vias: number[] = []): void {
+  departRail(v: Vehicle, dest: Stop, route: Route, tick: number, vias: number[] = []): void {
     const build = (): number[][] => {
       let c = this.railCandidates(v, vias, dest);
       if (!c.length && vias.length) c = this.railCandidates(v, [], dest); // 経由できなければ直行
@@ -1650,7 +1085,7 @@ export class Transit {
     for (const c of cands) {
       v.path = Uint32Array.from(c);
       v.resTo = 0;
-      if (!this.extendReservation(v)) continue;
+      if (!this.signalsSys.extendReservation(v)) continue;
       v.pi = 0;
       v.t = 0;
       v.stuck = 0;
@@ -1663,7 +1098,7 @@ export class Transit {
     this.blocked(v, tick, 10);
   }
 
-  private departAir(v: Vehicle, dest: Stop, route: Route, tick: number): void {
+  departAir(v: Vehicle, dest: Stop, route: Route, tick: number): void {
     const s = this.map.size;
     const from = v.path[0];
     const x0 = (from % s) + 0.5;
@@ -1678,7 +1113,7 @@ export class Transit {
     v.state = 'move';
   }
 
-  private stepAir(v: Vehicle, route: Route, tick: number): boolean {
+  stepAir(v: Vehicle, route: Route, tick: number): boolean {
     const f = v.flight;
     if (!f) {
       v.state = 'load';
@@ -1699,7 +1134,7 @@ export class Transit {
    * 通る線路が変更されたので、いまのタイルから目的地までの経路を探し直すか。印を消して true を返す。
    * 目的地の手前に経由点がある区間は、経由点を保つため探し直さない(次の出発で反映)。
    */
-  private takeReplan(v: Vehicle, route: Route): boolean {
+  takeReplan(v: Vehicle, route: Route): boolean {
     if (!v.replan) return false;
     v.replan = false;
     const n = route.orders.length;
@@ -1707,7 +1142,7 @@ export class Transit {
     return true;
   }
 
-  private stepRoad(v: Vehicle, route: Route, tick: number): boolean {
+  stepRoad(v: Vehicle, route: Route, tick: number): boolean {
     const m = this.map;
     const s = m.size;
     v.t += v.speed;
@@ -1745,7 +1180,7 @@ export class Transit {
           this.depart(v, route, tick, false);
           return true;
         }
-        if (v.pi + 1 > v.resTo && !this.extendReservation(v)) {
+        if (v.pi + 1 > v.resTo && !this.signalsSys.extendReservation(v)) {
           v.t = 0; // 次の閉塞が空くまで、この位置で待つ
           break;
         }
@@ -1762,7 +1197,7 @@ export class Transit {
    * 鉄道の加減速: 発車直後は低速から徐々に上がり(約 ACCEL_TICKS)、停車駅の手前 DECEL_TILES タイルから減速する。
    * 経路の末尾(駅)の手前では最低 25% の速度まで落とす。
    */
-  private railSpeedFactor(v: Vehicle): number {
+  railSpeedFactor(v: Vehicle): number {
     const sf = Math.min(1, (v.sf ?? 0.3) + 0.03);
     v.sf = sf;
     const remain = v.path.length - 1 - v.pi - v.t;
@@ -1770,11 +1205,11 @@ export class Transit {
     return Math.max(0.2, Math.min(sf, dec));
   }
 
-  private stepRail(v: Vehicle, route: Route, tick: number): boolean {
+  stepRail(v: Vehicle, route: Route, tick: number): boolean {
     const m = this.map;
     const s = m.size;
     // 斜めの区間は距離が √2 倍なので、タイル間の進捗を距離で割る
-    if (v.pi < v.path.length - 1 && v.pi + 1 > v.resTo && !this.extendReservation(v)) {
+    if (v.pi < v.path.length - 1 && v.pi + 1 > v.resTo && !this.signalsSys.extendReservation(v)) {
       v.t = 0;
       v.stuck++; // 赤信号で停止中
       return true;
@@ -1817,7 +1252,7 @@ export class Transit {
   }
 
   /** 到着: 目的地の乗客は降車(輸送実績)、他路線へ乗り換える乗客は停留所に降ろす */
-  private alight(v: Vehicle, stop: Stop, route: Route, tick: number): void {
+  alight(v: Vehicle, stop: Stop, route: Route, tick: number): void {
     // 乗っていた全員の、前の停留所からここまでの距離運賃
     const prev = v.lastStop !== undefined ? this.stops.get(v.lastStop) : undefined;
     if (prev && v.load > 0) this.onFare?.(v.mode, v.load * FARE[v.mode].perTile * fareMulOf(route) * (Math.abs(prev.x - stop.x) + Math.abs(prev.y - stop.y)), v.routeId);
@@ -1843,7 +1278,7 @@ export class Transit {
     }
   }
 
-  private arrive(v: Vehicle, route: Route, tick: number): void {
+  arrive(v: Vehicle, route: Route, tick: number): void {
     v.stuck = 0;
     const order = route.orders[v.order];
     const stop = this.stops.get(order.stopId);
@@ -1920,11 +1355,98 @@ export class Transit {
     const alt = Math.max(0, Math.min(1, f.done / 12, (f.dist - f.done) / 12));
     return { x: f.x0 + (f.x1 - f.x0) * k, y: f.y0 + (f.y1 - f.y0) * k, alt, dx: v.hx, dy: v.hy };
   }
-}
 
-function dirBetween(a: number, b: number, size: number): number {
-  const dx = (b % size) - (a % size);
-  const dy = (Math.floor(b / size)) - (Math.floor(a / size));
-  for (let d = 0; d < 8; d++) if (DX8[d] === dx && DY8[d] === dy) return d;
-  return -1;
+  // ---- 他のファイルから呼ばれる操作(実体は上の各サービス) ----
+  signalMask(idx: number): number {
+    return this.signalsSys.signalMask(idx);
+  }
+
+  cycleSignal(x: number, y: number): number | null {
+    return this.signalsSys.cycleSignal(x, y);
+  }
+
+  setSignal(x: number, y: number, mask: number): boolean {
+    return this.signalsSys.setSignal(x, y, mask);
+  }
+
+  signalIsRed(idx: number): boolean {
+    return this.signalsSys.signalIsRed(idx);
+  }
+
+  splitTrain(vid: number, k: number, tick: number): Vehicle | null {
+    return this.trainOps.splitTrain(vid, k, tick);
+  }
+
+  departHeld(vid: number, tick: number): boolean {
+    return this.trainOps.departHeld(vid, tick);
+  }
+
+  canCouple(aId: number, bId: number): boolean {
+    return this.trainOps.canCouple(aId, bId);
+  }
+
+  coupleTrains(aId: number, bId: number): boolean {
+    return this.trainOps.coupleTrains(aId, bId);
+  }
+
+  trainsNear(stopId: number, r = 9): Vehicle[] {
+    return this.trainOps.trainsNear(stopId, r);
+  }
+
+  insertOrder(routeId: number, index: number, stopId: number): { ok: boolean; reason?: string } {
+    return this.orderEdit.insertOrder(routeId, index, stopId);
+  }
+
+  removeOrder(routeId: number, index: number): { ok: boolean; reason?: string } {
+    return this.orderEdit.removeOrder(routeId, index);
+  }
+
+  moveOrder(routeId: number, index: number, dir: -1 | 1): { ok: boolean; reason?: string } {
+    return this.orderEdit.moveOrder(routeId, index, dir);
+  }
+
+  shareRoute(routeId: number): Route | null {
+    return this.orderEdit.shareRoute(routeId);
+  }
+
+  unshareRoute(routeId: number): void {
+    return this.orderEdit.unshareRoute(routeId);
+  }
+
+  syncOrders(routeId: number): void {
+    return this.orderEdit.syncOrders(routeId);
+  }
+
+  legTicks(route: Route, i: number): number | null {
+    return this.schedule.legTicks(route, i);
+  }
+
+  departures(stopId: number, tick: number): Departure[] {
+    return this.schedule.departures(stopId, tick);
+  }
+
+  timetable(stopId: number, tick: number, count = 3): { routeId: number; etas: number[] }[] {
+    return this.schedule.timetable(stopId, tick, count);
+  }
+
+  autoTimetable(routeId: number, startTod: number): boolean {
+    return this.schedule.autoTimetable(routeId, startTod);
+  }
+
+  applyRank(routeId: number, rank: number): boolean {
+    return this.schedule.applyRank(routeId, rank);
+  }
+
+  planAhead(vehicleId: number, maxLegs = 3): { legs: number[][]; stops: number[] } | null {
+    return this.schedule.planAhead(vehicleId, maxLegs);
+  }
+
+  cloneRoute(routeId: number, reverse: boolean, shiftTicks: number): Route | null {
+    return this.schedule.cloneRoute(routeId, reverse, shiftTicks);
+  }
+
+  legsOf(route: Route): number[] {
+    return this.schedule.legsOf(route);
+  }
+
 }
