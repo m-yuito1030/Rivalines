@@ -3,6 +3,7 @@ import { GameMap } from '../src/world/gameMap';
 import { Simulation } from '../src/sim/simulation';
 import { SEA_LEVEL } from '../src/world/constants';
 import { TRAINING, trainingCost } from '../src/sim/economy';
+import { DEV, devCost, devIncome } from '../src/sim/development';
 import { execute } from './commands';
 import { Replicator } from './replicate';
 import { Accounts } from './accounts';
@@ -437,5 +438,28 @@ describe('JGRPP風の線路・信号・車両操作', () => {
     co.training = TRAINING.max;
     co.cash = 1e9;
     expect(execute(sim, 1, { t: 'fin', op: 'train' }).ok).toBe(false); // 最高レベル
+  });
+
+  it('沿線開発: 自社の停留所の開発度を上げる(建設費を払い、乗客と不動産収入が増える)。他社・経由点・最高は不可', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 90, y: 100 }, b: { x: 120, y: 100 } });
+    const a = execute(sim, 1, { t: 'ensureStop', x: 100, y: 100, kind: 'road' });
+    const st = sim.transit.stops.get(a.id!)!;
+    st.pop = 1000;
+    const co = sim.playerCompany(1);
+    const cash = co.cash;
+    expect(execute(sim, 2, { t: 'develop', stopId: a.id! }).ok).toBe(false); // 他社
+    expect(execute(sim, 1, { t: 'develop', stopId: a.id! }).ok).toBe(true);
+    expect(st.dev).toBe(1);
+    expect(co.cash).toBe(cash - devCost(0));
+    expect(devIncome(st)).toBe(1000 * DEV.incomePerPop);
+    const before = co.cash;
+    co.endOfDay(0, sim.map, sim.transit, 50, [], 1);
+    expect(co.total.realestate).toBe(devIncome(st));
+    expect(co.cash).toBeGreaterThan(before - 1_000_000); // 収入が入る(維持費などを引いても大きくは減らない)
+    st.dev = DEV.max;
+    expect(execute(sim, 1, { t: 'develop', stopId: a.id! }).ok).toBe(false); // 最高
+    expect(execute(sim, 1, { t: 'develop', stopId: 99999 }).ok).toBe(false);
   });
 });

@@ -10,6 +10,7 @@ import { placeAirport } from '../src/world/airports';
 import { modelOf, clampCars } from '../src/data/models';
 import { DAY_TICKS, RANKS } from '../src/sim/transit';
 import { clampFareMul } from '../src/sim/fares';
+import { DEV, devCost } from '../src/sim/development';
 const MINT = DAY_TICKS / 1440;
 import { acquireRival, divestRival } from '../src/sim/rivals';
 import type { Route } from '../src/sim/transit';
@@ -22,6 +23,9 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
   const map = sim.map;
   const t = sim.transit;
   const co = sim.playerCompany(who);
+  // run() はすぐ実行されるので、run が使う const はその前に定義する(後ろに書くと初期化前アクセスのエラーになる)
+  const facOcc = (i: number) => !!t.stopAtTile(i % map.size, Math.floor(i / map.size)) || !!t.depotAtTile(i % map.size, Math.floor(i / map.size));
+  const charge = (cost: number, cat: string, what: string): CmdResult | null => (co.spend(cat, cost) ? null : fail(`資金が足りません(${what} ${yen(cost)} / 現金 ${yen(co.cash)})。経営画面(F)で融資を受けられます`));
   t.actor = who;
   try {
     return run();
@@ -32,8 +36,6 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
   function mine(r: Route | undefined): r is Route {
     return !!r && r.owner === who;
   }
-  const facOcc = (i: number) => !!t.stopAtTile(i % map.size, Math.floor(i / map.size)) || !!t.depotAtTile(i % map.size, Math.floor(i / map.size));
-  const charge = (cost: number, cat: string, what: string): CmdResult | null => (co.spend(cat, cost) ? null : fail(`資金が足りません(${what} ${yen(cost)} / 現金 ${yen(co.cash)})。経営画面(F)で融資を受けられます`));
 
   function run(): CmdResult {
     switch (cmd.t) {
@@ -373,6 +375,19 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
         vs.forEach((v, i) => (v.offset = Math.round(((i % n) * (P / n)) / MINT) * MINT));
         t.version++;
         return { ok: true, msg: `${vs.length}本で運行(${Math.round(P / Math.min(n, Math.max(1, vs.length)) / MINT)}分間隔)${bought ? `、${bought}本を購入` : ''}${lack ? `。${lack}のため ${n} 本には届きませんでした` : ''}` };
+      }
+      case 'develop': {
+        const s = t.stops.get(cmd.stopId);
+        if (!s || s.waypoint) return fail('停留所が見つかりません');
+        if (s.owner !== who) return fail('自社の停留所だけ開発できます');
+        const lv = s.dev ?? 0;
+        if (lv >= DEV.max) return fail('最高の開発度です');
+        const cost = devCost(lv);
+        const bad = charge(cost, 'build', '沿線開発');
+        if (bad) return bad;
+        s.dev = lv + 1;
+        t.version++;
+        return { ok: true, msg: `${s.name}の周りを開発しました(開発度${s.dev}・${yen(cost)})。乗客が増え、不動産収入が毎日入ります` };
       }
       case 'gift': {
         // 資金支援: 他の会社へ送金する(自社の現金の範囲で)

@@ -106,7 +106,7 @@ export class FinancePanel {
     const dt = this.getDate();
     const f = c.fy;
     const fsum = (cats: readonly string[]) => cats.reduce((a, k) => a + (f[k] ?? 0), 0);
-    const fRev = fsum(['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary']);
+    const fRev = fsum(['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'realestate']);
     const fOp = fRev - (f.running ?? 0) - (f.upkeep ?? 0); // 減価償却は期末に確定する
     h += `<h3>決算(第${dt.period}期 ${dt.year}年${dt.month}月${dt.day}日 / Q${dt.quarter} ・ 3月末決算)</h3>`;
     h += `<div class="fgrid"><div>期首来の売上</div><div class="n">${yen(fRev)}</div><div>期首来の営業利益(減価償却前)</div><div class="n ${fOp < 0 ? 'neg' : ''}">${yen(fOp)}</div><div>インフラの簿価(毎期10%償却) / 繰越欠損金</div><div class="n">${yen(c.infra)} / ${yen(c.loss)}</div><div>法人税率</div><div class="n">${Math.round(TAX_RATE * 100)}%(繰越欠損金で相殺)</div></div>`;

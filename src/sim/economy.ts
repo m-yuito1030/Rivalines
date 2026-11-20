@@ -5,6 +5,7 @@ import type { Mode } from '../data/models';
 import { DAY_TICKS, type Stop, type Transit, todOf } from './transit';
 import type { Rival } from './rivals';
 import { fiscalRange } from './calendar';
+import { devIncome } from './development';
 
 /** 会社の経営(資金・売上・費用・融資・買収)。金額は円。 */
 export const START_CASH = 30_000_000;
@@ -65,7 +66,7 @@ export const TRAINING = { max: 5, costCut: 0.04, demandUp: 0.03, days: 7, dailyP
 export const trainingCost = (level: number): number => Math.round((2_000_000 * Math.pow(level + 1, 1.5)) / 100_000) * 100_000;
 
 /** 経営の分類(売上・費用のラベル) */
-export const REVENUE_CATS = ['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'sale', 'toll-in', 'gift-in'] as const;
+export const REVENUE_CATS = ['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'sale', 'toll-in', 'gift-in', 'realestate'] as const;
 export const COST_CATS = ['build', 'vehicle', 'running', 'upkeep', 'interest', 'acquire', 'tax', 'dividend', 'toll-out', 'gift-out', 'training'] as const;
 export const CAT_LABEL: Record<string, string> = {
   'fare-road': '運賃(バス)',
@@ -83,6 +84,7 @@ export const CAT_LABEL: Record<string, string> = {
   tax: '法人税',
   dividend: '配当',
   'toll-in': '通行料(受取)',
+  realestate: '不動産収入(沿線開発)',
   'toll-out': '通行料(支払)',
   'gift-in': '資金支援(受取)',
   'gift-out': '資金支援(送金)',
@@ -285,6 +287,10 @@ export class Company {
     this.pay('interest', Math.round((this.loan * this.interestRate(this.credit)) / 360));
     // 子会社(買収した競合会社)の利益
     for (const r of rivals) if (r.acquired && (ownerId === undefined || r.acquiredBy === ownerId)) this.earn('subsidiary', r.profit);
+    // 沿線開発の不動産収入
+    let dev = 0;
+    for (const s of transit.stops.values()) if (s.dev && !s.waypoint && (ownerId === undefined || s.owner === ownerId)) dev += devIncome(s);
+    this.earn('realestate', dev);
     // 施設の1日の収益を更新(買収額の目安に使う)。マルチプレイでは全社分を最初の会社の締めで1回だけ更新する
     if (ownerId === undefined || ownerId === FIRST_OWNER.id) for (const f of map.facilities) {
       f.income = (f.income ?? 0) * 0.8 + (f.dayIncome ?? 0) * 0.2;
@@ -334,7 +340,7 @@ export class Company {
   closeFiscalYear(period: number, assets: number): FiscalReport {
     const f = this.fy;
     const sum = (cats: readonly string[]) => cats.reduce((a, k) => a + (f[k] ?? 0), 0);
-    const revenue = sum(['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'toll-in']);
+    const revenue = sum(['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'toll-in', 'realestate']);
     const running = f.running ?? 0;
     const upkeep = (f.upkeep ?? 0) + (f['toll-out'] ?? 0) + (f.training ?? 0);
     const depreciation = Math.round(this.infra * DEPRECIATION_RATE);

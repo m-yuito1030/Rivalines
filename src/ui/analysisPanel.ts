@@ -2,7 +2,8 @@ import type { Transit } from '../sim/transit';
 import type { Facility } from '../world/facilities';
 import { yen } from '../sim/economy';
 import { net } from '../multi/net';
-import { facilityEcon, routeEcon, stopEcon, summarize } from './analysis';
+import { DEV } from '../sim/development';
+import { devRows, facilityEcon, routeEcon, stopEcon, summarize } from './analysis';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
@@ -12,17 +13,25 @@ const cls = (n: number) => (n < 0 ? 'neg' : '');
 /** 経営分析: 自社の路線・停留所・施設の採算と混雑を、悪い順に並べる */
 export class AnalysisPanel {
   private timer = 0;
+  /** ボタンを押している間は再描画しない(クリック直前に要素が入れ替わるのを防ぐ) */
+  private pressed = false;
   constructor(
     private modal: HTMLElement,
     private body: HTMLElement,
     private transit: Transit,
     private facilities: () => Facility[],
     private onJump: (x: number, y: number) => void,
+    private onMessage: (msg: string) => void = () => {},
   ) {
+    modal.addEventListener('pointerdown', () => (this.pressed = true));
+    window.addEventListener('pointerup', () => setTimeout(() => (this.pressed = false), 0));
+    window.addEventListener('pointercancel', () => (this.pressed = false));
     modal.querySelector('#anaClose')?.addEventListener('click', () => this.close());
     modal.addEventListener('click', (e) => {
       const t = e.target as HTMLElement;
       if (t === modal) return this.close();
+      const dev = t.closest<HTMLElement>('[data-dev]');
+      if (dev) return void net.cmd({ t: 'develop', stopId: Number(dev.dataset.dev) }).then((r) => this.onMessage(r.msg ?? (r.ok ? '完了しました' : '失敗しました')));
       const j = t.closest<HTMLElement>('[data-jx]');
       if (j) {
         this.onJump(Number(j.dataset.jx), Number(j.dataset.jy));
@@ -52,6 +61,7 @@ export class AnalysisPanel {
   }
 
   private render(): void {
+    if (this.pressed) return;
     const me = net.id || undefined;
     const routes = routeEcon(this.transit, me).sort((a, b) => a.profit - b.profit);
     const stops = stopEcon(this.transit, me).sort((a, b) => b.crowdPct - a.crowdPct).slice(0, 15);
@@ -72,6 +82,13 @@ export class AnalysisPanel {
             const st = this.transit.stops.get(p.id)!;
             return `<tr><td><a href="#" data-jx="${st.x}" data-jy="${st.y}">${esc(p.name)}</a></td><td>${p.waiting}</td><td class="${p.crowdPct >= 80 ? 'neg' : ''}">${p.crowdPct}%</td><td class="${p.routes === 0 ? 'neg' : ''}">${p.routes}</td></tr>`;
           })
+          .join('')}</table>`
+      : '<div>自社の停留所がありません</div>';
+    const dev = devRows(this.transit, me).slice(0, 15);
+    h += `<h3>沿線開発(人口の多い停留所・開発度は最大${DEV.max})</h3>`;
+    h += dev.length
+      ? `<table><tr><th>停留所</th><th>圏人口</th><th>開発度</th><th>不動産収入/日</th><th></th></tr>${dev
+          .map((d) => `<tr><td><a href="#" data-jx="${d.x}" data-jy="${d.y}">${esc(d.name)}</a></td><td>${d.pop}</td><td>${d.dev}</td><td>${yen(d.income)}</td><td>${d.nextCost === null ? '最高' : `<button data-dev="${d.id}" title="開発度を上げると乗客が${Math.round(DEV.demandUp * 100)}%ずつ増え、収入が+${yen(d.nextGain)}/日">開発 ${yen(d.nextCost)}</button>`}</td></tr>`)
           .join('')}</table>`
       : '<div>自社の停留所がありません</div>';
     h += '<h3>施設別の収支</h3>';

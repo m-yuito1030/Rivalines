@@ -23,6 +23,8 @@ export type Cmd =
   | { t: 'rename'; kind: 'stop' | 'depot'; id: number; name: string }
   | { t: 'buyVehicle'; depotId?: number; routeId: number; modelId: string; cars: number }
   | { t: 'gift'; to: number; amount: number }
+  /** 沿線開発: 自社の停留所の開発度を1上げる */
+  | { t: 'develop'; stopId: number }
   /** 信号を並べる: 始点→終点の直線の線路に、ドラッグの向きの一方向信号を interval タイルおきに置く */
   | { t: 'signalLine'; a: Pt; b: Pt; interval: number }
   /** 路線の全車両を、路線の既定の車種・両数に置き換える(旧車両は評価額の50%で下取り) */

@@ -2,6 +2,7 @@ import type { Mode } from '../data/models';
 import { modelOf } from '../data/models';
 import { FACILITY_SPECS, type Facility } from '../world/facilities';
 import { RUNNING_RATE, vehiclePrice } from '../sim/economy';
+import { DEV, devCost, devIncome } from '../sim/development';
 import { WAIT_CAP, type Transit } from '../sim/transit';
 
 /** 経営分析: 自社の路線・停留所・施設ごとの採算を集計する(表示用。ゲームの状態は変えない) */
@@ -97,4 +98,30 @@ export function summarize(routes: RouteEcon[], facs: FacilityEcon[]): Summary {
     lossRoutes: routes.filter((r) => r.vehicles > 0 && r.profit < 0).length,
     idleVehicles: routes.filter((r) => r.vehicles === 0).length,
   };
+}
+
+export interface DevRow {
+  id: number;
+  name: string;
+  x: number;
+  y: number;
+  pop: number;
+  dev: number;
+  /** 今の開発度の不動産収入/日 */
+  income: number;
+  /** 次の開発度にする費用(最高なら null) */
+  nextCost: number | null;
+  /** 次の開発度で増える不動産収入/日 */
+  nextGain: number;
+}
+
+/** 沿線開発の対象(自社の停留所。人口の多い順) */
+export function devRows(t: Transit, ownerId?: number): DevRow[] {
+  const out: DevRow[] = [];
+  for (const s of t.stops.values()) {
+    if (s.waypoint || (ownerId !== undefined && s.owner !== ownerId)) continue;
+    const dev = s.dev ?? 0;
+    out.push({ id: s.id, name: s.name, x: s.x, y: s.y, pop: Math.round(s.pop), dev, income: devIncome(s), nextCost: dev >= DEV.max ? null : devCost(dev), nextGain: dev >= DEV.max ? 0 : devIncome({ pop: s.pop, dev: dev + 1 }) - devIncome(s) });
+  }
+  return out.sort((a, b) => b.pop - a.pop);
 }

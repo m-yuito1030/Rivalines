@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { facilityEcon, routeEcon, stopEcon, summarize } from './analysis';
+import { devRows, facilityEcon, routeEcon, stopEcon, summarize } from './analysis';
 import { FACILITY_SPECS, type Facility } from '../world/facilities';
 import { RUNNING_RATE, vehiclePrice } from '../sim/economy';
 import { modelOf } from '../data/models';
@@ -53,5 +53,23 @@ describe('analysis', () => {
       { vehicles: 2, profit: 10 },
     ] as never[];
     expect(summarize(rs, [{ profit: 3 }] as never[])).toEqual({ routeProfit: 5, facilityProfit: 3, lossRoutes: 1, idleVehicles: 1 });
+  });
+
+  it('沿線開発: 自社の停留所(経由点を除く)を人口順に。次の費用と収入の増分を出し、最高なら null', () => {
+    const t = {
+      stops: new Map([
+        [1, { id: 1, name: 'a', x: 1, y: 2, pop: 500, dev: 1, owner: 7 }],
+        [2, { id: 2, name: 'b', x: 3, y: 4, pop: 900, owner: 7 }],
+        [3, { id: 3, name: 'c', x: 5, y: 6, pop: 100, dev: 3, owner: 7 }],
+        [4, { id: 4, name: 'd', x: 0, y: 0, pop: 999, owner: 8 }],
+        [5, { id: 5, name: 'w', x: 0, y: 0, pop: 999, owner: 7, waypoint: true }],
+      ]),
+    } as unknown as Transit;
+    const rows = devRows(t, 7);
+    expect(rows.map((r) => r.id)).toEqual([2, 1, 3]);
+    expect(rows[0]).toMatchObject({ dev: 0, income: 0, nextCost: 3_000_000 });
+    expect(rows[0].nextGain).toBe(900 * 30);
+    expect(rows[1].income).toBe(500 * 30);
+    expect(rows[2].nextCost).toBeNull();
   });
 });

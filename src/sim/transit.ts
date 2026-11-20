@@ -9,6 +9,7 @@ import { findPath } from './pathfinding';
 import { FACILITY_SPECS, facilitiesNear, facilityAttract, hourFactor } from '../world/facilities';
 import { FARE, fareDemand, fareMulOf } from './fares';
 import { facilityDayMul } from './events';
+import { DEV } from './development';
 import { type StationInfo, type StationOptions, layStationTracks, planStation, stationTile, stationTiles } from '../world/stations';
 import { Router } from './routing';
 
@@ -42,6 +43,8 @@ export interface Stop {
   facs?: number[];
   /** 乗降した人数の累計(ランキング用) */
   traffic?: number;
+  /** 沿線開発の開発度(なければ0) */
+  dev?: number;
   /** マルチプレイ: 設置した会社(アカウントID)。なければ共用 */
   owner?: number;
 }
@@ -1374,7 +1377,7 @@ export class Transit {
   private generate(s: Stop, tick: number): void {
     const tbl = this.router.table(s.id, this.version);
     if (tbl.next.size === 0) return;
-    const n = (s.pop + this.facilityDemand(s, tick)) * PAX_RATE * GEN_EVERY * this.stopFareDemand(s.id) * (this.serviceMul?.(s.owner) ?? 1) + s.frac;
+    const n = (s.pop + this.facilityDemand(s, tick)) * PAX_RATE * GEN_EVERY * this.stopFareDemand(s.id) * (this.serviceMul?.(s.owner) ?? 1) * (1 + DEV.demandUp * (s.dev ?? 0)) + s.frac;
     const whole = Math.floor(n);
     s.frac = n - whole;
     const room = WAIT_CAP[s.kind] - s.waiting;

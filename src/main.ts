@@ -446,7 +446,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   // 統計画面
   const statsPanel = new StatsPanel($('stats-modal'), $('statsBody'), transit, () => map.towns, () => sim.rating, () => sim.migrated);
   $('statsBtn').addEventListener('click', () => statsPanel.toggle());
-  const anaPanel = new AnalysisPanel($('analysis-modal'), $('anaBody'), transit, () => map.facilities, (x, y) => camera.centerOnTile(x, y));
+  const anaPanel = new AnalysisPanel($('analysis-modal'), $('anaBody'), transit, () => map.facilities, (x, y) => camera.centerOnTile(x, y), (m) => tools.onMessage?.(m));
   $('anaBtn').addEventListener('click', () => anaPanel.toggle());
   const finPanel = new FinancePanel($('fin-modal'), $('finBody'), () => sim.company, map, transit, () => sim.rating, (msg) => tools.onMessage?.(msg), () => sim.rivals, () => sim.date);
   $('finBtn').addEventListener('click', () => finPanel.toggle());
