@@ -2,6 +2,7 @@
 import type { DragTool } from '../world/buildApply';
 import type { StationOptions } from '../world/stations';
 import type { Mode } from '../data/models';
+import type { PactState } from '../sim/pacts';
 
 export type Pt = { x: number; y: number };
 
@@ -25,6 +26,8 @@ export type Cmd =
   | { t: 'gift'; to: number; amount: number }
   /** 沿線開発: 自社の停留所の開発度を1上げる */
   | { t: 'develop'; stopId: number }
+  /** 提携(乗り入れ契約): 申し込み・承諾・拒否・解消(取り下げ) */
+  | { t: 'pact'; op: 'propose' | 'accept' | 'reject' | 'cancel'; to?: number; id?: number; discount?: number }
   /** 信号を並べる: 始点→終点の直線の線路に、ドラッグの向きの一方向信号を interval タイルおきに置く */
   | { t: 'signalLine'; a: Pt; b: Pt; interval: number }
   /** 路線の全車両を、路線の既定の車種・両数に置き換える(旧車両は評価額の50%で下取り) */
@@ -102,7 +105,7 @@ export type ServerMsg =
   | { type: 'frame'; tick: number; veh: VehMsg[]; gone: number[]; tiles: TileRec[] }
   | { type: 'chunk'; cx: number; cy: number; tiles: number[][]; edits: [number, number][] }
   | { type: 'struct'; nextId: number; routes: unknown[]; stops: unknown[]; depots: unknown[]; signals: [number, number][] }
-  | { type: 'misc'; myVehicles: MyVeh[]; tick: number; company: unknown; rivals: unknown[]; rating: unknown; delivered: number; transfers: number; waiting: [number, number][]; players: PlayerInfo[]; online: string[] }
+  | { type: 'misc'; myVehicles: MyVeh[]; tick: number; company: unknown; rivals: unknown[]; rating: unknown; delivered: number; transfers: number; waiting: [number, number][]; players: PlayerInfo[]; online: string[]; pacts: PactState }
   | { type: 'towns'; towns: unknown[] }
   | { type: 'fac'; facilities: unknown[] }
   | { type: 'res'; req: number; res: CmdResult };

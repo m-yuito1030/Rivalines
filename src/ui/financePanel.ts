@@ -1,6 +1,8 @@
 import { TRAINING, trainingCost, CAT_LABEL, COST_CATS, type Company, LOAN_STEP, PAYOUT_OPTIONS, REVENUE_CATS, SHARES, TAX_RATE, assetValue, facilityValue, gradeOf, yen } from '../sim/economy';
 import { type Rival, acquirePrice, divestPrice } from '../sim/rivals';
 import { net } from '../multi/net';
+import { PACT_DISCOUNTS, type PactState } from '../sim/pacts';
+import type { PlayerInfo } from '../multi/protocol';
 import { FACILITY_SPECS } from '../world/facilities';
 import type { GameMap } from '../world/gameMap';
 import { type RatingState, ratingName } from '../sim/rating';
@@ -13,6 +15,9 @@ export class FinancePanel {
   private timer = 0;
   /** ボタンを押している間は再描画しない(クリック直前に要素が入れ替わるのを防ぐ) */
   private pressed = false;
+  /** 提携の申し込みフォームの選択(再描画しても保つ) */
+  private pactTo = 0;
+  private pactDisc = 0.5;
   constructor(
     private modal: HTMLElement,
     private body: HTMLElement,
@@ -23,13 +28,22 @@ export class FinancePanel {
     private onMessage: (msg: string) => void,
     private rivals: () => Rival[] = () => [],
     private getDate: () => { year: number; month: number; day: number; period: number; quarter: number } = () => ({ year: 2026, month: 4, day: 1, period: 1, quarter: 1 }),
+    private pacts: () => PactState = () => ({ pacts: [], proposals: [], nextId: 1 }),
+    private players: () => PlayerInfo[] = () => [],
   ) {
+    modal.addEventListener('change', (e) => {
+      const el = e.target as HTMLSelectElement;
+      if (el.dataset.pf === 'to') this.pactTo = Number(el.value);
+      if (el.dataset.pf === 'disc') this.pactDisc = Number(el.value);
+    });
     modal.querySelector('#finClose')?.addEventListener('click', () => this.close());
     modal.addEventListener('pointerdown', () => (this.pressed = true));
     window.addEventListener('pointerup', () => setTimeout(() => (this.pressed = false), 0));
     window.addEventListener('pointercancel', () => (this.pressed = false));
     modal.addEventListener('click', (e) => {
       if (e.target === modal) return this.close();
+      const pb = (e.target as HTMLElement).closest<HTMLElement>('[data-pact]');
+      if (pb) return this.pact(pb);
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-fa]');
       if (b) this.act(b);
     });
@@ -53,6 +67,12 @@ export class FinancePanel {
   close(): void {
     this.modal.hidden = true;
     clearInterval(this.timer);
+  }
+
+  private pact(b: HTMLElement): void {
+    const op = b.dataset.pact as 'propose' | 'accept' | 'reject' | 'cancel';
+    const cmd = op === 'propose' ? { t: 'pact' as const, op, to: this.pactTo, discount: this.pactDisc } : { t: 'pact' as const, op, id: Number(b.dataset.id) };
+    void net.cmd(cmd).then((r) => this.onMessage(r.msg ?? (r.ok ? '完了しました' : '失敗しました')));
   }
 
   private act(b: HTMLElement): void {
@@ -124,6 +144,21 @@ export class FinancePanel {
       : lv >= TRAINING.max
         ? '<div class="muted">最高レベルです</div>'
         : `<div class="frow"><button data-fa="train" ${c.cash < trainingCost(lv) ? 'disabled' : ''}>研修してレベル${lv + 1}へ(${yen(trainingCost(lv))}・${TRAINING.days}日)</button><span class="muted"> レベルが上がるほど、研修費が毎日かかります</span></div>`;
+    const ps = this.players();
+    const nameOf = (id: number) => esc(ps.find((p) => p.id === id)?.name ?? `会社${id}`);
+    const pc = this.pacts();
+    const mine = pc.pacts.filter((p) => p.a === net.id || p.b === net.id);
+    const inbox = pc.proposals.filter((p) => p.to === net.id);
+    const sent = pc.proposals.filter((p) => p.from === net.id);
+    const others = ps.filter((p) => p.id !== net.id && !pc.pacts.some((x) => (x.a === p.id && x.b === net.id) || (x.b === p.id && x.a === net.id)) && !pc.proposals.some((x) => (x.from === p.id && x.to === net.id) || (x.to === p.id && x.from === net.id)));
+    if (!this.pactTo || !others.some((p) => p.id === this.pactTo)) this.pactTo = others[0]?.id ?? 0;
+    h += '<h3>提携(乗り入れ契約)</h3><div class="muted">他社と合意すると、互いの線路・道路を通る通行料が割り引かれます(双方向)。どちらからでも解消できます</div>';
+    h += mine.length ? `<table><tr><th>相手</th><th>通行料の割引</th><th></th></tr>${mine.map((p) => `<tr><td>${nameOf(p.a === net.id ? p.b : p.a)}</td><td>${Math.round(p.discount * 100)}%</td><td><button data-pact="cancel" data-id="${p.id}">解消</button></td></tr>`).join('')}</table>` : '<div class="muted">提携中の会社はありません</div>';
+    for (const p of inbox) h += `<div class="frow">📨 ${nameOf(p.from)} から申し込み(通行料 ${Math.round(p.discount * 100)}% 割引) <button data-pact="accept" data-id="${p.id}">承諾</button><button data-pact="reject" data-id="${p.id}">断る</button></div>`;
+    for (const p of sent) h += `<div class="frow">⏳ ${nameOf(p.to)} へ申し込み中(${Math.round(p.discount * 100)}% 割引) <button data-pact="cancel" data-id="${p.id}">取り下げ</button></div>`;
+    h += others.length
+      ? `<div class="frow">申し込む: <select data-pf="to">${others.map((p) => `<option value="${p.id}" ${p.id === this.pactTo ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select> 割引 <select data-pf="disc">${PACT_DISCOUNTS.map((d) => `<option value="${d}" ${d === this.pactDisc ? 'selected' : ''}>${Math.round(d * 100)}%</option>`).join('')}</select> <button data-pact="propose">申し込む</button></div>`
+      : '<div class="muted">申し込める会社がありません</div>';
     h += '<h3>競合会社(買収できます)</h3>';
     h += `<table><tr><th>会社</th><th>企業価値</th><th>利益/日</th><th>株価</th><th>買収額</th><th></th></tr>${rivals
       .map(

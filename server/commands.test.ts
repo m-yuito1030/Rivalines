@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameMap } from '../src/world/gameMap';
 import { Simulation } from '../src/sim/simulation';
 import { SEA_LEVEL } from '../src/world/constants';
-import { TRAINING, trainingCost } from '../src/sim/economy';
+import { TOLL, TRAINING, trainingCost } from '../src/sim/economy';
 import { DEV, devCost, devIncome } from '../src/sim/development';
 import { execute } from './commands';
 import { Replicator } from './replicate';
@@ -461,5 +461,33 @@ describe('JGRPP風の線路・信号・車両操作', () => {
     st.dev = DEV.max;
     expect(execute(sim, 1, { t: 'develop', stopId: a.id! }).ok).toBe(false); // 最高
     expect(execute(sim, 1, { t: 'develop', stopId: 99999 }).ok).toBe(false);
+  });
+
+  it('提携: 申し込み・承諾・解消のコマンド。成立すると他社のインフラの通行料が割り引かれる', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    sim.playerCompany(1);
+    sim.playerCompany(2);
+    const tile = sim.map.idx(100, 100);
+    sim.map.rail.set(tile, 5);
+    sim.map.infraOwner.set(tile, 2); // 2社の線路を1社の列車が通る
+    const route = { owner: 1 } as never;
+    const toll = () => {
+      const c1 = sim.playerCompany(1);
+      const before = c1.cash;
+      sim.transit.onTile!({} as never, route, tile);
+      return before - c1.cash;
+    };
+    expect(toll()).toBe(TOLL.rail);
+    expect(execute(sim, 1, { t: 'pact', op: 'propose', to: 99, discount: 0.5 }).ok).toBe(false); // 相手がいない
+    expect(execute(sim, 1, { t: 'pact', op: 'propose', to: 2, discount: 0.5 }).ok).toBe(true);
+    expect(toll()).toBe(TOLL.rail); // 承諾前は割引なし
+    const id = sim.pacts.proposals[0].id;
+    expect(execute(sim, 1, { t: 'pact', op: 'accept', id }).ok).toBe(false); // 申し込んだ側は承諾できない
+    expect(execute(sim, 2, { t: 'pact', op: 'accept', id }).ok).toBe(true);
+    expect(toll()).toBe(TOLL.rail * 0.5);
+    const pid = sim.pacts.pacts[0].id;
+    expect(execute(sim, 1, { t: 'pact', op: 'cancel', id: pid }).ok).toBe(true);
+    expect(toll()).toBe(TOLL.rail);
   });
 });

@@ -376,6 +376,25 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
         t.version++;
         return { ok: true, msg: `${vs.length}本で運行(${Math.round(P / Math.min(n, Math.max(1, vs.length)) / MINT)}分間隔)${bought ? `、${bought}本を購入` : ''}${lack ? `。${lack}のため ${n} 本には届きませんでした` : ''}` };
       }
+      case 'pact': {
+        const pa = sim.pacts;
+        if (cmd.op === 'propose') {
+          const to = Number(cmd.to);
+          if (!sim.players.has(to)) return fail('相手が見つかりません');
+          const err = pa.propose(who, to, Number(cmd.discount));
+          return err ? fail(err) : { ok: true, msg: '提携を申し込みました。相手の承諾を待ちます' };
+        }
+        const id = Number(cmd.id);
+        if (cmd.op === 'accept' || cmd.op === 'reject') {
+          const err = pa.respond(who, id, cmd.op === 'accept');
+          return err ? fail(err) : { ok: true, msg: cmd.op === 'accept' ? '提携しました。互いの通行料が割り引かれます' : '申し込みを断りました' };
+        }
+        if (cmd.op === 'cancel') {
+          const err = pa.cancel(who, id);
+          return err ? fail(err) : { ok: true, msg: '提携を解消(または取り下げ)しました' };
+        }
+        return fail('不正な操作です');
+      }
       case 'develop': {
         const s = t.stops.get(cmd.stopId);
         if (!s || s.waypoint) return fail('停留所が見つかりません');

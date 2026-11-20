@@ -5,6 +5,7 @@ import type { Town } from '../world/town';
 import { type RatingState, newRating, stepRating } from './rating';
 import { migrateStep } from './migration';
 import { Company, FIRST_OWNER, RUNNING_RATE, TOLL, type CompanyState, vehiclePrice } from './economy';
+import { Pacts, type PactState } from './pacts';
 import { createRivals, stepRivals, type Rival } from './rivals';
 import { calendarOf, fiscalPeriodOf, quarterOf } from './calendar';
 import { assetValue, type FiscalReport } from './economy';
@@ -20,6 +21,8 @@ export interface SimState {
   towns: Town[];
   /** 巨大マップ: 街を生成済みの区画 */
   townRegions?: number[];
+  /** マルチプレイ: 提携(乗り入れ契約) */
+  pacts?: PactState;
   /** マルチプレイ: 会社ごとの経営 */
   players?: [number, CompanyState][];
   transit: TransitSave;
@@ -54,6 +57,8 @@ export class Simulation {
   /** マルチプレイ: 会社(アカウントID → 会社)。切断中の会社は日次・決算の処理を止める */
   readonly players = new Map<number, Company>();
   readonly online = new Set<number>();
+  /** マルチプレイ: 提携(通行料の割引) */
+  readonly pacts = new Pacts();
   multi = false;
   /** 運行が始まった地域へ移住した人数(累計) */
   migrated = 0;
@@ -105,7 +110,7 @@ export class Simulation {
       if (!this.multi || !route.owner) return;
       const own = this.map.infraOwner.get(tile);
       if (!own || own === route.owner) return;
-      const toll = this.map.rail.get(tile) ? TOLL.rail : TOLL.road;
+      const toll = (this.map.rail.get(tile) ? TOLL.rail : TOLL.road) * (1 - this.pacts.discountBetween(route.owner, own));
       this.playerCompany(route.owner).pay('toll-out', toll);
       this.playerCompany(own).earn('toll-in', toll);
     };
@@ -122,6 +127,7 @@ export class Simulation {
       map.facilityVer++;
       if (restore.company) this.company = Company.from(restore.company);
       for (const [id, c] of restore.players ?? []) this.players.set(id, Company.from(c));
+      if (restore.pacts) this.pacts.load(restore.pacts);
       this.rivals = restore.rivals ?? createRivals(this.rivalRng, this.multi ? 20 : 4);
       if (restore.rivalRng !== undefined) this.rivalRng.setState(restore.rivalRng);
       if (restore.pubRng !== undefined) this.pubRng.setState(restore.pubRng);
@@ -159,7 +165,7 @@ export class Simulation {
 
   /** セーブ用に状態を取り出す */
   state(): SimState {
-    return { tick: this.tick, speed: this.speed, rng: this.rng.getState(), players: [...this.players].map(([id, c]) => [id, c.toJSON()] as [number, CompanyState]), towns: this.map.towns, townRegions: [...this.map.townRegions], transit: this.transit.save(), rating: this.rating, migrated: this.migrated, facilities: this.map.facilities, company: this.company.toJSON(), rivals: this.rivals, rivalRng: this.rivalRng.getState(), pubRng: this.pubRng.getState() };
+    return { tick: this.tick, speed: this.speed, rng: this.rng.getState(), pacts: this.pacts.toJSON(), players: [...this.players].map(([id, c]) => [id, c.toJSON()] as [number, CompanyState]), towns: this.map.towns, townRegions: [...this.map.townRegions], transit: this.transit.save(), rating: this.rating, migrated: this.migrated, facilities: this.map.facilities, company: this.company.toJSON(), rivals: this.rivals, rivalRng: this.rivalRng.getState(), pubRng: this.pubRng.getState() };
   }
 
   /** 直近のフレームで進めたtick数と所要時間(HUD用) */

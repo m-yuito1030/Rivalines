@@ -233,6 +233,7 @@ export class Replicator {
         waiting,
         players,
         online,
+        pacts: sim.pacts.toJSON(),
       });
     }
   }

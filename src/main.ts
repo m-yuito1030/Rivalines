@@ -448,7 +448,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   $('statsBtn').addEventListener('click', () => statsPanel.toggle());
   const anaPanel = new AnalysisPanel($('analysis-modal'), $('anaBody'), transit, () => map.facilities, (x, y) => camera.centerOnTile(x, y), (m) => tools.onMessage?.(m));
   $('anaBtn').addEventListener('click', () => anaPanel.toggle());
-  const finPanel = new FinancePanel($('fin-modal'), $('finBody'), () => sim.company, map, transit, () => sim.rating, (msg) => tools.onMessage?.(msg), () => sim.rivals, () => sim.date);
+  const finPanel = new FinancePanel($('fin-modal'), $('finBody'), () => sim.company, map, transit, () => sim.rating, (msg) => tools.onMessage?.(msg), () => sim.rivals, () => sim.date, () => mirror.pacts, () => mirror.players);
   $('finBtn').addEventListener('click', () => finPanel.toggle());
   sim.onFiscalClose = (r) => {
     tools.onMessage?.(`第${r.period}期決算(${r.from}〜${r.to}): 当期純利益 ${yen(r.netIncome)}、法人税 ${yen(r.tax)}、配当 ${yen(r.dividend)}。経営画面(F)で決算書を確認できます`);
