@@ -15,6 +15,7 @@ import { loadBuildingSprites } from './render/buildingSprites';
 import { loadVehicleSprites } from './render/vehicleSprites';
 import { StatsPanel } from './ui/statsPanel';
 import { AnalysisPanel } from './ui/analysisPanel';
+import { AuctionPanel } from './ui/auctionPanel';
 import { FinancePanel } from './ui/financePanel';
 import { RankingPanel } from './ui/rankingPanel';
 import { DiagramPanel } from './ui/diagramPanel';
@@ -448,6 +449,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   $('statsBtn').addEventListener('click', () => statsPanel.toggle());
   const anaPanel = new AnalysisPanel($('analysis-modal'), $('anaBody'), transit, () => map.facilities, (x, y) => camera.centerOnTile(x, y), (m) => tools.onMessage?.(m));
   $('anaBtn').addEventListener('click', () => anaPanel.toggle());
+  const aucPanel = new AuctionPanel($('auction-modal'), $('aucBody'), () => mirror.auctions, () => map.towns, () => mirror.players, (x, y) => camera.centerOnTile(x, y), (m) => tools.onMessage?.(m));
+  $('aucBtn').addEventListener('click', () => aucPanel.toggle());
   const finPanel = new FinancePanel($('fin-modal'), $('finBody'), () => sim.company, map, transit, () => sim.rating, (msg) => tools.onMessage?.(msg), () => sim.rivals, () => sim.date, () => mirror.pacts, () => mirror.players);
   $('finBtn').addEventListener('click', () => finPanel.toggle());
   sim.onFiscalClose = (r) => {

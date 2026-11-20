@@ -6,6 +6,9 @@ import { type RatingState, newRating, stepRating } from './rating';
 import { migrateStep } from './migration';
 import { Company, FIRST_OWNER, RUNNING_RATE, TOLL, type CompanyState, vehiclePrice } from './economy';
 import { Pacts, type PactState } from './pacts';
+import { AUCTION_TYPES, Auctions, OPEN_EVERY_DAYS, type AuctionState } from './auctions';
+import { hash01 } from './events';
+import { FACILITY_SPECS } from '../world/facilities';
 import { createRivals, stepRivals, type Rival } from './rivals';
 import { calendarOf, fiscalPeriodOf, quarterOf } from './calendar';
 import { assetValue, type FiscalReport } from './economy';
@@ -21,8 +24,9 @@ export interface SimState {
   towns: Town[];
   /** 巨大マップ: 街を生成済みの区画 */
   townRegions?: number[];
-  /** マルチプレイ: 提携(乗り入れ契約) */
+  /** マルチプレイ: 提携(乗り入れ契約)・入札と独占権 */
   pacts?: PactState;
+  auctions?: AuctionState;
   /** マルチプレイ: 会社ごとの経営 */
   players?: [number, CompanyState][];
   transit: TransitSave;
@@ -59,6 +63,8 @@ export class Simulation {
   readonly online = new Set<number>();
   /** マルチプレイ: 提携(通行料の割引) */
   readonly pacts = new Pacts();
+  /** マルチプレイ: 入札(競り)と独占権 */
+  readonly auctions = new Auctions();
   multi = false;
   /** 運行が始まった地域へ移住した人数(累計) */
   migrated = 0;
@@ -128,6 +134,7 @@ export class Simulation {
       if (restore.company) this.company = Company.from(restore.company);
       for (const [id, c] of restore.players ?? []) this.players.set(id, Company.from(c));
       if (restore.pacts) this.pacts.load(restore.pacts);
+      if (restore.auctions) this.auctions.load(restore.auctions);
       this.rivals = restore.rivals ?? createRivals(this.rivalRng, this.multi ? 20 : 4);
       if (restore.rivalRng !== undefined) this.rivalRng.setState(restore.rivalRng);
       if (restore.pubRng !== undefined) this.pubRng.setState(restore.pubRng);
@@ -165,7 +172,7 @@ export class Simulation {
 
   /** セーブ用に状態を取り出す */
   state(): SimState {
-    return { tick: this.tick, speed: this.speed, rng: this.rng.getState(), pacts: this.pacts.toJSON(), players: [...this.players].map(([id, c]) => [id, c.toJSON()] as [number, CompanyState]), towns: this.map.towns, townRegions: [...this.map.townRegions], transit: this.transit.save(), rating: this.rating, migrated: this.migrated, facilities: this.map.facilities, company: this.company.toJSON(), rivals: this.rivals, rivalRng: this.rivalRng.getState(), pubRng: this.pubRng.getState() };
+    return { tick: this.tick, speed: this.speed, rng: this.rng.getState(), pacts: this.pacts.toJSON(), auctions: this.auctions.toJSON(), players: [...this.players].map(([id, c]) => [id, c.toJSON()] as [number, CompanyState]), towns: this.map.towns, townRegions: [...this.map.townRegions], transit: this.transit.save(), rating: this.rating, migrated: this.migrated, facilities: this.map.facilities, company: this.company.toJSON(), rivals: this.rivals, rivalRng: this.rivalRng.getState(), pubRng: this.pubRng.getState() };
   }
 
   /** 直近のフレームで進めたtick数と所要時間(HUD用) */
@@ -222,6 +229,7 @@ export class Simulation {
           c.endOfDay(ended, this.map, this.transit, this.rating.score, this.rivals, id);
         }
       } else this.company.endOfDay(ended, this.map, this.transit, this.rating.score, this.rivals);
+      if (this.multi) this.auctionDay(ended);
       stepRivals(this.rivals, this.rivalRng);
       // 事業年度をまたぐ日(3月31日→4月1日)は決算
       const a = calendarOf(ended);
@@ -243,6 +251,17 @@ export class Simulation {
         r.dayRevenue = 0;
       }
     }
+  }
+
+  /** マルチプレイ: 競りの決着と、新しい競りを開く(日締めに1回。人口の多い街から、日付で決まる) */
+  private auctionDay(day: number): void {
+    this.auctions.settleDay((who, amount) => this.online.has(who) && this.playerCompany(who).spend('acquire', amount));
+    if (day % OPEN_EVERY_DAYS !== 0) return;
+    const towns = [...this.map.towns].sort((a, b) => b.pop - a.pop).slice(0, 30);
+    if (!towns.length) return;
+    const t = towns[Math.floor(hash01(this.map.seed, day, 11) * towns.length)];
+    const type = AUCTION_TYPES[Math.floor(hash01(this.map.seed, day, 12) * AUCTION_TYPES.length)];
+    this.auctions.open(t.id, type, Math.round((FACILITY_SPECS[type].cost * 0.5) / 100_000) * 100_000);
   }
 
   /** 決算(事業年度の締め)が行われたときに呼ばれる */

@@ -234,6 +234,7 @@ export class Replicator {
         players,
         online,
         pacts: sim.pacts.toJSON(),
+        auctions: sim.auctions.toJSON(),
       });
     }
   }

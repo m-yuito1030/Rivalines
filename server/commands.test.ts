@@ -490,4 +490,23 @@ describe('JGRPP風の線路・信号・車両操作', () => {
     expect(execute(sim, 1, { t: 'pact', op: 'cancel', id: pid }).ok).toBe(true);
     expect(toll()).toBe(TOLL.rail);
   });
+
+  it('入札: 競りに入札でき、独占権を持つ他社の街には同じ種類の施設を建てられない', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    sim.map.towns.push({ id: 1, name: 'T', x: 60, y: 60, pop: 5000, houses: 0, roads: [], nextGrowth: 1e12, pax: 0 });
+    const town = sim.map.towns[0];
+    const lot = sim.auctions.open(1, 'mall', 1_500_000)!;
+    expect(execute(sim, 1, { t: 'bid', lotId: 999, amount: 2_000_000 }).ok).toBe(false);
+    expect(execute(sim, 1, { t: 'bid', lotId: lot.id, amount: 1_000_000 }).ok).toBe(false); // 最低額未満
+    expect(execute(sim, 1, { t: 'bid', lotId: lot.id, amount: 1e12 }).ok).toBe(false); // 資金不足
+    expect(execute(sim, 1, { t: 'bid', lotId: lot.id, amount: 2_000_000 }).ok).toBe(true);
+    expect(execute(sim, 1, { t: 'bid', lotId: lot.id, amount: 3_000_000 }).ok).toBe(false); // 自分が最高額
+    expect(sim.playerCompany(1).cash).toBeGreaterThan(20_000_000); // 入札だけでは支払わない
+    sim.auctions.rights.push({ townId: 1, type: 'mall', owner: 2, paid: 1 });
+    expect(town).toBeDefined();
+    const r = execute(sim, 1, { t: 'place', tool: 'mall', x: town.x, y: town.y });
+    expect(r.ok).toBe(false);
+    expect(r.msg).toContain('独占権');
+  });
 });

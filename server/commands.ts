@@ -11,6 +11,7 @@ import { modelOf, clampCars } from '../src/data/models';
 import { DAY_TICKS, RANKS } from '../src/sim/transit';
 import { clampFareMul } from '../src/sim/fares';
 import { DEV, devCost } from '../src/sim/development';
+import { blockingRight } from '../src/sim/auctions';
 const MINT = DAY_TICKS / 1440;
 import { acquireRival, divestRival } from '../src/sim/rivals';
 import type { Route } from '../src/sim/transit';
@@ -83,6 +84,7 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
           const type = tool as FacilityType;
           const spec = FACILITY_SPECS[type];
           const sprite = SPRITE_TYPES.includes(type);
+          if (blockingRight(sim.auctions, map.towns, who, type, x, y)) return fail(`この街の${spec.name}の独占権は他社が持っています(別の街に建てるか、次の競りに参加してください)`);
           const plan = planFacility(map, x, y, type, facOcc, sprite ? spriteDims('L') : undefined);
           if (!plan.ok) return fail(`${spec.name}を建てられません: ${plan.reason}`);
           const bad = charge(spec.cost, 'build', spec.name);
@@ -375,6 +377,14 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
         vs.forEach((v, i) => (v.offset = Math.round(((i % n) * (P / n)) / MINT) * MINT));
         t.version++;
         return { ok: true, msg: `${vs.length}本で運行(${Math.round(P / Math.min(n, Math.max(1, vs.length)) / MINT)}分間隔)${bought ? `、${bought}本を購入` : ''}${lack ? `。${lack}のため ${n} 本には届きませんでした` : ''}` };
+      }
+      case 'bid': {
+        const lot = sim.auctions.lots.find((l) => l.id === Number(cmd.lotId));
+        if (!lot) return fail('競りが見つかりません');
+        const amount = Math.floor(Number(cmd.amount));
+        if (!co.afford(amount)) return fail(`資金が足りません(入札額 ${yen(amount)} / 現金 ${yen(co.cash)})`);
+        const err = sim.auctions.bid(who, lot.id, amount);
+        return err ? fail(err) : { ok: true, msg: `${yen(amount)}で入札しました(締め切りまで あと${lot.left}日。落札すると、その時点で支払います)` };
       }
       case 'pact': {
         const pa = sim.pacts;

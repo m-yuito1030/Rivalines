@@ -276,3 +276,20 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 #analysis-modal .bad { color: #ff8f8f; }
 #analysis-modal .neg { color: #f66; }
 #analysis-modal a { color: #8cf; }
+#auction-modal { position: fixed; inset: 0; background: #0009; display: grid; place-items: center; z-index: 20; }
+#auction-modal[hidden] { display: none; }
+#auction-modal .box { width: 720px; max-width: 96vw; max-height: 88vh; overflow: auto; background: #15283f; border-radius: 12px; padding: 16px; font-size: 13px; }
+#auction-modal h2 { margin: 0 0 8px; font-size: 18px; display: flex; justify-content: space-between; align-items: center; }
+#auction-modal h3 { margin: 14px 0 6px; font-size: 14px; }
+#auction-modal button { background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; padding: 4px 10px; cursor: pointer; font-size: 12px; }
+#auction-modal table { width: 100%; border-collapse: collapse; }
+#auction-modal th, #auction-modal td { padding: 3px 6px; border-bottom: 1px solid #345; text-align: right; white-space: nowrap; }
+#auction-modal th:first-child, #auction-modal td:first-child { text-align: left; }
+#auction-modal th { color: #9ab; font-weight: normal; }
+#auction-modal i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; }
+#auction-modal .rbar { display: grid; grid-template-columns: 170px 1fr 30px; gap: 6px; align-items: center; margin: 2px 0; }
+#auction-modal .rbar i { background: #0b1420; border-radius: 4px; height: 8px; display: block; overflow: hidden; }
+#auction-modal .rbar b { background: #4bb36a; height: 8px; display: block; }
+#auction-modal .bad { color: #ff8f8f; }
+#auction-modal a { color: #8cf; }
+#auction-modal input { background: #0d1a2b; color: #eee; border: 1px solid #456; border-radius: 4px; padding: 2px 4px; }
