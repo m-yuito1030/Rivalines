@@ -19,9 +19,7 @@ export function renderSlots(el: HTMLElement, metas: Record<string, SaveMeta>, h:
     const title = document.createElement('b');
     title.textContent = SLOT_LABEL[key];
     const sub = document.createElement('span');
-    sub.textContent = m
-      ? `${m.gameDate} / ${m.size}² / 街${m.towns} 人口${m.pop} 車両${m.vehicles} (${new Date(m.savedAt).toLocaleString('ja-JP')})`
-      : '(空)';
+    sub.textContent = m ? `${m.gameDate} / ${m.size}² / 街${m.towns} 人口${m.pop} 車両${m.vehicles} (${new Date(m.savedAt).toLocaleString('ja-JP')})` : '(空)';
     info.append(title, sub);
     row.append(info);
     const btn = (label: string, fn: () => void, disabled = false) => {

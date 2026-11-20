@@ -26,7 +26,8 @@ export class CommandContext {
   facOcc = (i: number): boolean => !!this.t.stopAtTile(i % this.map.size, Math.floor(i / this.map.size)) || !!this.t.depotAtTile(i % this.map.size, Math.floor(i / this.map.size));
 
   /** 建設費などを払う。払えなければ失敗の結果を返す */
-  charge = (cost: number, cat: string, what: string): CmdResult | null => (this.co.spend(cat, cost) ? null : fail(`資金が足りません(${what} ${yen(cost)} / 現金 ${yen(this.co.cash)})。経営画面(F)で融資を受けられます`));
+  charge = (cost: number, cat: string, what: string): CmdResult | null =>
+    this.co.spend(cat, cost) ? null : fail(`資金が足りません(${what} ${yen(cost)} / 現金 ${yen(this.co.cash)})。経営画面(F)で融資を受けられます`);
 
   /** 自社の路線か */
   mine = (r: Route | undefined): r is Route => !!r && r.owner === this.who;

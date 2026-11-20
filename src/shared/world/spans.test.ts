@@ -34,7 +34,10 @@ describe('高低差1段の接続', () => {
 
 describe('橋・トンネル', () => {
   it('川には橋、丘にはトンネルをかけられ、車両が通れる', () => {
-    for (const [mid, kind] of [['river', 'bridge'], ['hill', 'tunnel']] as const) {
+    for (const [mid, kind] of [
+      ['river', 'bridge'],
+      ['hill', 'tunnel'],
+    ] as const) {
       const m = world(mid);
       const p = buildSpan(m, 9, 20, 13, 20, 'road');
       expect(p.ok).toBe(true);

@@ -70,7 +70,7 @@ export class AuctionPanel {
   }
 
   private render(): void {
-    if (this.pressed || this.body.contains(document.activeElement) && document.activeElement?.tagName === 'INPUT') return;
+    if (this.pressed || (this.body.contains(document.activeElement) && document.activeElement?.tagName === 'INPUT')) return;
     const st = this.state();
     const towns = this.towns();
     const ps = this.players();
@@ -85,9 +85,12 @@ export class AuctionPanel {
       const mine = l.bid?.who === net.id;
       return `<tr><td>${townLink(l.townId)}</td><td>${FACILITY_SPECS[l.type].icon} ${FACILITY_SPECS[l.type].name}</td><td>${l.bid ? `${yen(l.bid.amount)}(${mine ? '<b>自社</b>' : nameOf(l.bid.who)})` : '入札なし'}</td><td>${yen(min)}</td><td>あと${l.left}日</td><td>${mine ? '最高額' : `<input type="number" data-lotin="${l.id}" min="${Math.ceil(min / 10_000)}" step="1" value="${this.inputs.get(l.id) ?? Math.ceil(min / 10_000)}" style="width:80px">万円 <button data-bid="${l.id}" data-min="${min}">入札</button>`}</td></tr>`;
     };
-    let h = '<div class="muted">街ごとの独占権を競りにかけます。落札すると、その街の範囲(街の規模で決まる半径)に、その種類の施設を建てられるのは自社だけになります。入札額は落札した時点で支払います(現金が足りないと流札)。</div>';
+    let h =
+      '<div class="muted">街ごとの独占権を競りにかけます。落札すると、その街の範囲(街の規模で決まる半径)に、その種類の施設を建てられるのは自社だけになります。入札額は落札した時点で支払います(現金が足りないと流札)。</div>';
     h += '<h3>開催中の競り(締め切りまで3日・2日ごとに新規)</h3>';
-    h += st.lots.length ? `<table><tr><th>街</th><th>独占権</th><th>現在の最高額</th><th>次の最低額</th><th>残り</th><th>入札</th></tr>${st.lots.map(row).join('')}</table>` : '<div>開催中の競りはありません</div>';
+    h += st.lots.length
+      ? `<table><tr><th>街</th><th>独占権</th><th>現在の最高額</th><th>次の最低額</th><th>残り</th><th>入札</th></tr>${st.lots.map(row).join('')}</table>`
+      : '<div>開催中の競りはありません</div>';
     h += '<h3>独占権を持つ会社</h3>';
     h += st.rights.length
       ? `<table><tr><th>街</th><th>独占権</th><th>持ち主</th><th>落札額</th></tr>${st.rights.map((r) => `<tr><td>${townLink(r.townId)}</td><td>${FACILITY_SPECS[r.type].icon} ${FACILITY_SPECS[r.type].name}</td><td>${r.owner === net.id ? '<b>自社</b>' : nameOf(r.owner)}</td><td>${yen(r.paid)}</td></tr>`).join('')}</table>`

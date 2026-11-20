@@ -46,7 +46,13 @@ export class MirrorSync {
       const old = this.t.snaps.get(m.id);
       const same = old !== undefined && old.path === path;
       const flight = m.flight as Flight | null;
-      this.t.snaps.set(m.id, { path, prev: same ? old.cur : null, prevAt: same ? old.curAt : now, curAt: now, cur: { pi: m.pi, t: m.t, trail: m.trail, done: flight ? flight.done : 0 } });
+      this.t.snaps.set(m.id, {
+        path,
+        prev: same ? old.cur : null,
+        prevAt: same ? old.curAt : now,
+        curAt: now,
+        cur: { pi: m.pi, t: m.t, trail: m.trail, done: flight ? flight.done : 0 },
+      });
     }
     this.t.vehicles = [...this.t.mirrorVeh.values()];
     if (changed || gone.length) this.t.version++;

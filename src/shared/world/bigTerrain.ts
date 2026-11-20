@@ -94,5 +94,10 @@ export function bigChunk(cx: number, cy: number, seed: number): Uint8Array {
 
 /** サーバーとクライアントで同じ地形のマップを作る(座標とシードだけで決まるので、通信しなくても一致する) */
 export function makeWorldMap(size: number, seed: number): GameMap {
-  return new GameMap(size, seed, (cx, cy) => bigChunk(cx, cy, seed), (x, y) => bigHeight(x, y, seed, 5));
+  return new GameMap(
+    size,
+    seed,
+    (cx, cy) => bigChunk(cx, cy, seed),
+    (x, y) => bigHeight(x, y, seed, 5),
+  );
 }

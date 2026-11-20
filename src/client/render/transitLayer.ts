@@ -22,7 +22,16 @@ const shade = (c: number, k: number) => {
 /** 停留所・駅・車両・列車・航空機を描くレイヤー(ワールド座標、チャンクの上) */
 /** 描画する向き(8方向)の単位ベクトル */
 const S2 = Math.SQRT1_2;
-const DIRS: [number, number][] = [[1, 0], [S2, S2], [0, 1], [-S2, S2], [-1, 0], [-S2, -S2], [0, -1], [S2, -S2]];
+const DIRS: [number, number][] = [
+  [1, 0],
+  [S2, S2],
+  [0, 1],
+  [-S2, S2],
+  [-1, 0],
+  [-S2, -S2],
+  [0, -1],
+  [S2, -S2],
+];
 const dirIndex = (dx: number, dy: number) => (Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) + 8) & 7;
 
 /**
@@ -110,7 +119,9 @@ export class TransitLayer {
         const uy = dy / L;
         const [cx, cy] = pts[i];
         const a = main ? 8 : 6;
-        g.poly([cx + ux * a, cy + uy * a, cx - ux * a * 0.6 - uy * a * 0.8, cy - uy * a * 0.6 + ux * a * 0.8, cx - ux * a * 0.6 + uy * a * 0.8, cy - uy * a * 0.6 - ux * a * 0.8]).fill({ color, alpha: main ? 1 : 0.8 }).stroke({ width: 1.5, color: 0x000000, alpha: 0.5 });
+        g.poly([cx + ux * a, cy + uy * a, cx - ux * a * 0.6 - uy * a * 0.8, cy - uy * a * 0.6 + ux * a * 0.8, cx - ux * a * 0.6 + uy * a * 0.8, cy - uy * a * 0.6 - ux * a * 0.8])
+          .fill({ color, alpha: main ? 1 : 0.8 })
+          .stroke({ width: 1.5, color: 0x000000, alpha: 0.5 });
       }
     });
     // 停車駅の目印
@@ -143,10 +154,14 @@ export class TransitLayer {
       const mv = (v0 + v1) / 2 - cv;
       if (mu + mv <= 0) continue;
       g.poly([
-        this.wx(u0, v0), this.wy(u0, v0, lvl, z0),
-        this.wx(u1, v1), this.wy(u1, v1, lvl, z0),
-        this.wx(u1, v1), this.wy(u1, v1, lvl, z0 + h),
-        this.wx(u0, v0), this.wy(u0, v0, lvl, z0 + h),
+        this.wx(u0, v0),
+        this.wy(u0, v0, lvl, z0),
+        this.wx(u1, v1),
+        this.wy(u1, v1, lvl, z0),
+        this.wx(u1, v1),
+        this.wy(u1, v1, lvl, z0 + h),
+        this.wx(u0, v0),
+        this.wy(u0, v0, lvl, z0 + h),
       ]).fill({ color: shade(color, mu > mv ? 0.8 : 0.6), alpha });
     }
     g.poly(pts.flatMap(([u, v]) => [this.wx(u, v), this.wy(u, v, lvl, z0 + h)])).fill({ color, alpha });
@@ -211,7 +226,12 @@ export class TransitLayer {
       this.box(x0 + w - 0.3, cy, lvl, 0, 1, h - 1.2, 0.6, 15, 0xe4e1da);
       this.box(cx, y0 + h - 0.3, lvl, 1, 0, w - 0.2, 0.62, 2, team, 15);
       this.box(x0 + w - 0.3, cy, lvl, 0, 1, h - 1.2, 0.62, 2, team, 15);
-      for (const [u, v] of [[x0 + 0.25, y0 + 0.25], [x0 + w - 0.25, y0 + 0.25], [x0 + 0.25, y0 + h - 0.25], [x0 + w - 0.25, y0 + h - 0.25]]) {
+      for (const [u, v] of [
+        [x0 + 0.25, y0 + 0.25],
+        [x0 + w - 0.25, y0 + 0.25],
+        [x0 + 0.25, y0 + h - 0.25],
+        [x0 + w - 0.25, y0 + h - 0.25],
+      ]) {
         this.box(u, v, lvl, 1, 0, 0.1, 0.1, 34, 0x5a5f68);
         this.box(u, v, lvl, 1, 0, 0.3, 0.3, 3, 0xfff3b0, 34);
       }
@@ -219,7 +239,11 @@ export class TransitLayer {
       this.box(cx, cy, lvl, 1, 0, w, h, 1, 0xe6d5c3); // 広場
       this.box(cx, y0 + 0.5, lvl, 1, 0, w - 0.4, 0.12, 1.5, 0xc9b8a6);
       // テント(奥から)
-      const tents: [number, number, number][] = [[x0 + 0.9, y0 + 0.9, 0xe74c3c], [x0 + w - 1.0, y0 + 0.9, 0x3498db], [x0 + 0.9, y0 + h - 1.0, 0xf1c40f]];
+      const tents: [number, number, number][] = [
+        [x0 + 0.9, y0 + 0.9, 0xe74c3c],
+        [x0 + w - 1.0, y0 + 0.9, 0x3498db],
+        [x0 + 0.9, y0 + h - 1.0, 0xf1c40f],
+      ];
       for (const [u, v, c] of tents) {
         this.box(u, v, lvl, 1, 0, 0.9, 0.9, 9, 0xf3efe6);
         this.box(u, v, lvl, 1, 0, 1.0, 1.0, 3, c, 9);
@@ -233,12 +257,17 @@ export class TransitLayer {
       const [wx, wy] = P(cx, y0 + 1.7, 0);
       const R = 30;
       const hubY = wy - 40;
-      g.moveTo(wx - 14, wy).lineTo(wx, hubY).lineTo(wx + 14, wy).stroke({ width: 3, color: 0x6b7280 });
+      g.moveTo(wx - 14, wy)
+        .lineTo(wx, hubY)
+        .lineTo(wx + 14, wy)
+        .stroke({ width: 3, color: 0x6b7280 });
       g.circle(wx, hubY, R).stroke({ width: 3, color: sel || 0xe74c3c });
       g.circle(wx, hubY, R * 0.5).stroke({ width: 1.5, color: 0xf1f5f9 });
       for (let a = 0; a < 6; a++) {
         const ang = (a * Math.PI) / 3;
-        g.moveTo(wx, hubY).lineTo(wx + Math.cos(ang) * R, hubY + Math.sin(ang) * R).stroke({ width: 1.5, color: 0xf1f5f9 });
+        g.moveTo(wx, hubY)
+          .lineTo(wx + Math.cos(ang) * R, hubY + Math.sin(ang) * R)
+          .stroke({ width: 1.5, color: 0xf1f5f9 });
         g.circle(wx + Math.cos(ang) * R, hubY + Math.sin(ang) * R, 3.4).fill(([0xf1c40f, 0x3498db, 0xe74c3c, 0x2ecc71, 0x9b59b6, 0xe67e22] as number[])[a]);
       }
       g.circle(wx, hubY, 3.5).fill(0x374151);
@@ -272,7 +301,13 @@ export class TransitLayer {
       const [px, py] = P(x0 + w - 0.9, y0 + h - 0.9, 0);
       g.ellipse(px, py, 20, 10).fill(0x6cb6e3);
       g.ellipse(px, py, 20, 10).stroke({ width: 1.5, color: 0xdcd2b8 });
-      for (const [u, v] of [[x0 + 0.5, y0 + 0.5], [x0 + 1.5, y0 + 0.4], [x0 + 0.5, y0 + 1.7], [x0 + w - 0.5, y0 + 0.6], [x0 + 1.8, y0 + h - 0.4]]) {
+      for (const [u, v] of [
+        [x0 + 0.5, y0 + 0.5],
+        [x0 + 1.5, y0 + 0.4],
+        [x0 + 0.5, y0 + 1.7],
+        [x0 + w - 0.5, y0 + 0.6],
+        [x0 + 1.8, y0 + h - 0.4],
+      ]) {
         const [tx, ty] = P(u, v, 0);
         this.box(u, v, lvl, 1, 0, 0.08, 0.08, 8, 0x7a5a3a);
         g.circle(tx, ty - 13, 9).fill(0x3f9a58);
@@ -504,7 +539,6 @@ export class TransitLayer {
         }
       }
     }
-
   }
 
   /** 駅・車両基地・大型施設の手前にある建物(タイルindex)。構造が変わったときだけ計算し直す */
@@ -526,8 +560,16 @@ export class TransitLayer {
     const out = new Set<number>();
     const R = 7; // 建物の高さぶん、手前〜周囲の何タイルまで調べるか
     const scan = (tiles: [number, number][]) => {
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      for (const [x, y] of tiles) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+      let x0 = Infinity,
+        y0 = Infinity,
+        x1 = -Infinity,
+        y1 = -Infinity;
+      for (const [x, y] of tiles) {
+        x0 = Math.min(x0, x);
+        y0 = Math.min(y0, y);
+        x1 = Math.max(x1, x);
+        y1 = Math.max(y1, y);
+      }
       if (!inView((x0 - y0) * 32, (x0 + y0) * 16)) return;
       for (let ty = Math.max(0, y0 - 2); ty <= Math.min(m.size - 1, y1 + R); ty++) {
         for (let tx = Math.max(0, x0 - 2); tx <= Math.min(m.size - 1, x1 + R); tx++) {
@@ -538,7 +580,10 @@ export class TransitLayer {
           let bsum = 0;
           for (const [x, y] of tiles) {
             const d = Math.abs(tx - x) + Math.abs(ty - y);
-            if (d < best) { best = d; bsum = x + y; }
+            if (d < best) {
+              best = d;
+              bsum = x + y;
+            }
           }
           if (tx + ty > bsum) out.add(m.idx(tx, ty));
         }

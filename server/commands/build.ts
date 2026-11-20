@@ -16,7 +16,13 @@ export function build(cmd: Extract<Cmd, { t: 'build' }>, ctx: CommandContext): C
   if (Math.max(Math.abs(cmd.a.x - cmd.b.x), Math.abs(cmd.a.y - cmd.b.y)) > 512) return fail('一度に敷設できるのは512タイルまでです');
   const msgs: string[] = [];
   const changed: [number, number][] = [];
-  applyBuild(map, cmd.tool, cmd.a, cmd.b, { afford: (c) => co.afford(c), pay: (c) => co.spend('build', c), msg: (m) => msgs.push(m), owner: who, touched: (x, y) => changed.push([x, y]) });
+  applyBuild(map, cmd.tool, cmd.a, cmd.b, {
+    afford: (c) => co.afford(c),
+    pay: (c) => co.spend('build', c),
+    msg: (m) => msgs.push(m),
+    owner: who,
+    touched: (x, y) => changed.push([x, y]),
+  });
   t.touchNetworkTiles(changed); // 変更したタイルを通る経路は、次の出発/次のタイルで探し直される
   return { ok: true, msg: msgs.join(' ') || undefined };
 }
@@ -75,7 +81,17 @@ export function bulldoze(cmd: Extract<Cmd, { t: 'bulldoze' }>, ctx: CommandConte
     }
   }
   t.touchNetworkTiles(changed);
-  const names: [keyof typeof count, string][] = [['road', '道路'], ['rail', '線路'], ['signal', '信号'], ['stop', '停留所・駅'], ['depot', '基地'], ['waypoint', '経由点'], ['span', '橋・トンネル'], ['building', '建物'], ['airport', '空港']];
+  const names: [keyof typeof count, string][] = [
+    ['road', '道路'],
+    ['rail', '線路'],
+    ['signal', '信号'],
+    ['stop', '停留所・駅'],
+    ['depot', '基地'],
+    ['waypoint', '経由点'],
+    ['span', '橋・トンネル'],
+    ['building', '建物'],
+    ['airport', '空港'],
+  ];
   const parts = names.filter(([key]) => count[key] > 0).map(([key, label]) => `${label}${count[key]}`);
   return { ok: true, msg: parts.length ? `撤去しました: ${parts.join('・')}` : '選んだ種類の要素はありませんでした' };
 }
@@ -83,7 +99,8 @@ export function bulldoze(cmd: Extract<Cmd, { t: 'bulldoze' }>, ctx: CommandConte
 /** signalLine */
 export function signalLine(cmd: Extract<Cmd, { t: 'signalLine' }>, ctx: CommandContext): CmdResult {
   const { map, t, co } = ctx;
-  if (![cmd.a.x, cmd.a.y, cmd.b.x, cmd.b.y].every(Number.isInteger) || Math.max(Math.abs(cmd.a.x - cmd.b.x), Math.abs(cmd.a.y - cmd.b.y)) > 400) return fail('範囲が不正です(400タイルまで)');
+  if (![cmd.a.x, cmd.a.y, cmd.b.x, cmd.b.y].every(Number.isInteger) || Math.max(Math.abs(cmd.a.x - cmd.b.x), Math.abs(cmd.a.y - cmd.b.y)) > 400)
+    return fail('範囲が不正です(400タイルまで)');
   const step = Math.max(1, Math.min(20, Math.round(Number(cmd.interval) || 3)));
   const tiles = railLineTiles(cmd.a.x, cmd.a.y, cmd.b.x, cmd.b.y);
   let placed = 0;

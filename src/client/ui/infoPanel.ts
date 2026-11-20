@@ -13,13 +13,14 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
 const MODE_ICON = { road: '🚏', rail: '🚉', air: '🛫' } as const;
 const hm = (tod: number) => {
-  const m = Math.floor((((tod % DAY_TICKS) + DAY_TICKS) % DAY_TICKS) / DAY_TICKS * 24 * 60);
+  const m = Math.floor(((((tod % DAY_TICKS) + DAY_TICKS) % DAY_TICKS) / DAY_TICKS) * 24 * 60);
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 };
 /** tick → ゲーム内の分(切り上げ) */
 const mins = (t: number) => Math.ceil((t / DAY_TICKS) * 24 * 60);
 
-export type Selection = { kind: 'vehicle'; id: number } | { kind: 'stop'; id: number } | { kind: 'town'; id: number } | { kind: 'depot'; id: number } | { kind: 'facility'; id: number };
+export type Selection =
+  { kind: 'vehicle'; id: number } | { kind: 'stop'; id: number } | { kind: 'town'; id: number } | { kind: 'depot'; id: number } | { kind: 'facility'; id: number };
 
 /** タップした場所に停留所があればそれ、なければ街(建物の所属)を探す */
 export function findSelection(map: GameMap, transit: Transit, x: number, y: number): Selection | null {
@@ -35,10 +36,11 @@ export function findSelection(map: GameMap, transit: Transit, x: number, y: numb
     }
   }
   if (best) return { kind: 'stop', id: best.s.id };
-  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
-    const dp = transit.depotAtTile(x + dx, y + dy);
-    if (dp) return { kind: 'depot', id: dp.id };
-  }
+  for (let dy = -1; dy <= 1; dy++)
+    for (let dx = -1; dx <= 1; dx++) {
+      const dp = transit.depotAtTile(x + dx, y + dy);
+      if (dp) return { kind: 'depot', id: dp.id };
+    }
   const fac = facilityAt(map, x, y);
   if (fac) return { kind: 'facility', id: fac.id };
   for (let r = 0; r <= 2; r++) {
@@ -153,7 +155,16 @@ export class InfoPanel {
     if (this.pressed) return;
     const ae = document.activeElement;
     if (ae && (ae.tagName === 'SELECT' || ae.tagName === 'INPUT') && this.el.contains(ae)) return; // 選択中は再描画しない
-    const parts = this.sel.kind === 'vehicle' ? this.vehicleHtml(this.sel.id) : this.sel.kind === 'stop' ? this.stopHtml(this.sel.id) : this.sel.kind === 'depot' ? this.depotHtml(this.sel.id) : this.sel.kind === 'facility' ? this.facilityHtml(this.sel.id) : this.townHtml(this.sel.id);
+    const parts =
+      this.sel.kind === 'vehicle'
+        ? this.vehicleHtml(this.sel.id)
+        : this.sel.kind === 'stop'
+          ? this.stopHtml(this.sel.id)
+          : this.sel.kind === 'depot'
+            ? this.depotHtml(this.sel.id)
+            : this.sel.kind === 'facility'
+              ? this.facilityHtml(this.sel.id)
+              : this.townHtml(this.sel.id);
     if (parts === null) return this.close();
     // 部分ごとに、変わったときだけ書き換える(操作ボタンは頻繁には入れ替わらない)
     let kids = [...this.el.children] as HTMLElement[];
@@ -172,7 +183,7 @@ export class InfoPanel {
 
   private trainAction(b: HTMLElement): void {
     const vid = Number(b.dataset.v);
-    const say = (p: Promise<{ ok: boolean; msg?: string }>, okMsg?: string) => void p.then((r) => this.onMessage(r.msg ?? (r.ok ? okMsg ?? '' : '失敗しました')));
+    const say = (p: Promise<{ ok: boolean; msg?: string }>, okMsg?: string) => void p.then((r) => this.onMessage(r.msg ?? (r.ok ? (okMsg ?? '') : '失敗しました')));
     const act = b.dataset.act;
     if (act === 'ad') say(net.cmd({ t: 'ad', facilityId: Number(b.dataset.id), kind: b.dataset.kind as AdKind }));
     else if (act === 'buyfac' || act === 'sellfac') say(net.cmd({ t: 'fin', op: act === 'buyfac' ? 'acquire' : 'sell', id: Number(b.dataset.id) }));
@@ -210,7 +221,8 @@ export class InfoPanel {
     }
     for (let i = 0; i < trains.length; i++) {
       for (let j = i + 1; j < trains.length; j++) {
-        if (t.canCouple(trains[i].id, trains[j].id)) h += `<div class="ir"><span></span><span>#${trains[i].id} と #${trains[j].id}(計${trains[i].cars + trains[j].cars}両)</span><span class="to"></span><span class="when"><button data-act="couple" data-v="${trains[i].id}" data-w="${trains[j].id}">連結</button></span></div>`;
+        if (t.canCouple(trains[i].id, trains[j].id))
+          h += `<div class="ir"><span></span><span>#${trains[i].id} と #${trains[j].id}(計${trains[i].cars + trains[j].cars}両)</span><span class="to"></span><span class="when"><button data-act="couple" data-v="${trains[i].id}" data-w="${trains[j].id}">連結</button></span></div>`;
       }
     }
     return h + '</div>';
@@ -222,9 +234,14 @@ export class InfoPanel {
     const tick = this.getTick();
     const t = this.transit;
     if (s.waypoint) {
-      return [`<div class="ih"><b>📍 <input data-rename="stop" data-id="${id}" type="text" maxlength="24" value="${esc(s.name)}" style="width:9em"></b><span><button data-focus data-x="${s.x}" data-y="${s.y}" title="この場所へ移動">⌖</button><button data-close>✕</button></span></div><div class="im">経由点: 路線に加えると、列車はこの線路を通ります(停車・乗降はしません)。</div>`];
+      return [
+        `<div class="ih"><b>📍 <input data-rename="stop" data-id="${id}" type="text" maxlength="24" value="${esc(s.name)}" style="width:9em"></b><span><button data-focus data-x="${s.x}" data-y="${s.y}" title="この場所へ移動">⌖</button><button data-close>✕</button></span></div><div class="im">経由点: 路線に加えると、列車はこの線路を通ります(停車・乗降はしません)。</div>`,
+      ];
     }
-    const dests = [...s.wait].filter(([, n]) => n >= 1).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const dests = [...s.wait]
+      .filter(([, n]) => n >= 1)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6);
     const town = this.map.towns[s.townId - 1];
     const deps = t.departures(id, tick).slice(0, 8);
     const tt = t.timetable(id, tick);
@@ -250,7 +267,13 @@ export class InfoPanel {
       const others = this.players().filter((p) => p.id !== net.id);
       if (others.length) {
         const all = (c: number) => !!t.grants.get(net.id)?.has(c);
-        h += `<div class="ib"><div class="ibt">🔑 他社の利用を許可</div>${others.slice(0, 30).map((p) => `<label class="im"><input type="checkbox" data-allow="${p.id}" data-id="${id}" ${s.allow?.includes(p.id) || all(p.id) ? 'checked' : ''} ${all(p.id) ? 'disabled' : ''}> ${esc(p.company)}${all(p.id) ? ' <small class="muted">(全駅を許可中)</small>' : ''}</label>`).join('')}<div class="muted">許可すると、その会社の路線がこの停留所に停まれます。</div></div>`;
+        h += `<div class="ib"><div class="ibt">🔑 他社の利用を許可</div>${others
+          .slice(0, 30)
+          .map(
+            (p) =>
+              `<label class="im"><input type="checkbox" data-allow="${p.id}" data-id="${id}" ${s.allow?.includes(p.id) || all(p.id) ? 'checked' : ''} ${all(p.id) ? 'disabled' : ''}> ${esc(p.company)}${all(p.id) ? ' <small class="muted">(全駅を許可中)</small>' : ''}</label>`,
+          )
+          .join('')}<div class="muted">許可すると、その会社の路線がこの停留所に停まれます。</div></div>`;
       }
     } else if (s.owner) h += `<div class="im muted">持ち主: 他社${t.mayUse(s, net.id) ? '(使用を許可されています)' : ''}</div>`;
     return s.kind === 'rail' ? [h, this.trainsHtml(id)] : [h];
@@ -296,19 +319,33 @@ export class InfoPanel {
     const st = this.buyState(d.kind);
     const routes = [...this.transit.routes.values()].filter((r) => r.mode === d.kind);
     const model = modelOf(st.modelId);
-    const kinds = kindsFor(d.kind).map((k) => `<option value="${esc(k)}" ${k === model.kind ? 'selected' : ''}>${esc(k)}</option>`).join('');
+    const kinds = kindsFor(d.kind)
+      .map((k) => `<option value="${esc(k)}" ${k === model.kind ? 'selected' : ''}>${esc(k)}</option>`)
+      .join('');
     const models = modelsFor(d.kind)
       .filter((m) => m.kind === model.kind)
-      .map((m) => `<option value="${m.id}" ${m.id === model.id ? 'selected' : ''}>${esc(m.name)} (${d.kind === 'rail' ? `1両${m.cap}人` : `定員${m.cap}`}・速度${m.speed})</option>`)
+      .map(
+        (m) => `<option value="${m.id}" ${m.id === model.id ? 'selected' : ''}>${esc(m.name)} (${d.kind === 'rail' ? `1両${m.cap}人` : `定員${m.cap}`}・速度${m.speed})</option>`,
+      )
       .join('');
     const cars = clampCars(model, st.cars);
     const carsHtml =
-      d.kind !== 'rail' ? '' : model.minCars === model.maxCars ? '<div>編成: 1両(単行)</div>' : `<div>編成 <input data-buy="cars" type="number" min="${model.minCars}" max="${model.maxCars}" value="${cars}">両(${model.minCars}〜${model.maxCars})・定員${model.cap * cars}人</div>`;
+      d.kind !== 'rail'
+        ? ''
+        : model.minCars === model.maxCars
+          ? '<div>編成: 1両(単行)</div>'
+          : `<div>編成 <input data-buy="cars" type="number" min="${model.minCars}" max="${model.maxCars}" value="${cars}">両(${model.minCars}〜${model.maxCars})・定員${model.cap * cars}人</div>`;
     const routeOpts = routes
-      .map((r) => `<option value="${r.id}" ${r.id === st.routeId ? 'selected' : ''}>${esc(r.name)}(${r.orders.length}停留所・車両${this.transit.vehicles.filter((v) => v.routeId === r.id).length})</option>`)
+      .map(
+        (r) =>
+          `<option value="${r.id}" ${r.id === st.routeId ? 'selected' : ''}>${esc(r.name)}(${r.orders.length}停留所・車両${this.transit.vehicles.filter((v) => v.routeId === r.id).length})</option>`,
+      )
       .join('');
     const head = `<div class="ih"><b>🏭 ${esc(d.name)}</b><span><button data-focus data-x="${d.x}" data-y="${d.y}" title="この場所へ移動">⌖</button><button data-close>✕</button></span></div>`;
-    if (!routes.length) return [head + '<div class="im">この種類の路線がありません。先に路線パネルで路線を作成してください。</div><div class="ib"><button data-act="rmdepot">基地を撤去</button></div>'];
+    if (!routes.length)
+      return [
+        head + '<div class="im">この種類の路線がありません。先に路線パネルで路線を作成してください。</div><div class="ib"><button data-act="rmdepot">基地を撤去</button></div>',
+      ];
     return [
       head +
         `<div class="im">ここから車両を購入します(代金は現金から。運行費は1日に価格の0.2%)。配属先の路線のオーダー(停留所・条件)を、その路線の車両と共有して走ります。</div>
@@ -352,7 +389,8 @@ export class InfoPanel {
   }
 
   private facilityOwnerHtml(f: import('../../shared/world/facilities').Facility): string {
-    if (f.owner === 'public') return `<div class="im">持ち主: <b>${f.type === 'sight' ? '観光地(ご当地)' : '公共施設(市)'}</b> ・ 来場者 ${Math.floor(f.visits ?? 0)}人 ・ 買収・売却・撤去はできません</div>`;
+    if (f.owner === 'public')
+      return `<div class="im">持ち主: <b>${f.type === 'sight' ? '観光地(ご当地)' : '公共施設(市)'}</b> ・ 来場者 ${Math.floor(f.visits ?? 0)}人 ・ 買収・売却・撤去はできません</div>`;
     const mineF = (f.owner ?? 'player') === 'player' && f.playerId === net.id;
     const theirs = (f.owner ?? 'player') === 'player' && !mineF;
     const own = mineF;
@@ -366,20 +404,29 @@ export class InfoPanel {
     if (own) {
       const profit = (f.income ?? 0) - upkeep;
       econ = `<div class="im">売上/日 ${yen(f.income ?? 0)} − 維持費/日 ${yen(upkeep)} = <b class="${profit < 0 ? 'neg' : ''}">${profit < 0 ? '' : '+'}${yen(profit)}</b>/日</div>`;
-      if (perVisit > 0) econ += `<div class="im muted">来場1人あたり ${yen(perVisit)} の売上。黒字には1日に約 ${breakEven} 人の来場が必要です(いまの来場の目安: 売上/日 ÷ ${yen(perVisit)} ≒ ${Math.round((f.income ?? 0) / perVisit)} 人)</div>`;
+      if (perVisit > 0)
+        econ += `<div class="im muted">来場1人あたり ${yen(perVisit)} の売上。黒字には1日に約 ${breakEven} 人の来場が必要です(いまの来場の目安: 売上/日 ÷ ${yen(perVisit)} ≒ ${Math.round((f.income ?? 0) / perVisit)} 人)</div>`;
       if (VISITOR_TYPES.includes(f.type)) {
         econ += `<div class="im muted">来場者: 周辺の人口の2割までのランダムな人数が毎日来ます。${stopsNear.length ? '集客圏に駅・停留所があるので増えています。' : '近くに駅・停留所を置くと増えます。'}近くに同じ種類の施設(自社・他社)があると分散して減ります。</div>`;
         if (!(f.visits ?? 0)) econ += `<div class="im muted">⏳ 来場者は毎日 0:00 にまとめて集計されます。建てた日は 0 人のままで、日付が変わると反映されます。</div>`;
         const day = Math.floor((this.getTick() + DAY_TICKS / 4) / DAY_TICKS);
         const active = adActive(f, day);
         const why = adAvailable(f, day);
-        if (active && f.ad) econ += `<div class="im">📣 ${AD_TYPES[f.ad.kind].name}広告 実施中(あと${f.ad.from + AD_TYPES[f.ad.kind].days - day}日): 来場者 ×${AD_TYPES[f.ad.kind].mul}、近くの他の施設 ×${AD_TYPES[f.ad.kind].rival}</div>`;
+        if (active && f.ad)
+          econ += `<div class="im">📣 ${AD_TYPES[f.ad.kind].name}広告 実施中(あと${f.ad.from + AD_TYPES[f.ad.kind].days - day}日): 来場者 ×${AD_TYPES[f.ad.kind].mul}、近くの他の施設 ×${AD_TYPES[f.ad.kind].rival}</div>`;
         econ += `<div class="im">広告(1施設につき${AD_COOLDOWN_DAYS}日に1度): ${(Object.keys(AD_TYPES) as AdKind[])
-          .map((k) => `<button data-act="ad" data-id="${f.id}" data-kind="${k}" ${why ? 'disabled' : ''} title="${AD_TYPES[k].days}日間 自施設 ×${AD_TYPES[k].mul} / 近くの他の施設 ×${AD_TYPES[k].rival}">${AD_TYPES[k].name} ${yen(adCost(f, k))}</button>`)
+          .map(
+            (k) =>
+              `<button data-act="ad" data-id="${f.id}" data-kind="${k}" ${why ? 'disabled' : ''} title="${AD_TYPES[k].days}日間 自施設 ×${AD_TYPES[k].mul} / 近くの他の施設 ×${AD_TYPES[k].rival}">${AD_TYPES[k].name} ${yen(adCost(f, k))}</button>`,
+          )
           .join(' ')}</div>`;
         if (why && !active) econ += `<div class="im muted">${esc(why)}</div>`;
       }
-      if (perVisit > 0 && (f.income ?? 0) < upkeep) econ += `<div class="im"><b>⚠ 来場が足りません。</b>近くの停留所(${stopsNear.slice(0, 3).map((st) => esc(st.name)).join('・')})へ向かう乗客を増やす(本数・路線・周辺の人口)と売上が増えます</div>`;
+      if (perVisit > 0 && (f.income ?? 0) < upkeep)
+        econ += `<div class="im"><b>⚠ 来場が足りません。</b>近くの停留所(${stopsNear
+          .slice(0, 3)
+          .map((st) => esc(st.name))
+          .join('・')})へ向かう乗客を増やす(本数・路線・周辺の人口)と売上が増えます</div>`;
     }
     return `<div class="im">持ち主: <b>${own ? '自社' : theirs ? '他のプレイヤー' : '他社(民間)'}</b> ・ 評価額 ${yen(v)} ・ 来場者 ${Math.floor(f.visits ?? 0)}人 ・ 売上/日 ${yen(f.income ?? 0)}</div>
       ${econ}
@@ -412,8 +459,10 @@ export class InfoPanel {
       waiting += Math.floor(s.waiting);
     }
     const total = this.map.towns.reduce((a, b) => a + b.pop, 0);
-    return [`<div class="ih"><b>🏘 ${esc(town.name)}</b><span><button data-focus data-x="${town.x}" data-y="${town.y}" title="中心へ移動">⌖</button><button data-close>✕</button></span></div>
+    return [
+      `<div class="ih"><b>🏘 ${esc(town.name)}</b><span><button data-focus data-x="${town.x}" data-y="${town.y}" title="中心へ移動">⌖</button><button data-close>✕</button></span></div>
       <div class="im">${TIERS[townTier(town)].name}(成長の範囲 ${TIERS[townTier(town)].min.toLocaleString()}〜${TIERS[townTier(town)].max.toLocaleString()}人) ・ 人口 <b>${town.pop.toLocaleString()}</b>人(全体の${total ? Math.round((town.pop / total) * 100) : 0}%) ・ 住宅 ${town.houses}戸</div>
-      <div class="im">停留所 ${stops} ・ 待ち人数 ${waiting}人 ・ 最近の乗降 ${Math.floor(town.pax)}人</div>`];
+      <div class="im">停留所 ${stops} ・ 待ち人数 ${waiting}人 ・ 最近の乗降 ${Math.floor(town.pax)}人</div>`,
+    ];
   }
 }

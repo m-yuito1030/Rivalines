@@ -10,7 +10,10 @@ import { PRICES, yen } from '../economyApi';
 /** ensureStop */
 export function ensureStop(cmd: Extract<Cmd, { t: 'ensureStop' }>, ctx: CommandContext): CmdResult {
   const { t, co, who } = ctx;
-  { const ex = t.stopAtTile(cmd.x, cmd.y, cmd.kind); if (ex && !t.mayUse(ex, who)) return fail(`「${ex.name}」は他社の停留所です。持ち主の許可がないと使えません`); }
+  {
+    const ex = t.stopAtTile(cmd.x, cmd.y, cmd.kind);
+    if (ex && !t.mayUse(ex, who)) return fail(`「${ex.name}」は他社の停留所です。持ち主の許可がないと使えません`);
+  }
   if (t.stopAtTile(cmd.x, cmd.y, cmd.kind)) {
     const st = t.addStop(cmd.x, cmd.y, cmd.kind);
     return st ? { ok: true, id: st.id } : fail('停留所を置けません');

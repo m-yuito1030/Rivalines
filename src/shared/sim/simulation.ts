@@ -185,7 +185,25 @@ export class Simulation {
 
   /** セーブ用に状態を取り出す */
   state(): SimState {
-    return { tick: this.tick, speed: this.speed, rng: this.rng.getState(), pacts: this.pacts.toJSON(), auctions: this.auctions.toJSON(), weekly: this.weekly.toJSON(), players: [...this.players].map(([id, c]) => [id, c.toJSON()] as [number, CompanyState]), towns: this.map.towns, townRegions: [...this.map.townRegions], transit: this.transit.save(), rating: this.rating, migrated: this.migrated, facilities: this.map.facilities, company: this.company.toJSON(), rivals: this.rivals, rivalRng: this.rivalRng.getState(), pubRng: this.pubRng.getState() };
+    return {
+      tick: this.tick,
+      speed: this.speed,
+      rng: this.rng.getState(),
+      pacts: this.pacts.toJSON(),
+      auctions: this.auctions.toJSON(),
+      weekly: this.weekly.toJSON(),
+      players: [...this.players].map(([id, c]) => [id, c.toJSON()] as [number, CompanyState]),
+      towns: this.map.towns,
+      townRegions: [...this.map.townRegions],
+      transit: this.transit.save(),
+      rating: this.rating,
+      migrated: this.migrated,
+      facilities: this.map.facilities,
+      company: this.company.toJSON(),
+      rivals: this.rivals,
+      rivalRng: this.rivalRng.getState(),
+      pubRng: this.pubRng.getState(),
+    };
   }
 
   /** 直近のフレームで進めたtick数と所要時間(HUD用) */

@@ -89,7 +89,7 @@ export class TileLayer<A extends Arr = Uint8Array> {
 
   /** 確保済みメモリ(バイト) */
   get bytes(): number {
-    return this.dense ? this.dense.byteLength : this.chunks.size * CHUNK * CHUNK * (this.make(0).BYTES_PER_ELEMENT);
+    return this.dense ? this.dense.byteLength : this.chunks.size * CHUNK * CHUNK * this.make(0).BYTES_PER_ELEMENT;
   }
 }
 

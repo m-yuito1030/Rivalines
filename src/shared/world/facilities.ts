@@ -28,15 +28,142 @@ export interface FacilitySpec {
 }
 
 export const FACILITY_SPECS: Record<FacilityType, FacilitySpec> = {
-  stadium: { type: 'stadium', name: 'スタジアム', icon: '🏟', w: 4, h: 4, attract: 1500, hours: [17, 22], desc: 'ナイターの時間帯(17〜22時)に大勢が来ます', cost: 6_000_000, upkeep: 40_000, spend: 1800, conversion: 0.5 },
-  amusement: { type: 'amusement', name: '遊園地', icon: '🎡', w: 5, h: 5, attract: 2000, hours: [9, 19], desc: '日中(9〜19時)に家族連れが来ます', cost: 8_000_000, upkeep: 55_000, spend: 2400, conversion: 0.5 },
-  mall: { type: 'mall', name: 'ショッピングモール', icon: '🏬', w: 2, h: 2, attract: 1200, hours: [10, 20], desc: '買い物客が日中から夜(10〜20時)に来ます', cost: 3_000_000, upkeep: 30_000, spend: 1200, conversion: 0.5 },
-  park: { type: 'park', name: '公園', icon: '🌳', w: 3, h: 3, attract: 150, hours: [6, 18], desc: '日中、少しずつ人が訪れます(売上はありません)', cost: 500_000, upkeep: 3_000, spend: 0, conversion: 0 },
-  department: { type: 'department', name: '百貨店', icon: '🏢', w: 2, h: 2, attract: 1500, hours: [10, 20], desc: '買い物客が10〜20時に来ます。駅前に置くと売上が大きい', cost: 5_000_000, upkeep: 35_000, spend: 2000, conversion: 0.5 },
-  school: { type: 'school', name: '学校', icon: '🏫', w: 1, h: 1, attract: 1200, hours: [8, 9], windows: [[8, 9], [17, 18]], base: 0.08, desc: '登校の8時台と下校の17時台に、周辺の駅・バス停の利用が大きく増えます', cost: 0, upkeep: 0, spend: 0, conversion: 0, public: true },
-  cityhall: { type: 'cityhall', name: '市役所', icon: '🏛', w: 1, h: 1, attract: 300, hours: [0, 24], desc: '一日中、一定の人が訪れます(1つの街に1つ)', cost: 0, upkeep: 0, spend: 0, conversion: 0, public: true },
-  sight: { type: 'sight', name: '観光地', icon: '⛩', w: 1, h: 1, attract: 1000, hours: [9, 17], windows: [[9, 17]], base: 0.02, desc: 'ご当地の観光地。日中(9〜17時)だけ観光客が周辺の駅・バス停を利用します(夜はほとんど来ません)。1つの市区町村に1〜3か所、自動で生まれます', cost: 0, upkeep: 0, spend: 0, conversion: 0, public: true },
-  hotel: { type: 'hotel', name: 'ホテル', icon: '🏨', w: 3, h: 3, attract: 600, hours: [0, 24], desc: '一日を通して宿泊客が訪れます', cost: 4_000_000, upkeep: 25_000, spend: 4000, conversion: 0.5 },
+  stadium: {
+    type: 'stadium',
+    name: 'スタジアム',
+    icon: '🏟',
+    w: 4,
+    h: 4,
+    attract: 1500,
+    hours: [17, 22],
+    desc: 'ナイターの時間帯(17〜22時)に大勢が来ます',
+    cost: 6_000_000,
+    upkeep: 40_000,
+    spend: 1800,
+    conversion: 0.5,
+  },
+  amusement: {
+    type: 'amusement',
+    name: '遊園地',
+    icon: '🎡',
+    w: 5,
+    h: 5,
+    attract: 2000,
+    hours: [9, 19],
+    desc: '日中(9〜19時)に家族連れが来ます',
+    cost: 8_000_000,
+    upkeep: 55_000,
+    spend: 2400,
+    conversion: 0.5,
+  },
+  mall: {
+    type: 'mall',
+    name: 'ショッピングモール',
+    icon: '🏬',
+    w: 2,
+    h: 2,
+    attract: 1200,
+    hours: [10, 20],
+    desc: '買い物客が日中から夜(10〜20時)に来ます',
+    cost: 3_000_000,
+    upkeep: 30_000,
+    spend: 1200,
+    conversion: 0.5,
+  },
+  park: {
+    type: 'park',
+    name: '公園',
+    icon: '🌳',
+    w: 3,
+    h: 3,
+    attract: 150,
+    hours: [6, 18],
+    desc: '日中、少しずつ人が訪れます(売上はありません)',
+    cost: 500_000,
+    upkeep: 3_000,
+    spend: 0,
+    conversion: 0,
+  },
+  department: {
+    type: 'department',
+    name: '百貨店',
+    icon: '🏢',
+    w: 2,
+    h: 2,
+    attract: 1500,
+    hours: [10, 20],
+    desc: '買い物客が10〜20時に来ます。駅前に置くと売上が大きい',
+    cost: 5_000_000,
+    upkeep: 35_000,
+    spend: 2000,
+    conversion: 0.5,
+  },
+  school: {
+    type: 'school',
+    name: '学校',
+    icon: '🏫',
+    w: 1,
+    h: 1,
+    attract: 1200,
+    hours: [8, 9],
+    windows: [
+      [8, 9],
+      [17, 18],
+    ],
+    base: 0.08,
+    desc: '登校の8時台と下校の17時台に、周辺の駅・バス停の利用が大きく増えます',
+    cost: 0,
+    upkeep: 0,
+    spend: 0,
+    conversion: 0,
+    public: true,
+  },
+  cityhall: {
+    type: 'cityhall',
+    name: '市役所',
+    icon: '🏛',
+    w: 1,
+    h: 1,
+    attract: 300,
+    hours: [0, 24],
+    desc: '一日中、一定の人が訪れます(1つの街に1つ)',
+    cost: 0,
+    upkeep: 0,
+    spend: 0,
+    conversion: 0,
+    public: true,
+  },
+  sight: {
+    type: 'sight',
+    name: '観光地',
+    icon: '⛩',
+    w: 1,
+    h: 1,
+    attract: 1000,
+    hours: [9, 17],
+    windows: [[9, 17]],
+    base: 0.02,
+    desc: 'ご当地の観光地。日中(9〜17時)だけ観光客が周辺の駅・バス停を利用します(夜はほとんど来ません)。1つの市区町村に1〜3か所、自動で生まれます',
+    cost: 0,
+    upkeep: 0,
+    spend: 0,
+    conversion: 0,
+    public: true,
+  },
+  hotel: {
+    type: 'hotel',
+    name: 'ホテル',
+    icon: '🏨',
+    w: 3,
+    h: 3,
+    attract: 600,
+    hours: [0, 24],
+    desc: '一日を通して宿泊客が訪れます',
+    cost: 4_000_000,
+    upkeep: 25_000,
+    spend: 4000,
+    conversion: 0.5,
+  },
 };
 /**
  * スプライトで描く施設(学校・市役所・百貨店・ショッピングモール)。design が決まっているものだけ。
@@ -65,13 +192,15 @@ export function facilityDims(type: FacilityType, size: FacilitySize): { w: numbe
 }
 /** 大きさ・デザインを持つ(スプライトの)施設の建設費と維持費(1日)。古い手続き描画の施設は大きさがなく、従来どおり */
 export const facilityCost = (type: FacilityType, size?: FacilitySize): number => Math.round((FACILITY_SPECS[type].cost * sizeMul(type, size)) / 1000) * 1000;
-export const facilityUpkeep = (f: Pick<Facility, 'type' | 'size' | 'design'>): number => Math.round(FACILITY_SPECS[f.type].upkeep * (f.design !== undefined && CHOOSABLE.includes(f.type) ? sizeMul(f.type, f.size) : 1));
+export const facilityUpkeep = (f: Pick<Facility, 'type' | 'size' | 'design'>): number =>
+  Math.round(FACILITY_SPECS[f.type].upkeep * (f.design !== undefined && CHOOSABLE.includes(f.type) ? sizeMul(f.type, f.size) : 1));
 export const isSpriteFacility = (f: Facility): boolean => SPRITE_TYPES.includes(f.type) && f.design !== undefined && f.size !== undefined;
 
 /** 大きさ S/M は1タイル、L は 2x2 タイル */
 export const spriteDims = (size: 'S' | 'M' | 'L'): { w: number; h: number } => (size === 'L' ? { w: 2, h: 2 } : { w: 1, h: 1 });
 /** 施設の建設費(大きさ・デザインがあれば大きさで変わる) */
-export const facilityBuildCost = (f: Pick<Facility, 'type' | 'size' | 'design'>): number => (f.design !== undefined && CHOOSABLE.includes(f.type) ? facilityCost(f.type, f.size) : FACILITY_SPECS[f.type].cost);
+export const facilityBuildCost = (f: Pick<Facility, 'type' | 'size' | 'design'>): number =>
+  f.design !== undefined && CHOOSABLE.includes(f.type) ? facilityCost(f.type, f.size) : FACILITY_SPECS[f.type].cost;
 
 /** 百貨店・モールは大きさで需要が変わる(S=0.5 M=0.75 L=1)。ほかの施設は一定 */
 export function facilityAttract(f: Facility): number {
@@ -133,7 +262,7 @@ export function hourFactor(spec: FacilitySpec, hour: number): number {
     if (hour >= b && hour < b + 1) return 1 - 0.85 * (hour - b);
     return 0.15;
   }
-  return Math.max(base, ...ws.map(([a, b]) => (win(a, b) - 0.15) / 0.85)) ;
+  return Math.max(base, ...ws.map(([a, b]) => (win(a, b) - 0.15) / 0.85));
 }
 
 export interface FacilityPlan {

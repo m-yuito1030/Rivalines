@@ -85,7 +85,38 @@ function mulberry32(seed: number) {
 }
 
 // 名前の素材(実在の列車・機体の愛称は避けた架空のもの)
-const STEMS = ['あおば', 'ひなた', 'しらゆき', 'せせらぎ', 'なぎさ', 'かぜのこ', 'つきかげ', 'はるかぜ', 'もみじ', 'ほたる', 'かすみ', 'あかね', 'みなも', 'ゆうなぎ', 'こもれび', 'あさぎり', 'はまなす', 'すずらん', 'わかば', 'ふゆぞら', 'ひだまり', 'おぼろ', 'さざなみ', 'たなばた', 'いちょう', 'あやめ', 'しぐれ', 'とよあし', 'ましろ', 'あさかぜ'];
+const STEMS = [
+  'あおば',
+  'ひなた',
+  'しらゆき',
+  'せせらぎ',
+  'なぎさ',
+  'かぜのこ',
+  'つきかげ',
+  'はるかぜ',
+  'もみじ',
+  'ほたる',
+  'かすみ',
+  'あかね',
+  'みなも',
+  'ゆうなぎ',
+  'こもれび',
+  'あさぎり',
+  'はまなす',
+  'すずらん',
+  'わかば',
+  'ふゆぞら',
+  'ひだまり',
+  'おぼろ',
+  'さざなみ',
+  'たなばた',
+  'いちょう',
+  'あやめ',
+  'しぐれ',
+  'とよあし',
+  'ましろ',
+  'あさかぜ',
+];
 const BIRDS = ['うみねこ', 'ひよどり', 'かもめ', 'もず', 'あおさぎ', 'めじろ', 'ひたき', 'いかる', 'じょうびたき', 'ほおじろ', 'せきれい', 'みやまがらす'];
 const BUS_NAMES = ['みどり', 'ひので', 'さつき', 'やまぶき', 'そよかぜ', 'あけぼの', 'こはる', 'なでしこ', 'ふたば', 'ゆりかもめ', 'しおかぜ', 'ひまわり'];
 const BODY = [0xcfd4dc, 0xf1e6c8, 0xf4f6fa, 0xe8e2d0, 0xdfe6ee, 0xc9d3c4, 0xe9d8d0, 0xd8dce6, 0xf2efe6, 0xbfc7d4, 0xe6e0f0, 0xd6e4dc];
@@ -94,7 +125,7 @@ const BUS_BODY = [0xe0533d, 0x3d8fe0, 0x4bb36a, 0xe0b83d, 0xa65fd6, 0x3dc7c0, 0x
 
 function generate(): VehicleModel[] {
   const rng = mulberry32(20261117);
-  const pick = <T,>(a: T[]) => a[Math.floor(rng() * a.length)];
+  const pick = <T>(a: T[]) => a[Math.floor(rng() * a.length)];
   const between = (r: [number, number]) => r[0] + rng() * (r[1] - r[0]);
   const used = new Set<string>(FIXED.map((f) => f.name));
   const out: VehicleModel[] = FIXED.map((f) => ({
@@ -119,7 +150,11 @@ function generate(): VehicleModel[] {
       for (let t = 0; t < 50; t++) {
         const num = (1 + Math.floor(rng() * 99)) * 100 + (rng() < 0.3 ? 50 : 0);
         name =
-          k.mode === 'rail' ? `${pick(STEMS)}${num}系` : k.mode === 'air' ? `${k.kind}「${pick(BIRDS)}${num}」` : `${k.kind}「${pick(BUS_NAMES)}」${String.fromCharCode(65 + Math.floor(rng() * 26))}${Math.floor(rng() * 90 + 10)}`;
+          k.mode === 'rail'
+            ? `${pick(STEMS)}${num}系`
+            : k.mode === 'air'
+              ? `${k.kind}「${pick(BIRDS)}${num}」`
+              : `${k.kind}「${pick(BUS_NAMES)}」${String.fromCharCode(65 + Math.floor(rng() * 26))}${Math.floor(rng() * 90 + 10)}`;
         if (!used.has(name)) break;
         name += `-${serial}`; // 衝突したら連番で一意にする
       }
@@ -142,7 +177,14 @@ function generate(): VehicleModel[] {
     }
   }
   // スプライトのデザインを割り当てる: 種別ごとにタイプの候補を順に使い、足りなければ色違い(variant)を進める
-  const BUS_POOLS: Record<string, number[]> = { ミニバス: [8, 17, 15], 小型バス: [1, 9, 14, 16, 18], 中型バス: [18, 1, 11, 12, 16, 21], 大型バス: [0, 6, 7, 13, 19, 21, 10, 22], 連節バス: [2, 3, 20], 二階建てバス: [4, 5, 23] };
+  const BUS_POOLS: Record<string, number[]> = {
+    ミニバス: [8, 17, 15],
+    小型バス: [1, 9, 14, 16, 18],
+    中型バス: [18, 1, 11, 12, 16, 21],
+    大型バス: [0, 6, 7, 13, 19, 21, 10, 22],
+    連節バス: [2, 3, 20],
+    二階建てバス: [4, 5, 23],
+  };
   const AIR_POOLS: Record<string, number[]> = { 小型機: [0, 1, 9, 7], 中型機: [2, 3, 6, 7], 大型機: [4, 5, 8, 3] };
   const count = new Map<string, number>();
   for (const m of out) {

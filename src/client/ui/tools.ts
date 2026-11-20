@@ -11,10 +11,59 @@ import { planSpan } from '../../shared/world/spans';
 import type { StationPlan } from '../../shared/world/stations';
 import type { FacilityPlan, FacilityType } from '../../shared/world/facilities';
 
-export type Tool = 'pan' | 'road' | 'oneway' | 'twoway' | 'bulldoze' | 'stop' | 'route' | 'rail' | 'railauto' | 'signalline' | 'station' | 'airport' | 'raise' | 'lower' | 'level' | 'roadspan' | 'railspan' | 'signal' | 'waypoint' | 'depot' | 'stadium' | 'amusement' | 'mall' | 'park' | 'department' | 'hotel';
+export type Tool =
+  | 'pan'
+  | 'road'
+  | 'oneway'
+  | 'twoway'
+  | 'bulldoze'
+  | 'stop'
+  | 'route'
+  | 'rail'
+  | 'railauto'
+  | 'signalline'
+  | 'station'
+  | 'airport'
+  | 'raise'
+  | 'lower'
+  | 'level'
+  | 'roadspan'
+  | 'railspan'
+  | 'signal'
+  | 'waypoint'
+  | 'depot'
+  | 'stadium'
+  | 'amusement'
+  | 'mall'
+  | 'park'
+  | 'department'
+  | 'hotel';
 const RECT: Tool[] = ['raise', 'lower', 'level', 'bulldoze'];
 /** 新規の開発(建設)を伴うツール。会社の評価が最悪のときは使えない(撤去・移動・路線作成は可) */
-const BUILD: Tool[] = ['road', 'oneway', 'rail', 'railauto', 'signalline', 'station', 'airport', 'raise', 'lower', 'level', 'roadspan', 'railspan', 'signal', 'waypoint', 'stop', 'depot', 'stadium', 'amusement', 'mall', 'park', 'department', 'hotel'];
+const BUILD: Tool[] = [
+  'road',
+  'oneway',
+  'rail',
+  'railauto',
+  'signalline',
+  'station',
+  'airport',
+  'raise',
+  'lower',
+  'level',
+  'roadspan',
+  'railspan',
+  'signal',
+  'waypoint',
+  'stop',
+  'depot',
+  'stadium',
+  'amusement',
+  'mall',
+  'park',
+  'department',
+  'hotel',
+];
 const SINGLE: Tool[] = ['stop', 'route', 'station', 'airport', 'signal', 'waypoint', 'depot', 'stadium', 'amusement', 'mall', 'park', 'department', 'hotel'];
 type Tile = { x: number; y: number };
 
@@ -108,19 +157,27 @@ export class ToolController {
         const lvl = this.map.inBounds(t.x, t.y) ? this.map.levelAt(t.x, t.y) : 0;
         const wx = (t.x - t.y) * 32;
         const wy = (t.x + t.y) * 16 - lvl * LEVEL_PX;
-        if (draw) g.poly([wx, wy, wx + 32, wy + 16, wx, wy + 32, wx - 32, wy + 16]).fill({ color: col, alpha: 0.22 }).stroke({ width: w, color: col, alpha: 0.7 });
+        if (draw)
+          g.poly([wx, wy, wx + 32, wy + 16, wx, wy + 32, wx - 32, wy + 16])
+            .fill({ color: col, alpha: 0.22 })
+            .stroke({ width: w, color: col, alpha: 0.7 });
       }
       return;
     }
     if (this.tool === 'roadspan' || this.tool === 'railspan') return this.drawSpanPreview(g, w);
-    if ((this.tool === 'stadium' || this.tool === 'amusement' || this.tool === 'mall' || this.tool === 'park' || this.tool === 'department' || this.tool === 'hotel') && this.facilityPlanner) {
+    if (
+      (this.tool === 'stadium' || this.tool === 'amusement' || this.tool === 'mall' || this.tool === 'park' || this.tool === 'department' || this.tool === 'hotel') &&
+      this.facilityPlanner
+    ) {
       const plan = this.facilityPlanner(this.hover.x, this.hover.y, this.tool);
       const color = plan.ok ? 0x66ff99 : 0xff4455;
       for (const [x, y] of plan.tiles) {
         const lvl = this.map.inBounds(x, y) ? this.map.levelAt(x, y) : 0;
         const wx = (x - y) * 32;
         const wy = (x + y) * 16 - lvl * LEVEL_PX;
-        g.poly([wx, wy, wx + 32, wy + 16, wx, wy + 32, wx - 32, wy + 16]).fill({ color, alpha: 0.25 }).stroke({ width: w, color, alpha: 0.9 });
+        g.poly([wx, wy, wx + 32, wy + 16, wx, wy + 32, wx - 32, wy + 16])
+          .fill({ color, alpha: 0.25 })
+          .stroke({ width: w, color, alpha: 0.9 });
       }
       return;
     }
@@ -131,13 +188,18 @@ export class ToolController {
         const lvl = this.map.inBounds(x, y) ? this.map.levelAt(x, y) : 0;
         const wx = (x - y) * 32;
         const wy = (x + y) * 16 - lvl * LEVEL_PX;
-        g.poly([wx, wy, wx + 32, wy + 16, wx, wy + 32, wx - 32, wy + 16]).fill({ color, alpha: 0.25 }).stroke({ width: w, color, alpha: 0.9 });
+        g.poly([wx, wy, wx + 32, wy + 16, wx, wy + 32, wx - 32, wy + 16])
+          .fill({ color, alpha: 0.25 })
+          .stroke({ width: w, color, alpha: 0.9 });
       }
       return;
     }
     const single = SINGLE.includes(this.tool);
     if (this.tool === 'airport') return this.drawAirportPreview(g);
-    const tiles = this.start && !single ? (this.tool === 'rail' || this.tool === 'signalline' || this.tool === 'bulldoze' ? railLineTiles : lineTiles)(this.start.x, this.start.y, this.hover.x, this.hover.y) : [{ ...this.hover, d: 0 }];
+    const tiles =
+      this.start && !single
+        ? (this.tool === 'rail' || this.tool === 'signalline' || this.tool === 'bulldoze' ? railLineTiles : lineTiles)(this.start.x, this.start.y, this.hover.x, this.hover.y)
+        : [{ ...this.hover, d: 0 }];
     for (let i = 0; i < tiles.length; i++) {
       const t = tiles[i];
       let ok = true;
@@ -168,7 +230,9 @@ export class ToolController {
       const lvl = this.map.inBounds(t.x, t.y) ? this.map.levelAt(t.x, t.y) : 0;
       const wx = (t.x - t.y) * 32;
       const wy = (t.x + t.y) * 16 - lvl * LEVEL_PX;
-      g.poly([wx, wy, wx + 32, wy + 16, wx, wy + 32, wx - 32, wy + 16]).fill({ color, alpha: 0.25 }).stroke({ width: w, color, alpha: 0.9 });
+      g.poly([wx, wy, wx + 32, wy + 16, wx, wy + 32, wx - 32, wy + 16])
+        .fill({ color, alpha: 0.25 })
+        .stroke({ width: w, color, alpha: 0.9 });
     }
   }
 
@@ -186,7 +250,9 @@ export class ToolController {
         const lvl = this.map.inBounds(tx, ty) ? this.map.levelAt(tx, ty) : 0;
         const wx = (tx - ty) * 32;
         const wy = (tx + ty) * 16 - lvl * LEVEL_PX;
-        g.poly([wx, wy, wx + 32, wy + 16, wx, wy + 32, wx - 32, wy + 16]).fill({ color, alpha: 0.25 }).stroke({ width: w, color, alpha: 0.9 });
+        g.poly([wx, wy, wx + 32, wy + 16, wx, wy + 32, wx - 32, wy + 16])
+          .fill({ color, alpha: 0.25 })
+          .stroke({ width: w, color, alpha: 0.9 });
       }
     }
   }

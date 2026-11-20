@@ -9,18 +9,22 @@
     "preview": "vite preview --host 0.0.0.0 --port 4173",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.server.json",
     "test": "vitest run",
-    "server": "tsx server/index.ts"
+    "server": "tsx server/index.ts",
+    "format": "prettier --write \"src/**/*.ts\" \"server/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"server/**/*.ts\"",
+    "check": "npm run typecheck && npm run format:check && vitest run"
   },
   "dependencies": {
     "pixi.js": "^8.23.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/ws": "^8.5.12",
+    "prettier": "^3.10.1",
+    "tsx": "^4.19.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
-    "vitest": "^5.1.0",
-    "@types/ws": "^8.5.12",
-    "@types/node": "^22.0.0",
-    "tsx": "^4.19.0"
+    "vitest": "^5.1.0"
   }
 }

@@ -281,7 +281,12 @@ export function drawTerrainTile(
   ctx.lineWidth = 1;
   ctx.stroke();
   // 岸: 浅い青の帯と白い波打ち際
-  const shore: [Side, number][] = [['N', nb.n], ['E', nb.e], ['S', nb.s], ['W', nb.w]];
+  const shore: [Side, number][] = [
+    ['N', nb.n],
+    ['E', nb.e],
+    ['S', nb.s],
+    ['W', nb.w],
+  ];
   for (const [side, l] of shore) {
     if (l > 0 && !override) {
       strip(ctx, px, py, side, 0.34, '#bfeaff', 0.28);

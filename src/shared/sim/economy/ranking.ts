@@ -24,11 +24,29 @@ export interface CompanyRow {
 export function companyRanking(company: Company, rivals: Rival[], map: GameMap, transit: Transit): CompanyRow[] {
   const assets = assetValue(map, transit, rivals);
   const rows: CompanyRow[] = [
-    { name: '自社', marketCap: company.marketCap, price: company.stock, netWorth: company.netWorth(assets), profit: company.profitStats().avg, passengers: Math.floor(transit.delivered), isPlayer: true, subsidiary: false },
+    {
+      name: '自社',
+      marketCap: company.marketCap,
+      price: company.stock,
+      netWorth: company.netWorth(assets),
+      profit: company.profitStats().avg,
+      passengers: Math.floor(transit.delivered),
+      isPlayer: true,
+      subsidiary: false,
+    },
   ];
   for (const r of rivals) {
     if (r.acquired) continue;
-    rows.push({ name: r.name, marketCap: r.value, price: r.value / RIVAL_SHARES, netWorth: r.value * 0.8, profit: r.profit, passengers: r.passengers, isPlayer: false, subsidiary: false });
+    rows.push({
+      name: r.name,
+      marketCap: r.value,
+      price: r.value / RIVAL_SHARES,
+      netWorth: r.value * 0.8,
+      profit: r.profit,
+      passengers: r.passengers,
+      isPlayer: false,
+      subsidiary: false,
+    });
   }
   return rows.sort((a, b) => b.marketCap - a.marketCap);
 }
@@ -83,6 +101,13 @@ export interface RouteRow {
 /** 路線の利益(1日あたり)の大きい順 */
 export function routeRanking(transit: Transit): RouteRow[] {
   return [...transit.routes.values()]
-    .map((r) => ({ name: r.name, mode: r.mode, carried: Math.floor(r.carried ?? 0), income: r.income ?? 0, profit: r.profit ?? 0, vehicles: transit.vehicles.filter((v) => v.routeId === r.id).length }))
+    .map((r) => ({
+      name: r.name,
+      mode: r.mode,
+      carried: Math.floor(r.carried ?? 0),
+      income: r.income ?? 0,
+      profit: r.profit ?? 0,
+      vehicles: transit.vehicles.filter((v) => v.routeId === r.id).length,
+    }))
     .sort((a, b) => b.profit - a.profit || b.carried - a.carried);
 }

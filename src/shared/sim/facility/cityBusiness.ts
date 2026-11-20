@@ -28,7 +28,14 @@ export function spawnCityBusiness(map: GameMap, transit: Transit, rng: () => num
         // 百貨店・モールはスプライト。街の規模で大きさ(S/M/L)を決める(Lが置けなければ小さく)
         const sprite = SPRITE_TYPES.includes(rule.type);
         const size = town.pop < 400 ? 'S' : town.pop < 1000 ? 'M' : 'L';
-        const plan = planFacility(map, cx, cy, rule.type, (i) => !!transit.stopAtTile(i % map.size, Math.floor(i / map.size)) || !!transit.depotAtTile(i % map.size, Math.floor(i / map.size)), sprite ? facilityDims(rule.type, size) : undefined);
+        const plan = planFacility(
+          map,
+          cx,
+          cy,
+          rule.type,
+          (i) => !!transit.stopAtTile(i % map.size, Math.floor(i / map.size)) || !!transit.depotAtTile(i % map.size, Math.floor(i / map.size)),
+          sprite ? facilityDims(rule.type, size) : undefined,
+        );
         if (!plan.ok) continue;
         // 道路に面している(敷地の外周のすぐ外に道路がある)
         const onStreet = plan.tiles.some(([x, y]) => [0, 1, 2, 3].some((d) => map.inBounds(x + DX[d], y + DY[d]) && map.road.get(map.idx(x + DX[d], y + DY[d])) !== 0));

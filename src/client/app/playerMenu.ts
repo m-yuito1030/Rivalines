@@ -21,7 +21,9 @@ export class PlayerMenu {
 
   constructor(private readonly d: Deps) {
     $('profSave').addEventListener('click', () => {
-      void net.profile($<HTMLInputElement>('profCompany').value, $<HTMLTextAreaElement>('profBio').value, parseInt(this.color.value.slice(1), 16)).then((r) => d.notify(r.msg ?? (r.ok ? '保存しました' : '失敗しました')));
+      void net
+        .profile($<HTMLInputElement>('profCompany').value, $<HTMLTextAreaElement>('profBio').value, parseInt(this.color.value.slice(1), 16))
+        .then((r) => d.notify(r.msg ?? (r.ok ? '保存しました' : '失敗しました')));
     });
     $('menuBtn').addEventListener('click', () => this.open());
     $('menuClose').addEventListener('click', () => (this.menu.hidden = true));
@@ -33,7 +35,8 @@ export class PlayerMenu {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-gift]');
       if (!b) return;
       const v = window.prompt('送金額(円)。10,000円以上', '1000000');
-      if (v) void net.cmd({ t: 'gift', to: Number(b.dataset.gift), amount: Number(v.replace(/[,，]/g, '')) }).then((r) => d.notify(r.msg ?? (r.ok ? '送金しました' : '失敗しました')));
+      if (v)
+        void net.cmd({ t: 'gift', to: Number(b.dataset.gift), amount: Number(v.replace(/[,，]/g, '')) }).then((r) => d.notify(r.msg ?? (r.ok ? '送金しました' : '失敗しました')));
     });
     $('logoutBtn').addEventListener('click', () => {
       net.logout();

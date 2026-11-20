@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DAY, MIN, type DiaRoute, type DiaStop, buildRun, suggestPassing } from './diagram';
 
-const stops = new Map<number, DiaStop>(
-  [1, 2, 3, 4, 5].map((i) => [i, { id: i, name: `駅${i}`, x: i * 10, y: 0, tracks: i === 2 ? 2 : 1 }]),
-);
+const stops = new Map<number, DiaStop>([1, 2, 3, 4, 5].map((i) => [i, { id: i, name: `駅${i}`, x: i * 10, y: 0, tracks: i === 2 ? 2 : 1 }]));
 const mk = (id: number, name: string, ids: number[], legPerStop: number, dwell: number, start: number, offsets: number[]): DiaRoute => ({
   id,
   name,
@@ -52,7 +50,15 @@ describe('ダイヤ', () => {
     const one = new Map(stops);
     one.set(2, { id: 2, name: '駅2', x: 20, y: 0, tracks: 1 });
     const slow = mk(1, '普通', [1, 2, 3, 4, 5], 10 * MIN, 1 * MIN, 0, [0]);
-    const fast: DiaRoute = { id: 2, name: '快速', color: 0, period: DAY / 4, orders: [1, 3, 5].map((stopId, i) => ({ stopId, kind: 'timed' as const, dwell: MIN, departTod: 6 * MIN + i * 13 * MIN })), legs: [12 * MIN, 12 * MIN, 12 * MIN], vs: [[20, 0]] };
+    const fast: DiaRoute = {
+      id: 2,
+      name: '快速',
+      color: 0,
+      period: DAY / 4,
+      orders: [1, 3, 5].map((stopId, i) => ({ stopId, kind: 'timed' as const, dwell: MIN, departTod: 6 * MIN + i * 13 * MIN })),
+      legs: [12 * MIN, 12 * MIN, 12 * MIN],
+      vs: [[20, 0]],
+    };
     const s = suggestPassing([slow, fast], one);
     expect(s.some((x) => x.problem)).toBe(true);
     expect(s.some((x) => !x.problem)).toBe(false);
@@ -60,7 +66,15 @@ describe('ダイヤ', () => {
 
   it('追い越さない(後ろから追いつかない)なら提案なし', () => {
     const slow = mk(1, '普通', [1, 2, 3, 4, 5], 10 * MIN, 1 * MIN, 0, [0]);
-    const fast: DiaRoute = { id: 2, name: '快速', color: 0, period: DAY / 4, orders: [1, 3, 5].map((stopId, i) => ({ stopId, kind: 'timed' as const, dwell: MIN, departTod: -30 * MIN + i * 13 * MIN })), legs: [12 * MIN, 12 * MIN, 12 * MIN], vs: [[20, 0]] };
+    const fast: DiaRoute = {
+      id: 2,
+      name: '快速',
+      color: 0,
+      period: DAY / 4,
+      orders: [1, 3, 5].map((stopId, i) => ({ stopId, kind: 'timed' as const, dwell: MIN, departTod: -30 * MIN + i * 13 * MIN })),
+      legs: [12 * MIN, 12 * MIN, 12 * MIN],
+      vs: [[20, 0]],
+    };
     // 快速が普通より前を走っていて、追いつく前に終点(速くても差が開く): 追い越しが起きない配置
     const s = suggestPassing([slow, fast], stops).filter((x) => !x.problem);
     expect(s.length).toBeLessThanOrEqual(1);

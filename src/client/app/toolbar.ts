@@ -53,6 +53,8 @@ export class Toolbar {
       btn.classList.toggle('on', !!item);
       btn.textContent = `${(item ? item.textContent!.replace(/\s*\(.\)$/, '') : btn.dataset.def) ?? ''} ▾`;
     }
-    document.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === t && (!b.closest('.ddmenu') || b.closest('.ddmenu') === target?.menu)));
+    document
+      .querySelectorAll<HTMLButtonElement>('[data-tool]')
+      .forEach((b) => b.classList.toggle('on', b.dataset.tool === t && (!b.closest('.ddmenu') || b.closest('.ddmenu') === target?.menu)));
   }
 }

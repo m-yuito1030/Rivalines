@@ -93,10 +93,11 @@ describe('鉄道', () => {
 describe('航空', () => {
   it('2空港間を飛行し乗客を運ぶ', () => {
     const m = flat();
-    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
-      // 空港の周囲に建物を置く
-      m.building.set(m.idx(10 + i, 15 + j), 3);
-    }
+    for (let i = 0; i < 3; i++)
+      for (let j = 0; j < 3; j++) {
+        // 空港の周囲に建物を置く
+        m.building.set(m.idx(10 + i, 15 + j), 3);
+      }
     const t1 = placeAirport(m, 10, 5)!;
     const t2 = placeAirport(m, 80, 70)!;
     expect(t1).toEqual({ x: 11, y: 5 });
@@ -149,7 +150,13 @@ describe('斜め線路', () => {
     for (let x = 5; x < 20; x++) connectRail(m, x, 20, 1);
     for (let i = 0; i < 10; i++) expect(connectRail(m, 20 + i, 20 + i, 5)).toBe(true);
     for (let x = 30; x < 50; x++) connectRail(m, x, 30, 1);
-    for (const [x, y] of [[8, 21], [9, 21], [45, 31], [46, 31]]) m.building.set(m.idx(x, y), 3);
+    for (const [x, y] of [
+      [8, 21],
+      [9, 21],
+      [45, 31],
+      [46, 31],
+    ])
+      m.building.set(m.idx(x, y), 3);
     const tr = new Transit(m);
     const a = tr.addStop(7, 20, 'rail')!;
     const b = tr.addStop(45, 30, 'rail')!;

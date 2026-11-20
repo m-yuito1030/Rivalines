@@ -9,7 +9,12 @@ export async function generateMapAsync(size: number, seed: number, onProgress: (
   // 巨大マップ: 全体は作らず、必要なチャンクを座標とシードから都度生成する(待ち時間なし)
   if (size >= BIG_MAP_MIN) {
     onProgress(1);
-    return new GameMap(size, seed, (cx, cy) => bigChunk(cx, cy, seed), (x, y) => bigHeight(x, y, seed, 5));
+    return new GameMap(
+      size,
+      seed,
+      (cx, cy) => bigChunk(cx, cy, seed),
+      (x, y) => bigHeight(x, y, seed, 5),
+    );
   }
   // 生成済みの地形があればそれを使う(同じ size/seed/地形バージョンなら結果は同一)
   const key = `${TERRAIN_VERSION}:${size}:${seed}`;

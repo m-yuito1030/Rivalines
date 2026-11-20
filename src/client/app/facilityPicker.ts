@@ -42,7 +42,7 @@ export class FacilityPicker {
       this.type = tool;
       $('facTitle').textContent = `${FACILITY_SPECS[tool].icon} ${FACILITY_SPECS[tool].name}を建てる`;
       this.designEl.innerHTML = '';
-      const names = ((sheetInfo as Record<string, { names: string[] }>)[tool]?.names) ?? [];
+      const names = (sheetInfo as Record<string, { names: string[] }>)[tool]?.names ?? [];
       for (let i = 0; i < (DESIGN_COUNT[tool] ?? 1); i++) {
         const op = document.createElement('option');
         op.value = String(i);

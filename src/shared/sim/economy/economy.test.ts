@@ -92,7 +92,13 @@ describe('売上(運賃・施設)と費用', () => {
     const tr = sim.transit;
     const b = tr.addStop(56, 20)!;
     const a = tr.addStop(7, 20)!;
-    const mk = (owner: 'player' | 'city') => placeFacility(map, planFacility(map, 56, 24, 'department', () => false), 'department', owner);
+    const mk = (owner: 'player' | 'city') =>
+      placeFacility(
+        map,
+        planFacility(map, 56, 24, 'department', () => false),
+        'department',
+        owner,
+      );
     const f = mk('city');
     for (let t = 0; t < 120; t++) tr.step(t);
     expect(b.facs).toContain(f.id);
@@ -187,9 +193,19 @@ describe('格付け・株価・競合会社の買収・ランキング', () => {
     const map = line();
     const sim = new Simulation(map);
     const r = sim.rivals[0];
-    const f = placeFacility(map, planFacility(map, 80, 80, 'hotel', () => false), 'hotel', 'city');
+    const f = placeFacility(
+      map,
+      planFacility(map, 80, 80, 'hotel', () => false),
+      'hotel',
+      'city',
+    );
     f.ownerId = r.id;
-    const other = placeFacility(map, planFacility(map, 100, 100, 'hotel', () => false), 'hotel', 'city');
+    const other = placeFacility(
+      map,
+      planFacility(map, 100, 100, 'hotel', () => false),
+      'hotel',
+      'city',
+    );
     other.ownerId = sim.rivals[1].id;
     const price = acquirePrice(r);
     expect(price).toBeGreaterThan(r.value);

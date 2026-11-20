@@ -279,11 +279,9 @@ export const ROUTE_COLORS = [0xe0533d, 0x3d8fe0, 0x4bb36a, 0xe0b83d, 0xa65fd6, 0
 export const KIND_INDEX: Record<Mode, number> = { road: 0, rail: 1, air: 2 };
 export const KIND_NAME: Record<Mode, string> = { road: 'バス停', rail: '駅', air: '空港' };
 
-
 export function dirBetween(a: number, b: number, size: number): number {
   const dx = (b % size) - (a % size);
-  const dy = (Math.floor(b / size)) - (Math.floor(a / size));
+  const dy = Math.floor(b / size) - Math.floor(a / size);
   for (let d = 0; d < 8; d++) if (DX8[d] === dx && DY8[d] === dy) return d;
   return -1;
 }
-

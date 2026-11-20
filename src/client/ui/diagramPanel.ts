@@ -27,7 +27,10 @@ export class DiagramPanel {
   private mode: 'run' | 'node' = 'run';
   private drag: { kind: 'run' | 'node'; id: number; order: number; startX: number; orig: number; delta: number } | null = null;
   /** 描画ごとの当たり判定用の情報 */
-  private hit: { runs: { vehId: number; pts: [number, number][]; offset: number }[]; nodes: { x: number; y: number; order: number; t: number; routeId: number }[] } = { runs: [], nodes: [] };
+  private hit: { runs: { vehId: number; pts: [number, number][]; offset: number }[]; nodes: { x: number; y: number; order: number; t: number; routeId: number }[] } = {
+    runs: [],
+    nodes: [],
+  };
   private view = { x0: 0, span: DAY / 4, left: 110, top: 24, w: 700, h: 300 };
 
   constructor(
@@ -52,7 +55,9 @@ export class DiagramPanel {
         <button data-d="bulk" title="時刻表がなければ作り、間隔に合う本数の車両を買い足して、等間隔に走らせます">運行本数を一括設定</button>
         <button data-d="rev" title="この路線を逆向きの路線として複製(時刻表も組み直す。車両は別に購入)">↔ 逆向きに複製</button>
         <label>ずらし <input data-d="shift" type="number" value="30" style="width:4em">分</label>
-        <label>種別 <select data-d="rank">${RANKS.slice(1).map((k, i) => `<option value="${i + 1}" ${i === 1 ? 'selected' : ''}>${k.name}</option>`).join('')}</select></label>
+        <label>種別 <select data-d="rank">${RANKS.slice(1)
+          .map((k, i) => `<option value="${i + 1}" ${i === 1 ? 'selected' : ''}>${k.name}</option>`)
+          .join('')}</select></label>
         <button data-d="rankcopy" title="この路線を元に、通過駅を自動で選んだ種別の路線を作る(元の路線は変わらない。時刻表は走行時間から組み直す)">🚄 種別の路線を作る</button>
         <button data-d="shiftcopy" title="時刻表を指定の分だけずらして複製">⏱ ずらして複製</button>
       </div>
@@ -81,7 +86,8 @@ export class DiagramPanel {
         const [h, m] = s.split(':').map(Number);
         return h * 60 + m;
       };
-      const say = (p: Promise<{ ok: boolean; msg?: string; id?: number }>, after?: (id?: number) => void) => void p.then((r) => (this.onMessage(r.msg ?? (r.ok ? '完了しました' : '失敗しました')), r.ok && after?.(r.id)));
+      const say = (p: Promise<{ ok: boolean; msg?: string; id?: number }>, after?: (id?: number) => void) =>
+        void p.then((r) => (this.onMessage(r.msg ?? (r.ok ? '完了しました' : '失敗しました')), r.ok && after?.(r.id)));
       if (act === 'auto') say(net.cmd({ t: 'tx', m: 'autoTimetable', a: [rid, todOf(this.getTick())] }));
       else if (act === 'bulk') say(net.cmd({ t: 'routeBulk', routeId: rid, intervalMin: Number(val('interval')), firstMin: tmin(val('first')) }));
       else if (act === 'rev') say(net.cmd({ t: 'routeClone', routeId: rid, reverse: true, shiftMin: 0 }), (id) => this.select(id));
@@ -132,7 +138,9 @@ export class DiagramPanel {
   private fillRoutes(): void {
     const cur = this.pendingSelect >= 0 && this.transit.routes.has(this.pendingSelect) ? this.pendingSelect : Number(this.routeSel.value);
     const rs = this.myRoutes();
-    const html = rs.map((r) => `<option value="${r.id}" ${r.id === cur ? 'selected' : ''}>${r.rank ? `[${RANKS[r.rank].name}] ` : ''}${esc(r.name)} (ID:${r.id})</option>`).join('');
+    const html = rs
+      .map((r) => `<option value="${r.id}" ${r.id === cur ? 'selected' : ''}>${r.rank ? `[${RANKS[r.rank].name}] ` : ''}${esc(r.name)} (ID:${r.id})</option>`)
+      .join('');
     if (this.routeSel.innerHTML !== html) this.routeSel.innerHTML = html;
     if (this.pendingSelect >= 0 && this.transit.routes.has(this.pendingSelect)) {
       this.routeSel.value = String(this.pendingSelect);
@@ -316,7 +324,13 @@ export class DiagramPanel {
     const key = JSON.stringify(cands.map((r) => [r.id, r.orders.map((o) => [o.stopId, o.kind, o.departTod, o.dwell]), r.vs, r.legs, r.period]));
     if (key !== this.lastKey) {
       this.lastKey = key;
-      const sug = cands.length >= 2 ? suggestPassing(cands.map((r) => this.toDia(r)), stops) : [];
+      const sug =
+        cands.length >= 2
+          ? suggestPassing(
+              cands.map((r) => this.toDia(r)),
+              stops,
+            )
+          : [];
       this.sugEl.innerHTML = sug.length
         ? sug
             .map((s) =>
@@ -402,7 +416,10 @@ export class DiagramPanel {
     else {
       const route = this.transit.routes.get(d.id);
       const o = route?.orders[d.order];
-      if (route && o) void net.cmd({ t: 'orderSet', routeId: route.id, index: d.order, patch: { kind: 'timed', departTod: (((o.departTod + d.delta) % DAY) + DAY) % DAY } }).then((r) => !r.ok && r.msg && this.onMessage(r.msg));
+      if (route && o)
+        void net
+          .cmd({ t: 'orderSet', routeId: route.id, index: d.order, patch: { kind: 'timed', departTod: (((o.departTod + d.delta) % DAY) + DAY) % DAY } })
+          .then((r) => !r.ok && r.msg && this.onMessage(r.msg));
     }
   }
 }

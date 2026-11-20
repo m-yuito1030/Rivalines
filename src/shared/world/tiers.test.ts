@@ -47,19 +47,23 @@ describe('街の段階ごとの見た目', () => {
     const map = makeWorldMap(65535, 11);
     for (let ry = 10; ry < 15; ry++) for (let rx = 10; rx < 15; rx++) placeTownsRegion(map, rx, ry);
     const stat = (tier: number) => {
-      let l3 = 0, l2 = 0, off = 0, n = 0;
+      let l3 = 0,
+        l2 = 0,
+        off = 0,
+        n = 0;
       for (const t of map.towns.filter((x) => townTier(x) === tier)) {
         const R = TIERS[tier].radius;
-        for (let y = t.y - R; y <= t.y + R; y++) for (let x = t.x - R; x <= t.x + R; x++) {
-          const b = map.building.get(map.idx(x, y));
-          if (!b || map.owner.get(map.idx(x, y)) !== t.id) continue;
-          const lv = buildingLevel(b);
-          if (lv < 1) continue;
-          n++;
-          if (lv === 3) l3++;
-          if (lv === 2) l2++;
-          if (isOffice(b)) off++;
-        }
+        for (let y = t.y - R; y <= t.y + R; y++)
+          for (let x = t.x - R; x <= t.x + R; x++) {
+            const b = map.building.get(map.idx(x, y));
+            if (!b || map.owner.get(map.idx(x, y)) !== t.id) continue;
+            const lv = buildingLevel(b);
+            if (lv < 1) continue;
+            n++;
+            if (lv === 3) l3++;
+            if (lv === 2) l2++;
+            if (isOffice(b)) off++;
+          }
       }
       return { l3, l2, off, n };
     };

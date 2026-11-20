@@ -159,7 +159,14 @@ export class ListPanel {
       let g = by.get(routeId);
       if (!g) {
         const r = this.transit.routes.get(routeId);
-        by.set(routeId, (g = { key: `v${routeId}`, title: `${{ road: '🚌', rail: '🚆', air: '✈' }[mode]} ${r?.name ?? `路線${routeId}`}${r?.rank ? ` [${RANKS[r.rank].name}]` : ''}`, items: [] }));
+        by.set(
+          routeId,
+          (g = {
+            key: `v${routeId}`,
+            title: `${{ road: '🚌', rail: '🚆', air: '✈' }[mode]} ${r?.name ?? `路線${routeId}`}${r?.rank ? ` [${RANKS[r.rank].name}]` : ''}`,
+            items: [],
+          }),
+        );
       }
       g.items.push({ name: `#${id} ${modelOf(modelId).name}${mode === 'rail' ? ` ${cars}両` : ''}`, sub: `${ST[st] ?? ''} ・ 積載${pct}%`, x, y });
     }
@@ -179,7 +186,8 @@ export class ListPanel {
       html += `<div class="lgroup"><button class="lhead" data-gk="${gr.key}">${isOpen ? '▼' : '▶'} ${esc(gr.title)} <em>${shown.length}</em></button>`;
       if (isOpen) {
         html += '<div class="litems">';
-        for (const it of shown.slice(0, MAX_ITEMS)) html += `<button class="litem" data-jx="${it.x}" data-jy="${it.y}"><span>${esc(it.name)}</span><em>${esc(it.sub)}</em></button>`;
+        for (const it of shown.slice(0, MAX_ITEMS))
+          html += `<button class="litem" data-jx="${it.x}" data-jy="${it.y}"><span>${esc(it.name)}</span><em>${esc(it.sub)}</em></button>`;
         if (shown.length > MAX_ITEMS) html += `<div class="muted">ほか ${shown.length - MAX_ITEMS} 件(検索で絞り込めます)</div>`;
         html += '</div>';
       }

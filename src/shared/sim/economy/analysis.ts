@@ -60,7 +60,18 @@ export function routeEcon(t: Transit, ownerId?: number): RouteEcon[] {
     const load = vs.reduce((s, v) => s + v.load, 0);
     const running = vs.reduce((s, v) => s + vehiclePrice(modelOf(v.modelId), v.cars) * RUNNING_RATE, 0);
     const income = r.income ?? 0;
-    out.push({ id: r.id, name: r.name, color: r.color, mode: r.mode, vehicles: vs.length, income, running, profit: income - running, loadPct: cap ? Math.round((load / cap) * 100) : null, carried: Math.floor(r.carried ?? 0) });
+    out.push({
+      id: r.id,
+      name: r.name,
+      color: r.color,
+      mode: r.mode,
+      vehicles: vs.length,
+      income,
+      running,
+      profit: income - running,
+      loadPct: cap ? Math.round((load / cap) * 100) : null,
+      carried: Math.floor(r.carried ?? 0),
+    });
   }
   return out;
 }
@@ -121,7 +132,17 @@ export function devRows(t: Transit, ownerId?: number): DevRow[] {
   for (const s of t.stops.values()) {
     if (s.waypoint || (ownerId !== undefined && s.owner !== ownerId)) continue;
     const dev = s.dev ?? 0;
-    out.push({ id: s.id, name: s.name, x: s.x, y: s.y, pop: Math.round(s.pop), dev, income: devIncome(s), nextCost: dev >= DEV.max ? null : devCost(dev), nextGain: dev >= DEV.max ? 0 : devIncome({ pop: s.pop, dev: dev + 1 }) - devIncome(s) });
+    out.push({
+      id: s.id,
+      name: s.name,
+      x: s.x,
+      y: s.y,
+      pop: Math.round(s.pop),
+      dev,
+      income: devIncome(s),
+      nextCost: dev >= DEV.max ? null : devCost(dev),
+      nextGain: dev >= DEV.max ? 0 : devIncome({ pop: s.pop, dev: dev + 1 }) - devIncome(s),
+    });
   }
   return out.sort((a, b) => b.pop - a.pop);
 }

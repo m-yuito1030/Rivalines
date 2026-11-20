@@ -71,7 +71,11 @@ describe('大型施設', () => {
     const tr = new Transit(m);
     for (let x = 30; x < 50; x++) connect(m, x, 50, 1, false);
     const stop = tr.addStop(40, 50)!;
-    placeFacility(m, planFacility(m, 40, 54, 'stadium', () => false), 'stadium');
+    placeFacility(
+      m,
+      planFacility(m, 40, 54, 'stadium', () => false),
+      'stadium',
+    );
     expect(facilitiesNear(m, 40, 50, 4)).toHaveLength(1);
     for (let t = 0; t < 120; t++) tr.step(t); // 集客圏の更新(100tickごと)
     expect(stop.fpop).toBe(FACILITY_SPECS.stadium.attract);
@@ -81,7 +85,11 @@ describe('大型施設', () => {
   it('セーブ状態に施設が含まれ、復元で敷地ごと戻る', () => {
     const m = flat(64);
     const sim = new Simulation(m);
-    placeFacility(m, planFacility(m, 20, 20, 'amusement', () => false), 'amusement');
+    placeFacility(
+      m,
+      planFacility(m, 20, 20, 'amusement', () => false),
+      'amusement',
+    );
     const state = JSON.parse(JSON.stringify(sim.state()));
     const m2 = flat(64);
     m2.building.copyFrom(m.building);

@@ -249,7 +249,9 @@ setInterval(() => {
 }, 30000);
 for (const sig of ['SIGINT', 'SIGTERM'] as const)
   process.on(sig, () => {
-    void saveWorld().catch((e) => console.error('[world] 保存に失敗:', (e as Error).message)).finally(() => process.exit(0));
+    void saveWorld()
+      .catch((e) => console.error('[world] 保存に失敗:', (e as Error).message))
+      .finally(() => process.exit(0));
   });
 
 server.listen(PORT, () => console.log(`[server] http/ws :${PORT} (最大${MAX_USERS}人)`));

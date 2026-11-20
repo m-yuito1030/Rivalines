@@ -52,6 +52,12 @@ describe('roads', () => {
   });
   it('lineTiles は軸に揃う', () => {
     const t = lineTiles(2, 2, 6, 3);
-    expect(t.map((p) => [p.x, p.y])).toEqual([[2, 2], [3, 2], [4, 2], [5, 2], [6, 2]]);
+    expect(t.map((p) => [p.x, p.y])).toEqual([
+      [2, 2],
+      [3, 2],
+      [4, 2],
+      [5, 2],
+      [6, 2],
+    ]);
   });
 });

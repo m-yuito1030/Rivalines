@@ -212,7 +212,11 @@ export function tryPlaceHouse(map: GameMap, town: Town, rng: () => number, opts:
     map.building.set(i, makeBuilding(level, variant, office));
     map.owner.set(i, town.id);
     if (level === 3) {
-      for (const [ox, oy] of [[1, 0], [0, 1], [1, 1]]) {
+      for (const [ox, oy] of [
+        [1, 0],
+        [0, 1],
+        [1, 1],
+      ]) {
         const k = map.idx(ax - ox, ay - oy);
         map.building.set(k, fillerOf(ox, oy));
         map.owner.set(k, town.id);

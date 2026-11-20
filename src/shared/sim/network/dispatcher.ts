@@ -89,7 +89,7 @@ export class Dispatcher {
     const s = this.t.map.size;
     const from = v.path[0];
     const x0 = (from % s) + 0.5;
-    const y0 = (Math.floor(from / s)) + 0.5;
+    const y0 = Math.floor(from / s) + 0.5;
     const x1 = dest.x + 0.5;
     const y1 = dest.y + 0.5;
     const dist = Math.hypot(x1 - x0, y1 - y0);

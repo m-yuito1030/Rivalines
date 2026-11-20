@@ -232,7 +232,8 @@ export class ChunkRenderer {
             for (let d = 0; d < 4; d++) {
               const nx2 = tx + [0, 1, 0, -1][d];
               const ny2 = ty + [-1, 0, 1, 0][d];
-              if (((map.road.get(k) | map.rail.get(k)) & (1 << d)) && map.inBounds(nx2, ny2) && !(map.span.get(map.idx(nx2, ny2)) & 32)) drawTunnelPortal(ctx, px, py, d, (lvl - (sp & 15)) * LEVEL_PX);
+              if ((map.road.get(k) | map.rail.get(k)) & (1 << d) && map.inBounds(nx2, ny2) && !(map.span.get(map.idx(nx2, ny2)) & 32))
+                drawTunnelPortal(ctx, px, py, d, (lvl - (sp & 15)) * LEVEL_PX);
             }
           } else {
             if (map.air.get(k)) drawAirTile(ctx, px, py, map.air.get(k));

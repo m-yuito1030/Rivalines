@@ -63,7 +63,7 @@ describe('建物(スプライト)', () => {
       if (buildingLevel(b) === 0) {
         // 付属タイルのアンカーは Lである
         const [ax, ay] = fillerAnchorOffset(b);
-        expect(buildingLevel(map.building.get(map.idx((i % map.size) + ax, (Math.floor(i / map.size)) + ay)))).toBe(3);
+        expect(buildingLevel(map.building.get(map.idx((i % map.size) + ax, Math.floor(i / map.size) + ay)))).toBe(3);
       } else {
         if (buildingLevel(b) === 3) ls++;
         if (isOffice(b)) offices++;
@@ -77,7 +77,13 @@ describe('建物(スプライト)', () => {
       const x = k % map.size;
       const y = Math.floor(k / map.size);
       expect(removeBuilding(map, x - 1, y - 1)).toBe(true); // 付属タイルから撤去しても建物ごと消える
-      for (const [dx, dy] of [[0, 0], [-1, 0], [0, -1], [-1, -1]]) expect(map.building.get(map.idx(x + dx, y + dy))).toBe(0);
+      for (const [dx, dy] of [
+        [0, 0],
+        [-1, 0],
+        [0, -1],
+        [-1, -1],
+      ])
+        expect(map.building.get(map.idx(x + dx, y + dy))).toBe(0);
       expect(map.towns.reduce((s, t) => s + t.pop, 0)).toBe(pop0 - 36);
     }
   });

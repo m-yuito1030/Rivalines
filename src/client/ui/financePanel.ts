@@ -1,4 +1,19 @@
-import { TRAINING, trainingCost, CAT_LABEL, COST_CATS, type Company, LOAN_STEP, PAYOUT_OPTIONS, REVENUE_CATS, SHARES, TAX_RATE, assetValue, facilityValue, gradeOf, yen } from '../../shared/sim/economy/economy';
+import {
+  TRAINING,
+  trainingCost,
+  CAT_LABEL,
+  COST_CATS,
+  type Company,
+  LOAN_STEP,
+  PAYOUT_OPTIONS,
+  REVENUE_CATS,
+  SHARES,
+  TAX_RATE,
+  assetValue,
+  facilityValue,
+  gradeOf,
+  yen,
+} from '../../shared/sim/economy/economy';
 import { type Rival, acquirePrice, divestPrice } from '../../shared/sim/economy/rivals';
 import { net } from '../connection/net';
 import { PACT_DISCOUNTS, type PactState } from '../../shared/sim/economy/pacts';
@@ -92,7 +107,10 @@ export class FinancePanel {
     const histCost = c.history.reduce((a, d) => a + d.cost, 0);
     const maxBar = Math.max(1, ...c.history.map((d) => Math.max(d.revenue, d.cost)));
     const bars = c.history
-      .map((d) => `<div class="fbar" title="${d.day + 1}日目 売上${yen(d.revenue)} 費用${yen(d.cost)}"><i class="r" style="height:${Math.round((d.revenue / maxBar) * 100)}%"></i><i class="c" style="height:${Math.round((d.cost / maxBar) * 100)}%"></i></div>`)
+      .map(
+        (d) =>
+          `<div class="fbar" title="${d.day + 1}日目 売上${yen(d.revenue)} 費用${yen(d.cost)}"><i class="r" style="height:${Math.round((d.revenue / maxBar) * 100)}%"></i><i class="c" style="height:${Math.round((d.cost / maxBar) * 100)}%"></i></div>`,
+      )
       .join('');
     let h = `<div class="fgrid">
       <div>現金</div><div class="n ${c.cash < 0 ? 'neg' : ''}">${yen(c.cash)}</div>
@@ -134,7 +152,10 @@ export class FinancePanel {
     h += c.reports.length
       ? `<table><tr><th>期</th><th>売上高</th><th>営業利益</th><th>税引前</th><th>法人税</th><th>当期純利益</th><th>配当</th><th>純資産</th><th>株価</th></tr>${[...c.reports]
           .reverse()
-          .map((r) => `<tr title="${r.from}〜${r.to} / 運行費${yen(r.running)} 維持費${yen(r.upkeep)} 償却${yen(r.depreciation)} 利息${yen(r.interest)}"><td>第${r.period}期</td><td>${yen(r.revenue)}</td><td class="${r.opProfit < 0 ? 'neg' : ''}">${yen(r.opProfit)}</td><td>${yen(r.preTax)}</td><td>${yen(r.tax)}</td><td class="${r.netIncome < 0 ? 'neg' : ''}"><b>${yen(r.netIncome)}</b></td><td>${yen(r.dividend)}</td><td>${yen(r.netWorth)}</td><td>${yen(r.stock)}</td></tr>`)
+          .map(
+            (r) =>
+              `<tr title="${r.from}〜${r.to} / 運行費${yen(r.running)} 維持費${yen(r.upkeep)} 償却${yen(r.depreciation)} 利息${yen(r.interest)}"><td>第${r.period}期</td><td>${yen(r.revenue)}</td><td class="${r.opProfit < 0 ? 'neg' : ''}">${yen(r.opProfit)}</td><td>${yen(r.preTax)}</td><td>${yen(r.tax)}</td><td class="${r.netIncome < 0 ? 'neg' : ''}"><b>${yen(r.netIncome)}</b></td><td>${yen(r.dividend)}</td><td>${yen(r.netWorth)}</td><td>${yen(r.stock)}</td></tr>`,
+          )
           .join('')}</table><div class="muted">行にカーソルを置くと内訳(運行費・維持費・償却・利息)が出ます。営業利益 = 売上高 − 運行費 − 維持費 − 減価償却費。</div>`
       : '<div class="muted">最初の決算は 2027年3月31日です。</div>';
     const lv = c.training;
@@ -150,12 +171,21 @@ export class FinancePanel {
     const mine = pc.pacts.filter((p) => p.a === net.id || p.b === net.id);
     const inbox = pc.proposals.filter((p) => p.to === net.id);
     const sent = pc.proposals.filter((p) => p.from === net.id);
-    const others = ps.filter((p) => p.id !== net.id && !pc.pacts.some((x) => (x.a === p.id && x.b === net.id) || (x.b === p.id && x.a === net.id)) && !pc.proposals.some((x) => (x.from === p.id && x.to === net.id) || (x.to === p.id && x.from === net.id)));
+    const others = ps.filter(
+      (p) =>
+        p.id !== net.id &&
+        !pc.pacts.some((x) => (x.a === p.id && x.b === net.id) || (x.b === p.id && x.a === net.id)) &&
+        !pc.proposals.some((x) => (x.from === p.id && x.to === net.id) || (x.to === p.id && x.from === net.id)),
+    );
     if (!this.pactTo || !others.some((p) => p.id === this.pactTo)) this.pactTo = others[0]?.id ?? 0;
     h += '<h3>提携(乗り入れ契約)</h3><div class="muted">他社と合意すると、互いの線路・道路を通る通行料が割り引かれます(双方向)。どちらからでも解消できます</div>';
-    h += mine.length ? `<table><tr><th>相手</th><th>通行料の割引</th><th></th></tr>${mine.map((p) => `<tr><td>${nameOf(p.a === net.id ? p.b : p.a)}</td><td>${Math.round(p.discount * 100)}%</td><td><button data-pact="cancel" data-id="${p.id}">解消</button></td></tr>`).join('')}</table>` : '<div class="muted">提携中の会社はありません</div>';
-    for (const p of inbox) h += `<div class="frow">📨 ${nameOf(p.from)} から申し込み(通行料 ${Math.round(p.discount * 100)}% 割引) <button data-pact="accept" data-id="${p.id}">承諾</button><button data-pact="reject" data-id="${p.id}">断る</button></div>`;
-    for (const p of sent) h += `<div class="frow">⏳ ${nameOf(p.to)} へ申し込み中(${Math.round(p.discount * 100)}% 割引) <button data-pact="cancel" data-id="${p.id}">取り下げ</button></div>`;
+    h += mine.length
+      ? `<table><tr><th>相手</th><th>通行料の割引</th><th></th></tr>${mine.map((p) => `<tr><td>${nameOf(p.a === net.id ? p.b : p.a)}</td><td>${Math.round(p.discount * 100)}%</td><td><button data-pact="cancel" data-id="${p.id}">解消</button></td></tr>`).join('')}</table>`
+      : '<div class="muted">提携中の会社はありません</div>';
+    for (const p of inbox)
+      h += `<div class="frow">📨 ${nameOf(p.from)} から申し込み(通行料 ${Math.round(p.discount * 100)}% 割引) <button data-pact="accept" data-id="${p.id}">承諾</button><button data-pact="reject" data-id="${p.id}">断る</button></div>`;
+    for (const p of sent)
+      h += `<div class="frow">⏳ ${nameOf(p.to)} へ申し込み中(${Math.round(p.discount * 100)}% 割引) <button data-pact="cancel" data-id="${p.id}">取り下げ</button></div>`;
     h += others.length
       ? `<div class="frow">申し込む: <select data-pf="to">${others.map((p) => `<option value="${p.id}" ${p.id === this.pactTo ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select> 割引 <select data-pf="disc">${PACT_DISCOUNTS.map((d) => `<option value="${d}" ${d === this.pactDisc ? 'selected' : ''}>${Math.round(d * 100)}%</option>`).join('')}</select> <button data-pact="propose">申し込む</button></div>`
       : '<div class="muted">申し込める会社がありません</div>';
@@ -164,20 +194,30 @@ export class FinancePanel {
       .map(
         (r) =>
           `<tr><td>${esc(r.name)}${r.acquired ? (r.acquiredBy === net.id ? ' <b>(傘下)</b>' : ' (他のプレイヤーの傘下)') : ''}</td><td>${yen(r.value)}</td><td>${yen(r.profit)}</td><td>${yen(r.value / 100000)}</td><td>${r.acquired ? '-' : yen(acquirePrice(r))}</td><td>${
-            r.acquired && r.acquiredBy !== net.id ? '' : r.acquired ? `<button data-fa="rival-sell" data-id="${r.id}" title="企業価値の80%で手放す">手放す(${yen(divestPrice(r))})</button>` : `<button data-fa="rival-buy" data-id="${r.id}" ${c.cash < acquirePrice(r) ? 'disabled' : ''}>買収</button>`
+            r.acquired && r.acquiredBy !== net.id
+              ? ''
+              : r.acquired
+                ? `<button data-fa="rival-sell" data-id="${r.id}" title="企業価値の80%で手放す">手放す(${yen(divestPrice(r))})</button>`
+                : `<button data-fa="rival-buy" data-id="${r.id}" ${c.cash < acquirePrice(r) ? 'disabled' : ''}>買収</button>`
           }</td></tr>`,
       )
       .join('')}</table><div class="muted">買収すると、その会社が持つ民間施設が自社のものになり、利益が毎日「子会社の利益」として入ります。企業価値は日々変動します。</div>`;
     h += '<h3>自社の施設(経営資源)</h3>';
     h += own.length
       ? `<table><tr><th>施設</th><th>売上/日</th><th>維持費/日</th><th>来場者</th><th>評価額</th><th></th></tr>${own
-          .map((f) => `<tr><td>${FACILITY_SPECS[f.type].icon} ${esc(f.name)}</td><td>${yen(f.income ?? 0)}</td><td>${yen(facilityUpkeep(f))}</td><td>${Math.floor(f.visits ?? 0)}</td><td>${yen(facilityValue(f))}</td><td><button data-fa="sell" data-id="${f.id}" title="評価額の60%で売却(他社のものになる)">売却</button></td></tr>`)
+          .map(
+            (f) =>
+              `<tr><td>${FACILITY_SPECS[f.type].icon} ${esc(f.name)}</td><td>${yen(f.income ?? 0)}</td><td>${yen(facilityUpkeep(f))}</td><td>${Math.floor(f.visits ?? 0)}</td><td>${yen(facilityValue(f))}</td><td><button data-fa="sell" data-id="${f.id}" title="評価額の60%で売却(他社のものになる)">売却</button></td></tr>`,
+          )
           .join('')}</table>`
       : '<div class="muted">施設(百貨店・モール・スタジアムなど)を建てると、近くの駅・バス停に来た人が売上になります。</div>';
     h += '<h3>他社の施設(買収できます)</h3>';
     h += other.length
       ? `<table><tr><th>施設</th><th>来場者</th><th>評価額(買収額)</th><th></th></tr>${other
-          .map((f) => `<tr><td>${FACILITY_SPECS[f.type].icon} ${esc(f.name)}</td><td>${Math.floor(f.visits ?? 0)}</td><td>${yen(facilityValue(f))}</td><td><button data-fa="acquire" data-id="${f.id}" ${c.cash < facilityValue(f) ? 'disabled' : ''}>買収</button></td></tr>`)
+          .map(
+            (f) =>
+              `<tr><td>${FACILITY_SPECS[f.type].icon} ${esc(f.name)}</td><td>${Math.floor(f.visits ?? 0)}</td><td>${yen(facilityValue(f))}</td><td><button data-fa="acquire" data-id="${f.id}" ${c.cash < facilityValue(f) ? 'disabled' : ''}>買収</button></td></tr>`,
+          )
           .join('')}</table>`
       : '<div class="muted">街が大きくなると、民間の百貨店・ホテル・モールが建ちます。買収すると自社の売上になります。</div>';
     // 部分ごとに、変わったときだけ書き換える(ボタンの要素が毎秒入れ替わらないように)

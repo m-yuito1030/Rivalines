@@ -40,7 +40,6 @@ import { TIERS, townTier } from '../shared/world/town';
 import { placeAirport } from '../shared/world/airports';
 import type { GameMap } from '../shared/world/gameMap';
 
-
 initAuth(startGame);
 
 /** 時刻(0〜24)ごとの乗算色: 夜は青く暗く、朝夕は暖色 */
@@ -155,7 +154,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
         if (r.ok && r.id !== undefined && b.stops[b.stops.length - 1] !== r.id) panel.addToBuild(r.id);
       });
     } else if (tool === 'station') void run({ t: 'place', tool, x: tile.x, y: tile.y, opts: { ...stationPicker.opts } });
-    else if (tool !== 'route' && tool !== 'pan') void run({ t: 'place', tool: tool as PlaceTool, x: tile.x, y: tile.y, ...(FacilityPicker.choosable(tool) ? { fac: { ...facilityPicker.sel } } : {}) });
+    else if (tool !== 'route' && tool !== 'pan')
+      void run({ t: 'place', tool: tool as PlaceTool, x: tile.x, y: tile.y, ...(FacilityPicker.choosable(tool) ? { fac: { ...facilityPicker.sel } } : {}) });
   });
   tools.remoteBuild = (tool, a, b) => {
     if ((tool as string) === 'bulldoze') void run({ t: 'bulldoze', a, b, kinds: bulldozeOptions.kinds() });
@@ -239,10 +239,12 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     const lab = document.getElementById('speedLabel');
     if (lab) lab.textContent = `${s === 0 ? '⏸' : 'x' + s} ▾`;
   };
-  document.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) =>
+    b.addEventListener('click', () => {
       if (isTouch) routesWin.close(); // スマホ: ツールを選んだら路線シートは閉じる
       setTool(b.dataset.tool as Tool);
-    }));
+    }),
+  );
   document.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((b) => b.addEventListener('click', () => setSpeed(Number(b.dataset.speed))));
   window.addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
@@ -268,10 +270,31 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   const labelTexts = new Map<number, Text>();
 
   (window as unknown as Record<string, unknown>).__mp = { map, sim, camera, net, mirror };
-  if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__game = { map, sim, camera, setSpeed, transitLayer, chunks, placeAirport, placeFacility: (type: FacilityType, x: number, y: number) => { const pl = planFacility(map, x, y, type, () => false); return pl.ok ? placeFacility(map, pl, type) : pl.reason; } };
+  if (import.meta.env.DEV)
+    (window as unknown as Record<string, unknown>).__game = {
+      map,
+      sim,
+      camera,
+      setSpeed,
+      transitLayer,
+      chunks,
+      placeAirport,
+      placeFacility: (type: FacilityType, x: number, y: number) => {
+        const pl = planFacility(map, x, y, type, () => false);
+        return pl.ok ? placeFacility(map, pl, type) : pl.reason;
+      },
+    };
 
   // 停留所/街のタップ情報(移動ツールで、ほぼ動かさずに離したとき)
-  const info = new InfoPanel($('info'), map, transit, () => sim.tick, (x, y) => camera.centerOnTile(x, y), (msg) => tools.onMessage?.(msg), () => sim.company);
+  const info = new InfoPanel(
+    $('info'),
+    map,
+    transit,
+    () => sim.tick,
+    (x, y) => camera.centerOnTile(x, y),
+    (msg) => tools.onMessage?.(msg),
+    () => sim.company,
+  );
   info.players = () => mirror.players;
   const infoPanel = info; // 毎フレームの処理内では info が別の変数名に隠れるため
   // 車両の追跡: カメラが車両を追いかける。カメラを手で動かす/情報パネルを閉じると解除
@@ -302,40 +325,126 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     if (sel) {
       if (isTouch) closeWindows(infoWin);
       info.show(sel);
-    }
-    else info.close();
+    } else info.close();
   });
 
   // 統計画面
-  const statsPanel = new StatsPanel($('stats-modal'), $('statsBody'), transit, () => map.towns, () => sim.rating, () => sim.migrated);
+  const statsPanel = new StatsPanel(
+    $('stats-modal'),
+    $('statsBody'),
+    transit,
+    () => map.towns,
+    () => sim.rating,
+    () => sim.migrated,
+  );
   $('statsBtn').addEventListener('click', () => statsPanel.toggle());
-  const anaPanel = new AnalysisPanel($('analysis-modal'), $('anaBody'), transit, () => map.facilities, (x, y) => camera.centerOnTile(x, y), (m) => tools.onMessage?.(m));
+  const anaPanel = new AnalysisPanel(
+    $('analysis-modal'),
+    $('anaBody'),
+    transit,
+    () => map.facilities,
+    (x, y) => camera.centerOnTile(x, y),
+    (m) => tools.onMessage?.(m),
+  );
   $('anaBtn').addEventListener('click', () => anaPanel.toggle());
-  const aucPanel = new AuctionPanel($('auction-modal'), $('aucBody'), () => mirror.auctions, () => map.towns, () => mirror.players, (x, y) => camera.centerOnTile(x, y), (m) => tools.onMessage?.(m));
+  const aucPanel = new AuctionPanel(
+    $('auction-modal'),
+    $('aucBody'),
+    () => mirror.auctions,
+    () => map.towns,
+    () => mirror.players,
+    (x, y) => camera.centerOnTile(x, y),
+    (m) => tools.onMessage?.(m),
+  );
   $('aucBtn').addEventListener('click', () => aucPanel.toggle());
-  const finPanel = new FinancePanel($('fin-modal'), $('finBody'), () => sim.company, map, transit, () => sim.rating, (msg) => tools.onMessage?.(msg), () => sim.rivals, () => sim.date, () => mirror.pacts, () => mirror.players);
+  const finPanel = new FinancePanel(
+    $('fin-modal'),
+    $('finBody'),
+    () => sim.company,
+    map,
+    transit,
+    () => sim.rating,
+    (msg) => tools.onMessage?.(msg),
+    () => sim.rivals,
+    () => sim.date,
+    () => mirror.pacts,
+    () => mirror.players,
+  );
   $('finBtn').addEventListener('click', () => finPanel.toggle());
   sim.onFiscalClose = (r) => {
     tools.onMessage?.(`第${r.period}期決算(${r.from}〜${r.to}): 当期純利益 ${yen(r.netIncome)}、法人税 ${yen(r.tax)}、配当 ${yen(r.dividend)}。経営画面(F)で決算書を確認できます`);
   };
   const companyRows = (): CompanyRow[] => {
-    const rows: CompanyRow[] = mirror.players.map((p) => ({ name: p.id === net.id ? `自社(${p.company})` : p.company, marketCap: p.marketCap, price: p.price, netWorth: p.netWorth, profit: p.profit, passengers: p.passengers, isPlayer: p.id === net.id, subsidiary: false }));
-    for (const r of sim.rivals) if (!r.acquired) rows.push({ name: r.name, marketCap: r.value, price: r.value / 100000, netWorth: r.value * 0.8, profit: r.profit, passengers: r.passengers, isPlayer: false, subsidiary: false });
+    const rows: CompanyRow[] = mirror.players.map((p) => ({
+      name: p.id === net.id ? `自社(${p.company})` : p.company,
+      marketCap: p.marketCap,
+      price: p.price,
+      netWorth: p.netWorth,
+      profit: p.profit,
+      passengers: p.passengers,
+      isPlayer: p.id === net.id,
+      subsidiary: false,
+    }));
+    for (const r of sim.rivals)
+      if (!r.acquired)
+        rows.push({
+          name: r.name,
+          marketCap: r.value,
+          price: r.value / 100000,
+          netWorth: r.value * 0.8,
+          profit: r.profit,
+          passengers: r.passengers,
+          isPlayer: false,
+          subsidiary: false,
+        });
     return rows.sort((a, b) => b.marketCap - a.marketCap);
   };
-  const rankPanel = new RankingPanel($('rank-modal'), $('rankBody'), companyRows, map, transit, () => mirror.weekly, () => mirror.players);
+  const rankPanel = new RankingPanel(
+    $('rank-modal'),
+    $('rankBody'),
+    companyRows,
+    map,
+    transit,
+    () => mirror.weekly,
+    () => mirror.players,
+  );
   $('rankBtn').addEventListener('click', () => rankPanel.toggle());
-  const diaPanel = new DiagramPanel($('dia-modal'), $('diaBody'), transit, () => sim.tick, (m) => tools.onMessage?.(m));
+  const diaPanel = new DiagramPanel(
+    $('dia-modal'),
+    $('diaBody'),
+    transit,
+    () => sim.tick,
+    (m) => tools.onMessage?.(m),
+  );
   $('diaBtn').addEventListener('click', () => diaPanel.toggle());
-  const listPanel = new ListPanel($('list-modal'), $('listBody'), map, transit, (x, y) => camera.centerOnTile(x, y), () => mirror.myVehicles);
+  const listPanel = new ListPanel(
+    $('list-modal'),
+    $('listBody'),
+    map,
+    transit,
+    (x, y) => camera.centerOnTile(x, y),
+    () => mirror.myVehicles,
+  );
   $('listBtn').addEventListener('click', () => listPanel.toggle());
   $('rank').addEventListener('click', () => rankPanel.toggle());
   $('cash').addEventListener('click', () => finPanel.toggle());
   // 画面内のウィンドウは同時に1つだけ: 別のウィンドウを開くと前のものを閉じる
   // スマホでは路線シート・情報パネルも画面を覆うので対象に含める(PCでは常時表示のサイドパネルなので除外)
-  const infoWin = { get isOpen() { return info.isOpen; }, open() {}, close: () => info.close() };
+  const infoWin = {
+    get isOpen() {
+      return info.isOpen;
+    },
+    open() {},
+    close: () => info.close(),
+  };
   const windows: { isOpen: boolean; open(): void; close(): void }[] = [statsPanel, finPanel, rankPanel, diaPanel];
-  const listWin = { get isOpen() { return listPanel.isOpen; }, open() {}, close: () => listPanel.close() };
+  const listWin = {
+    get isOpen() {
+      return listPanel.isOpen;
+    },
+    open() {},
+    close: () => listPanel.close(),
+  };
   windows.push(listWin);
   if (isTouch) windows.push(routesWin, infoWin);
   const closeWindows = (except?: unknown) => {
@@ -468,7 +577,12 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     if (nowMs - discAt > 400) {
       // 見ている範囲(タイル)をサーバーに知らせる: その範囲のタイル・車両だけが届く
       discAt = nowMs;
-      const tl = [Camera.worldToTile(view.left, view.top), Camera.worldToTile(view.right, view.top), Camera.worldToTile(view.right, view.bottom), Camera.worldToTile(view.left, view.bottom)];
+      const tl = [
+        Camera.worldToTile(view.left, view.top),
+        Camera.worldToTile(view.right, view.top),
+        Camera.worldToTile(view.right, view.bottom),
+        Camera.worldToTile(view.left, view.bottom),
+      ];
       const x0 = Math.floor(Math.min(...tl.map((q) => q.x)));
       const x1 = Math.ceil(Math.max(...tl.map((q) => q.x)));
       const y0 = Math.floor(Math.min(...tl.map((q) => q.y)));
@@ -555,7 +669,10 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       const hgt = map.heightAt(tile.x, tile.y);
       const town = map.towns[map.owner.get(i) - 1];
       const stop = transit.stopAtTile(tile.x, tile.y);
-      info = `tile (${tile.x}, ${tile.y})  ${hgt <= SEA_LEVEL ? '海' : '陸'} 高度 ${hgt}` + (town ? `  [${town.name}]` : '') + (stop ? `  🚏${stop.name} 待ち${Math.floor(stop.waiting)} 圏人口${stop.pop}` : '');
+      info =
+        `tile (${tile.x}, ${tile.y})  ${hgt <= SEA_LEVEL ? '海' : '陸'} 高度 ${hgt}` +
+        (town ? `  [${town.name}]` : '') +
+        (stop ? `  🚏${stop.name} 待ち${Math.floor(stop.waiting)} 圏人口${stop.pop}` : '');
     }
     const pop = map.towns.reduce((s, t) => s + t.pop, 0);
     stats.textContent =

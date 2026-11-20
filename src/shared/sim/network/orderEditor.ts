@@ -47,7 +47,8 @@ export class OrderEditor {
     const real = r.orders.filter((_o, i) => i !== index && !this.t.isWay(r, i)).length;
     if (real < 2) return { ok: false, reason: '停車する停留所が2つ未満になります' };
     const group = this.groupOf(r);
-    if (this.t.vehicles.some((v) => group.some((g) => g.id === v.routeId) && v.order === index)) return { ok: false, reason: 'このオーダーへ向かう/停車中の車両がいるため、今は削除できません' };
+    if (this.t.vehicles.some((v) => group.some((g) => g.id === v.routeId) && v.order === index))
+      return { ok: false, reason: 'このオーダーへ向かう/停車中の車両がいるため、今は削除できません' };
     for (const g of group) {
       g.orders.splice(index, 1);
       this.remapOrders(g, (i) => (i === index ? undefined : i > index ? i - 1 : i));

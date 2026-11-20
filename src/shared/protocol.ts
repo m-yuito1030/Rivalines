@@ -28,7 +28,20 @@ export interface BulldozeKinds {
 export type PlaceTool = 'stop' | 'station' | 'depot' | 'waypoint' | 'signal' | 'airport' | 'stadium' | 'amusement' | 'mall' | 'park' | 'department' | 'hotel';
 
 /** 路線・オーダー・車両の操作のうち、持ち主の確認だけで実行できるもの(Transit のメソッド名) */
-export const TX_METHODS = ['removeRoute', 'moveOrder', 'insertOrder', 'removeOrder', 'shareRoute', 'unshareRoute', 'autoTimetable', 'removeVehicle', 'removeDepot', 'splitTrain', 'departHeld', 'coupleTrains'] as const;
+export const TX_METHODS = [
+  'removeRoute',
+  'moveOrder',
+  'insertOrder',
+  'removeOrder',
+  'shareRoute',
+  'unshareRoute',
+  'autoTimetable',
+  'removeVehicle',
+  'removeDepot',
+  'splitTrain',
+  'departHeld',
+  'coupleTrains',
+] as const;
 export type TxMethod = (typeof TX_METHODS)[number];
 
 export type Cmd =
@@ -80,7 +93,10 @@ export interface CmdResult {
 }
 
 /** クライアント → サーバー */
-export type ClientMsg = { type: 'cmd'; req: number; cmd: Cmd } | { type: 'profile'; req: number; company: string; bio: string; color: number } | { type: 'view'; x0: number; y0: number; x1: number; y1: number };
+export type ClientMsg =
+  | { type: 'cmd'; req: number; cmd: Cmd }
+  | { type: 'profile'; req: number; company: string; bio: string; color: number }
+  | { type: 'view'; x0: number; y0: number; x1: number; y1: number };
 
 /** 描画に必要な車両の軽量データ(経路 path は変わったときだけ別送) */
 export interface VehMsg {
@@ -137,7 +153,23 @@ export type ServerMsg =
   | { type: 'frame'; tick: number; veh: VehMsg[]; gone: number[]; tiles: TileRec[] }
   | { type: 'chunk'; cx: number; cy: number; tiles: number[][]; edits: [number, number][] }
   | { type: 'struct'; nextId: number; routes: unknown[]; stops: unknown[]; depots: unknown[]; signals: [number, number][]; grants?: [number, number[]][] }
-  | { type: 'misc'; routeStats: [number, number, number, number][]; myVehicles: MyVeh[]; tick: number; company: unknown; rivals: unknown[]; rating: unknown; delivered: number; transfers: number; waiting: [number, number][]; players: PlayerInfo[]; online: string[]; pacts: PactState; auctions: AuctionState; weekly: WeeklyState }
+  | {
+      type: 'misc';
+      routeStats: [number, number, number, number][];
+      myVehicles: MyVeh[];
+      tick: number;
+      company: unknown;
+      rivals: unknown[];
+      rating: unknown;
+      delivered: number;
+      transfers: number;
+      waiting: [number, number][];
+      players: PlayerInfo[];
+      online: string[];
+      pacts: PactState;
+      auctions: AuctionState;
+      weekly: WeeklyState;
+    }
   | { type: 'towns'; towns: unknown[] }
   | { type: 'fac'; facilities: unknown[] }
   | { type: 'res'; req: number; res: CmdResult };

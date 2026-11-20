@@ -36,8 +36,8 @@ export function connectRail(map: GameMap, x: number, y: number, d: number, slope
   if (!canConnectRail(map, x, y, d, slope)) return false;
   const nx = x + DX8[d];
   const ny = y + DY8[d];
-  map.rail.set(map.idx(x, y), map.rail.get(map.idx(x, y)) | (CONN(d)));
-  map.rail.set(map.idx(nx, ny), map.rail.get(map.idx(nx, ny)) | (CONN(opposite8(d))));
+  map.rail.set(map.idx(x, y), map.rail.get(map.idx(x, y)) | CONN(d));
+  map.rail.set(map.idx(nx, ny), map.rail.get(map.idx(nx, ny)) | CONN(opposite8(d)));
   map.touch(x, y);
   map.touch(nx, ny);
   return true;
@@ -47,9 +47,9 @@ export function disconnectRail(map: GameMap, x: number, y: number, d: number): v
   if (!map.inBounds(x, y)) return;
   const nx = x + DX8[d];
   const ny = y + DY8[d];
-  map.rail.set(map.idx(x, y), map.rail.get(map.idx(x, y)) & (~CONN(d)));
+  map.rail.set(map.idx(x, y), map.rail.get(map.idx(x, y)) & ~CONN(d));
   if (map.inBounds(nx, ny)) {
-    map.rail.set(map.idx(nx, ny), map.rail.get(map.idx(nx, ny)) & (~CONN(opposite8(d))));
+    map.rail.set(map.idx(nx, ny), map.rail.get(map.idx(nx, ny)) & ~CONN(opposite8(d)));
     map.touch(nx, ny);
   }
   map.touch(x, y);

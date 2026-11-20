@@ -24,7 +24,7 @@ export function fiscalPeriodOf(year: number, month: number): number {
 
 /** 四半期(1〜4): 期首から3か月ごと(4〜6月=Q1) */
 export function quarterOf(month: number): number {
-  return Math.floor((((month - FISCAL_START_MONTH) % 12) + 12) % 12 / 3) + 1;
+  return Math.floor(((((month - FISCAL_START_MONTH) % 12) + 12) % 12) / 3) + 1;
 }
 
 /** 第 period 期の期間(開始日・終了日の表示文字列) */

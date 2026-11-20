@@ -46,7 +46,17 @@ const loadImage = (url: string): Promise<HTMLImageElement | null> =>
 
 export async function loadBuildingSprites(): Promise<void> {
   if (atlas) return;
-  [atlas, atlas2, atlasSchool, atlasCityhall, atlasDepartment, atlasMall, atlasSights, atlasHotel, atlasPark] = await Promise.all([loadImage(atlasUrl), loadImage(offices2Url), loadImage(schoolUrl), loadImage(cityhallUrl), loadImage(departmentUrl), loadImage(mallUrl), loadImage(sightsUrl), loadImage(hotelUrl), loadImage(parkUrl)]);
+  [atlas, atlas2, atlasSchool, atlasCityhall, atlasDepartment, atlasMall, atlasSights, atlasHotel, atlasPark] = await Promise.all([
+    loadImage(atlasUrl),
+    loadImage(offices2Url),
+    loadImage(schoolUrl),
+    loadImage(cityhallUrl),
+    loadImage(departmentUrl),
+    loadImage(mallUrl),
+    loadImage(sightsUrl),
+    loadImage(hotelUrl),
+    loadImage(parkUrl),
+  ]);
 }
 
 export const spritesReady = () => atlas !== null;
@@ -96,7 +106,18 @@ export function drawBuildingSprite(ctx: CanvasRenderingContext2D, px: number, py
  */
 export function drawFacilitySprite(ctx: CanvasRenderingContext2D, px: number, py: number, f: Facility): boolean {
   if (f.type === 'hotel' || f.type === 'park') return drawSizedSprite(ctx, px, py, f);
-  const img = f.type === 'school' ? atlasSchool : f.type === 'cityhall' ? atlasCityhall : f.type === 'department' ? atlasDepartment : f.type === 'mall' ? atlasMall : f.type === 'sight' ? atlasSights : null;
+  const img =
+    f.type === 'school'
+      ? atlasSchool
+      : f.type === 'cityhall'
+        ? atlasCityhall
+        : f.type === 'department'
+          ? atlasDepartment
+          : f.type === 'mall'
+            ? atlasMall
+            : f.type === 'sight'
+              ? atlasSights
+              : null;
   if (!img) return false;
   const si = f.size === 'L' ? 2 : f.size === 'M' ? 1 : 0;
   const d = f.design ?? 0;

@@ -9,7 +9,13 @@ export class BulldozeOptions {
     document.querySelectorAll<HTMLButtonElement>('#bulldozeOpts [data-bkset]').forEach((b) =>
       b.addEventListener('click', () => {
         const only = b.dataset.bkset!; // all / none / 要素名(その要素だけ)
-        document.querySelectorAll<HTMLInputElement>('#bulldozeOpts [data-bk]').forEach((el) => (el.checked = only === 'all' ? ['road', 'rail', 'signal', 'stop', 'depot', 'waypoint', 'span'].includes(el.dataset.bk!) : only === 'none' ? false : el.dataset.bk === only));
+        document
+          .querySelectorAll<HTMLInputElement>('#bulldozeOpts [data-bk]')
+          .forEach(
+            (el) =>
+              (el.checked =
+                only === 'all' ? ['road', 'rail', 'signal', 'stop', 'depot', 'waypoint', 'span'].includes(el.dataset.bk!) : only === 'none' ? false : el.dataset.bk === only),
+          );
       }),
     );
   }

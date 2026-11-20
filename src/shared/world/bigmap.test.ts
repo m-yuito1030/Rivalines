@@ -49,11 +49,13 @@ import { SEA_LEVEL } from './constants';
 describe('巨大マップの地形(海の量と川)', () => {
   it('陸が6〜8割で、川(海ではない低地に掘られた水路)がある。同じシードで同一', () => {
     for (const seed of [3, 20260401]) {
-      let land = 0, n = 0;
-      for (let y = 0; y < 65535; y += 700) for (let x = 0; x < 65535; x += 700) {
-        n++;
-        if (bigHeight(x, y, seed, 5) > SEA_LEVEL) land++;
-      }
+      let land = 0,
+        n = 0;
+      for (let y = 0; y < 65535; y += 700)
+        for (let x = 0; x < 65535; x += 700) {
+          n++;
+          if (bigHeight(x, y, seed, 5) > SEA_LEVEL) land++;
+        }
       expect(land / n).toBeGreaterThan(0.6);
       expect(land / n).toBeLessThan(0.82);
       let river = 0;

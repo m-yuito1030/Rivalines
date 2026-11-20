@@ -10,7 +10,26 @@ import { disconnectRail } from '../../world/rails';
 import { makeRng } from '../../world/towns';
 import { type StationOptions, layStationTracks, planStation, stationTile, stationTiles } from '../../world/stations';
 import { Router } from './routing';
-import { DAY_TICKS, DEFAULT_DWELL, Departure, Depot, GEN_EVERY, KIND_INDEX, KIND_NAME, MirrorSnap, OrderCond, PATH_CACHE_MAX, PathEntry, ROUTE_COLORS, Route, Stop, TransitSave, Vehicle, todOf, trainLen } from './types';
+import {
+  DAY_TICKS,
+  DEFAULT_DWELL,
+  Departure,
+  Depot,
+  GEN_EVERY,
+  KIND_INDEX,
+  KIND_NAME,
+  MirrorSnap,
+  OrderCond,
+  PATH_CACHE_MAX,
+  PathEntry,
+  ROUTE_COLORS,
+  Route,
+  Stop,
+  TransitSave,
+  Vehicle,
+  todOf,
+  trainLen,
+} from './types';
 import { MirrorSync } from './mirrorSync';
 import { PathPlanner } from './pathPlanner';
 import { Dispatcher } from './dispatcher';
@@ -18,7 +37,6 @@ import { Motion } from './motion';
 import { PassengerFlow } from './passengerFlow';
 import { TransitStore } from './transitStore';
 export * from './types';
-
 
 export class Transit {
   /** クライアント: サーバーから届いた構造・待ち人数・車両を反映し、なめらかに動かす */
@@ -92,13 +110,10 @@ export class Transit {
   /** 経路キャッシュの上限(テストで小さくできる) */
   pathCacheMax = PATH_CACHE_MAX;
 
-
-
   constructor(
     readonly map: GameMap,
     readonly rng: () => number = makeRng(1),
   ) {}
-
 
   /** 次に振る ID(マルチプレイの配信用) */
   get idCounter(): number {
@@ -108,26 +123,6 @@ export class Transit {
   mirrorVeh = new Map<number, Vehicle>();
   /** クライアント: 車両ごとの直近2回のサーバー状態(なめらかに動かすための補間用) */
   snaps = new Map<number, MirrorSnap>();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   stopAtTile(x: number, y: number, kind?: Mode): Stop | undefined {
     const i = this.map.idx(x, y);
@@ -199,7 +194,21 @@ export class Transit {
     const [cx, cy] = stationTile(info, info.tracks >> 1, info.len >> 1);
     const [fx, fy] = stationTile(info, 0, 0);
     const id = this.nextId++;
-    const stop: Stop = { id, name: '', kind: 'rail', idx: m.idx(fx, fy), x: cx, y: cy, waiting: 0, wait: new Map(), frac: 0, pop: 0, townId: 0, station: info, owner: this.actor || undefined };
+    const stop: Stop = {
+      id,
+      name: '',
+      kind: 'rail',
+      idx: m.idx(fx, fy),
+      x: cx,
+      y: cy,
+      waiting: 0,
+      wait: new Map(),
+      frac: 0,
+      pop: 0,
+      townId: 0,
+      station: info,
+      owner: this.actor || undefined,
+    };
     this.flow.refreshCatchment(stop);
     const town = m.towns[stop.townId - 1];
     stop.name = `${town ? town.name : '郊外'}駅${id}`;
@@ -217,7 +226,21 @@ export class Transit {
     const idx = m.idx(x, y);
     if (!this.tileValid('rail', idx) || this.stopAtTile(x, y, 'rail')) return null;
     const id = this.nextId++;
-    const stop: Stop = { id, name: `経由点${id}`, kind: 'rail', idx, x, y, waiting: 0, wait: new Map(), frac: 0, pop: 0, townId: 0, waypoint: true, owner: this.actor || undefined };
+    const stop: Stop = {
+      id,
+      name: `経由点${id}`,
+      kind: 'rail',
+      idx,
+      x,
+      y,
+      waiting: 0,
+      wait: new Map(),
+      frac: 0,
+      pop: 0,
+      townId: 0,
+      waypoint: true,
+      owner: this.actor || undefined,
+    };
     this.stops.set(id, stop);
     this.stopAt.set(idx * 3 + KIND_INDEX.rail, id);
     this.version++;
@@ -284,7 +307,14 @@ export class Transit {
 
   addRoute(stopIds: number[]): Route | null {
     if (stopIds.length < 2) return null;
-    if (this.actor && stopIds.some((id) => { const s = this.stops.get(id); return !s || !this.mayUse(s, this.actor); })) return null;
+    if (
+      this.actor &&
+      stopIds.some((id) => {
+        const s = this.stops.get(id);
+        return !s || !this.mayUse(s, this.actor);
+      })
+    )
+      return null;
     const first = this.stops.get(stopIds[0]);
     if (!first || stopIds.some((id) => this.stops.get(id)?.kind !== first.kind)) return null;
     if (stopIds.filter((id) => !this.stops.get(id)?.waypoint).length < 2) return null;
@@ -372,7 +402,7 @@ export class Transit {
     if (o0.kind === 'timed') {
       // 最初の停留所が時刻指定なら、次に来る発車予定まで待つ(過去の時刻には戻らない)
       const P = route.period;
-      const m = ((((o0.departTod + offset - todOf(tick)) % P) + P) % P);
+      const m = (((o0.departTod + offset - todOf(tick)) % P) + P) % P;
       v.until = Math.max(v.until, tick + m);
     }
     if (route.mode === 'road') {
@@ -452,7 +482,8 @@ export class Transit {
     if (r.mode !== d.kind || model.mode !== d.kind) return { reason: '車両基地・路線・車種の種類が一致しません' };
     const first = this.stops.get(r.orders[this.isWay(r, 0) ? this.realAfter(r, 0) : 0]?.stopId);
     if (!first) return { reason: '路線に停留所がありません' };
-    if (d.kind !== 'air' && !this.planner.route(d.idx, first.station ? this.docks(first)[0].a : first.idx, d.kind === 'rail')) return { reason: '車両基地から最初の停留所へ到達できません(線路・道路をつないでください)' };
+    if (d.kind !== 'air' && !this.planner.route(d.idx, first.station ? this.docks(first)[0].a : first.idx, d.kind === 'rail'))
+      return { reason: '車両基地から最初の停留所へ到達できません(線路・道路をつないでください)' };
     const v = this.addVehicle(routeId, tick, 0, { modelId, cars, tile: d.idx });
     return v ? { vehicle: v } : { reason: '基地の出口が塞がっているか、置けません(少し待って再度お試しください)' };
   }
@@ -486,7 +517,7 @@ export class Transit {
       let next = -1;
       for (let d = 0; d < 8 && next < 0; d++) {
         if (!(m.rail.get(cur) & CONN(d))) continue;
-        const n = ((Math.floor(cur / s)) + DY8[d]) * s + (cur % s) + DX8[d];
+        const n = (Math.floor(cur / s) + DY8[d]) * s + (cur % s) + DX8[d];
         if (!trail.includes(n) && !this.reserved.has(n)) next = n;
       }
       if (next < 0) break;
@@ -497,25 +528,15 @@ export class Transit {
     return true;
   }
 
-
-
-
-
-
-
-
-
   removeVehicle(id: number): void {
     this.releaseAll(id);
     this.vehicles = this.vehicles.filter((v) => v.id !== id);
     this.version++;
   }
 
-
   /** 時刻に応じた施設の需要(人口換算)。施設ごとに人の集まる時間帯がある */
   dayMulDay = -1;
   dayMul = new Map<number, number>();
-
 
   step(tick: number): void {
     const m = this.map;
@@ -562,37 +583,6 @@ export class Transit {
   /** 目的地を選んで乗客を発生させる(路線に接続された停留所のみ) */
   fareDemandVer = -1;
   fareDemandBy = new Map<number, number>();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   // ---- 他のファイルから呼ばれる操作(実体は上の各サービス) ----
   signalMask(idx: number): number {
@@ -687,7 +677,6 @@ export class Transit {
     return this.schedule.legsOf(route);
   }
 
-
   // ---- 他のファイルから呼ばれる操作(実体は上の各サービス) ----
   mirrorStruct(d: { nextId: number; routes: Route[]; stops: Stop[]; depots: Depot[]; signals: [number, number][]; grants?: [number, number[]][] }): void {
     return this.mirror.mirrorStruct(d);
@@ -744,5 +733,4 @@ export class Transit {
   restore(d: TransitSave): void {
     return this.store.restore(d);
   }
-
 }

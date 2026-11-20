@@ -23,14 +23,44 @@ export const RIVAL_SHARES = 100_000;
 export const ACQUIRE_PREMIUM = 1.15;
 export const DIVEST_RATE = 0.8;
 
-const NAMES = ['あおば急行電鉄', 'つきみ高速鉄道', 'ひなた交通', 'しおかぜバス', 'ほしぞらエア', 'もみじ電気鉄道', 'さざなみ交通', 'やまぶき観光鉄道', 'あかつき鉄道', 'すみれ観光バス', 'かもめエアライン', 'みなと臨海鉄道', 'ふじみ高原電鉄', 'はるかぜ交通', 'いちょう急行', 'こもれび鉄道', 'うみねこバス', 'ときわ電鉄', 'いなほ高速バス', 'あさひ航空'];
+const NAMES = [
+  'あおば急行電鉄',
+  'つきみ高速鉄道',
+  'ひなた交通',
+  'しおかぜバス',
+  'ほしぞらエア',
+  'もみじ電気鉄道',
+  'さざなみ交通',
+  'やまぶき観光鉄道',
+  'あかつき鉄道',
+  'すみれ観光バス',
+  'かもめエアライン',
+  'みなと臨海鉄道',
+  'ふじみ高原電鉄',
+  'はるかぜ交通',
+  'いちょう急行',
+  'こもれび鉄道',
+  'うみねこバス',
+  'ときわ電鉄',
+  'いなほ高速バス',
+  'あさひ航空',
+];
 const COLORS = [0x2f9e6b, 0xc0392b, 0x2980b9, 0xd68910, 0x8e44ad, 0x16a085, 0xe84393, 0x34495e];
 
 export function createRivals(rng: () => number, count = 4): Rival[] {
   const out: Rival[] = [];
   for (let i = 0; i < count; i++) {
     const value = Math.round((25_000_000 + rng() * 65_000_000) / 100_000) * 100_000;
-    out.push({ id: i + 1, name: NAMES[i % NAMES.length] + (i >= NAMES.length ? String(Math.floor(i / NAMES.length) + 1) : ''), color: COLORS[i % COLORS.length], value, profit: value * 0.0009, passengers: Math.floor(value / 400), acquired: false, stockHistory: [value / RIVAL_SHARES] });
+    out.push({
+      id: i + 1,
+      name: NAMES[i % NAMES.length] + (i >= NAMES.length ? String(Math.floor(i / NAMES.length) + 1) : ''),
+      color: COLORS[i % COLORS.length],
+      value,
+      profit: value * 0.0009,
+      passengers: Math.floor(value / 400),
+      acquired: false,
+      stockHistory: [value / RIVAL_SHARES],
+    });
   }
   return out;
 }

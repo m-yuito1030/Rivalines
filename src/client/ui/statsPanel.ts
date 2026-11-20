@@ -96,14 +96,18 @@ export class StatsPanel {
     const totalPop = ts.reduce((s, t) => s + t.pop, 0);
     let h = `<div>総人口 <b>${totalPop}</b> / 街 ${ts.length} / 停留所 ${[...this.transit.stops.values()].filter((s) => !s.waypoint).length} / 車両 ${this.transit.vehicles.length} / 輸送 <b>${Math.floor(this.transit.delivered)}</b>人 / 乗換 ${Math.floor(this.transit.transfers)}人</div>`;
     const rt = this.rating();
-    const bar = (label: string, v: number) => `<div class="rbar"><span>${label}</span><i><b style="width:${Math.round(v * 100)}%"></b></i><span>${Math.round(v * 100)}</span></div>`;
+    const bar = (label: string, v: number) =>
+      `<div class="rbar"><span>${label}</span><i><b style="width:${Math.round(v * 100)}%"></b></i><span>${Math.round(v * 100)}</span></div>`;
     h += `<h3>会社の評価: <span class="${rt.locked ? 'bad' : ''}">${ratingName(rt.score)} (${Math.round(rt.score)}点)</span>${rt.locked ? ' ・ 新規の開発ができません' : ''}</h3>`;
     h += bar('運行範囲(人口カバー率)', rt.parts.coverage) + bar('待ち人数の少なさ', rt.parts.waiting) + bar('渋滞のなさ', rt.parts.flow) + bar('定時性', rt.parts.punctual);
     h += `<div>移住した人: <b>${Math.floor(this.migrated())}</b>人(運行が始まった地域へ)</div>`;
     h += '<h3>路線別</h3>';
     h += rs.length
       ? `<table><tr><th>路線</th><th>車両</th><th>輸送人数</th><th>積載</th><th>停滞</th></tr>${rs
-          .map((r) => `<tr><td><i style="background:${hex(r.color)}"></i>${ICON[r.mode]} ${esc(r.name)}</td><td>${r.vehicles}</td><td>${r.carried}</td><td>${r.loadPct === null ? '-' : r.loadPct + '%'}</td><td>${r.stuck}</td></tr>`)
+          .map(
+            (r) =>
+              `<tr><td><i style="background:${hex(r.color)}"></i>${ICON[r.mode]} ${esc(r.name)}</td><td>${r.vehicles}</td><td>${r.carried}</td><td>${r.loadPct === null ? '-' : r.loadPct + '%'}</td><td>${r.stuck}</td></tr>`,
+          )
           .join('')}</table>`
       : '<div>路線がありません</div>';
     h += '<h3>街の一覧</h3>';

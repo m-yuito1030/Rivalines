@@ -63,7 +63,7 @@ function refCost(m: GameMap, from: number, to: number, rail: boolean, sig?: (i: 
   for (;;) {
     let cur = -1;
     let cd = Infinity;
-    for (const [k, v] of dist) if (!done.has(k) && v < cd) (cur = k), (cd = v);
+    for (const [k, v] of dist) if (!done.has(k) && v < cd) ((cur = k), (cd = v));
     if (cur < 0) return null;
     if (cur === to) return cd;
     done.add(cur);
@@ -219,14 +219,25 @@ describe('Transit の経路キャッシュ', () => {
     expect(c).toBeNull();
   });
   it('巨大マップの端でも、終点が1タイル違う・始点が1タイル違う経路を取り違えない(キー衝突)', () => {
-    for (const [ox, oy] of [[65535 - 120, 65535 - 40], [46000, 46000], [32768, 32768], [60000, 12000]] as const) {
+    for (const [ox, oy] of [
+      [65535 - 120, 65535 - 40],
+      [46000, 46000],
+      [32768, 32768],
+      [60000, 12000],
+    ] as const) {
       const m = flat(65535);
       for (const dy of [0, 1, 2]) laneRail(m, ox, oy + dy, ox + 40);
       for (let x = ox; x < ox + 40; x += 1) for (const dy of [0, 1]) expect(connectRail(m, x, oy + dy, 2, true)).toBe(true); // 3本をはしご状につなぐ
       const t = new Transit(m);
       const f = (ax: number, ay: number, bx: number, by: number) => priv(t).route(m.idx(ax, ay), m.idx(bx, by), true);
       const cases: [number, number, number, number][] = [
-        [0, 0, 20, 0], [0, 0, 21, 0], [0, 0, 20, 1], [0, 1, 20, 0], [1, 0, 20, 0], [0, 0, 20, 2], [2, 0, 20, 1],
+        [0, 0, 20, 0],
+        [0, 0, 21, 0],
+        [0, 0, 20, 1],
+        [0, 1, 20, 0],
+        [1, 0, 20, 0],
+        [0, 0, 20, 2],
+        [2, 0, 20, 1],
       ];
       for (const [ax, ay, bx, by] of cases) {
         const p = f(ox + ax, oy + ay, ox + bx, oy + by)!;

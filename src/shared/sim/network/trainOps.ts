@@ -17,7 +17,7 @@ export class TrainOps {
     const s = this.t.map.size;
     for (let d = 0; d < 8; d++) {
       if (!(this.t.map.rail.get(tile) & CONN(d))) continue;
-      const n = ((Math.floor(tile / s)) + DY8[d]) * s + (tile % s) + DX8[d];
+      const n = (Math.floor(tile / s) + DY8[d]) * s + (tile % s) + DX8[d];
       if (!avoid.has(n) && !this.t.reserved.has(n)) return n;
     }
     return -1;
@@ -107,8 +107,14 @@ export class TrainOps {
       const d = dirBetween(p, q, s);
       return d >= 0 && (m.rail.get(p) & CONN(d)) !== 0 && (m.rail.get(q) & CONN(opposite8(d))) !== 0;
     };
-    const aEnds: [number, boolean][] = [[a.trail[a.trail.length - 1], false], [a.trail[0], true]]; // [タイル, 先頭側か]
-    const bEnds: [number, boolean][] = [[b.trail[0], true], [b.trail[b.trail.length - 1], false]];
+    const aEnds: [number, boolean][] = [
+      [a.trail[a.trail.length - 1], false],
+      [a.trail[0], true],
+    ]; // [タイル, 先頭側か]
+    const bEnds: [number, boolean][] = [
+      [b.trail[0], true],
+      [b.trail[b.trail.length - 1], false],
+    ];
     for (const [ea, aHead] of aEnds) {
       for (const [eb, bHead] of bEnds) {
         if (!adj(ea, eb)) continue;

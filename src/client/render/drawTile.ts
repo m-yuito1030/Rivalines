@@ -72,14 +72,29 @@ export function drawRoad(ctx: CanvasRenderingContext2D, px: number, py: number, 
   const WA = 0.2; // 車道の半幅
   // 歩道(縁石色の外縁 → 歩道面)
   ctx.fillStyle = CURB;
-  poly(ctx, px, py, [[c - WS - 0.015, c - WS - 0.015], [c + WS + 0.015, c - WS - 0.015], [c + WS + 0.015, c + WS + 0.015], [c - WS - 0.015, c + WS + 0.015]]);
+  poly(ctx, px, py, [
+    [c - WS - 0.015, c - WS - 0.015],
+    [c + WS + 0.015, c - WS - 0.015],
+    [c + WS + 0.015, c + WS + 0.015],
+    [c - WS - 0.015, c + WS + 0.015],
+  ]);
   for (const d of arms) arm(ctx, px, py, d, WS + 0.015, 0, 0.5);
   ctx.fillStyle = WALK;
-  poly(ctx, px, py, [[c - WS, c - WS], [c + WS, c - WS], [c + WS, c + WS], [c - WS, c + WS]]);
+  poly(ctx, px, py, [
+    [c - WS, c - WS],
+    [c + WS, c - WS],
+    [c + WS, c + WS],
+    [c - WS, c + WS],
+  ]);
   for (const d of arms) arm(ctx, px, py, d, WS, 0, 0.5);
   // 車道
   ctx.fillStyle = ASPHALT;
-  poly(ctx, px, py, [[c - WA, c - WA], [c + WA, c - WA], [c + WA, c + WA], [c - WA, c + WA]]);
+  poly(ctx, px, py, [
+    [c - WA, c - WA],
+    [c + WA, c - WA],
+    [c + WA, c + WA],
+    [c - WA, c + WA],
+  ]);
   for (const d of arms) arm(ctx, px, py, d, WA, 0, 0.5);
   if (!detail) return;
   // 路面のわずかな明暗
@@ -93,7 +108,11 @@ export function drawRoad(ctx: CanvasRenderingContext2D, px: number, py: number, 
     const [nx, ny] = [-ey, ex];
     if (twoWay && arms.length <= 2) {
       ctx.fillStyle = LINE;
-      for (const [a, b] of [[0.08, 0.2], [0.3, 0.42]]) arm(ctx, px, py, d, 0.012, a, b);
+      for (const [a, b] of [
+        [0.08, 0.2],
+        [0.3, 0.42],
+      ])
+        arm(ctx, px, py, d, 0.012, a, b);
     } else if (!twoWay) {
       // 流入側: 進行方向(=-腕方向)を示す白い矢印
       const ax = c + ex * 0.2;
@@ -150,7 +169,16 @@ const BALLAST = '#8c8478';
 const BALLAST_DARK = '#6e675d';
 
 /** 8方向の単位ベクトルと、中心から辺(斜めは角)までの長さ */
-const E8: [number, number][] = [[0, -1], [1, 0], [0, 1], [-1, 0], [Math.SQRT1_2, -Math.SQRT1_2], [Math.SQRT1_2, Math.SQRT1_2], [-Math.SQRT1_2, Math.SQRT1_2], [-Math.SQRT1_2, -Math.SQRT1_2]];
+const E8: [number, number][] = [
+  [0, -1],
+  [1, 0],
+  [0, 1],
+  [-1, 0],
+  [Math.SQRT1_2, -Math.SQRT1_2],
+  [Math.SQRT1_2, Math.SQRT1_2],
+  [-Math.SQRT1_2, Math.SQRT1_2],
+  [-Math.SQRT1_2, -Math.SQRT1_2],
+];
 // 斜めの腕は角の先まで少し長く描く(つなぎ先のタイルの上に重ねる)。角で細くなる先端が点でしか接せず、ネックレス状に途切れて見えるのを防ぐ
 const DIAG_LEN = Math.SQRT1_2 + 0.24;
 const ARM_LEN = [0.5, 0.5, 0.5, 0.5, DIAG_LEN, DIAG_LEN, DIAG_LEN, DIAG_LEN];
@@ -174,10 +202,22 @@ export function drawRail(ctx: CanvasRenderingContext2D, px: number, py: number, 
   // 中心の四角は、斜めの腕だけのタイルでは描かない(帯の両脇に角が飛び出して、つなぎ目に出っ張りができるため)
   const square = arms.length === 0 || arms.some((d) => d < 4);
   ctx.fillStyle = BALLAST_DARK;
-  if (square) poly(ctx, px, py, [[c - w - 0.02, c - w - 0.02], [c + w + 0.02, c - w - 0.02], [c + w + 0.02, c + w + 0.02], [c - w - 0.02, c + w + 0.02]]);
+  if (square)
+    poly(ctx, px, py, [
+      [c - w - 0.02, c - w - 0.02],
+      [c + w + 0.02, c - w - 0.02],
+      [c + w + 0.02, c + w + 0.02],
+      [c - w - 0.02, c + w + 0.02],
+    ]);
   for (const d of arms) armRect(d, w + 0.02);
   ctx.fillStyle = BALLAST;
-  if (square) poly(ctx, px, py, [[c - w, c - w], [c + w, c - w], [c + w, c + w], [c - w, c + w]]);
+  if (square)
+    poly(ctx, px, py, [
+      [c - w, c - w],
+      [c + w, c - w],
+      [c + w, c + w],
+      [c - w, c + w],
+    ]);
   for (const d of arms) armRect(d, w);
   for (const d of arms) {
     const [ex, ey] = E8[d];
@@ -220,13 +260,34 @@ export function drawRail(ctx: CanvasRenderingContext2D, px: number, py: number, 
 /** 空港タイル(1=エプロン 2=滑走路 3=ターミナル) */
 export function drawAirTile(ctx: CanvasRenderingContext2D, px: number, py: number, kind: number): void {
   ctx.fillStyle = kind === 2 ? '#43464c' : '#80848b';
-  poly(ctx, px, py, [[0, 0], [1, 0], [1, 1], [0, 1]]);
+  poly(ctx, px, py, [
+    [0, 0],
+    [1, 0],
+    [1, 1],
+    [0, 1],
+  ]);
   if (kind === 2) {
     // 縁線・中心線・進入端のしま
     ctx.fillStyle = '#f2f2f2';
-    poly(ctx, px, py, [[0, 0.04], [1, 0.04], [1, 0.07], [0, 0.07]]);
-    poly(ctx, px, py, [[0, 0.93], [1, 0.93], [1, 0.96], [0, 0.96]]);
-    for (const u of [0.06, 0.38, 0.7]) poly(ctx, px, py, [[u, 0.47], [u + 0.2, 0.47], [u + 0.2, 0.53], [u, 0.53]]);
+    poly(ctx, px, py, [
+      [0, 0.04],
+      [1, 0.04],
+      [1, 0.07],
+      [0, 0.07],
+    ]);
+    poly(ctx, px, py, [
+      [0, 0.93],
+      [1, 0.93],
+      [1, 0.96],
+      [0, 0.96],
+    ]);
+    for (const u of [0.06, 0.38, 0.7])
+      poly(ctx, px, py, [
+        [u, 0.47],
+        [u + 0.2, 0.47],
+        [u + 0.2, 0.53],
+        [u, 0.53],
+      ]);
   } else {
     // エプロンの目地
     ctx.strokeStyle = 'rgba(0,0,0,0.18)';
@@ -243,7 +304,12 @@ export function drawAirTile(ctx: CanvasRenderingContext2D, px: number, py: numbe
     const z = 0.9;
     const h = 26;
     ctx.fillStyle = 'rgba(0,0,0,0.22)';
-    poly(ctx, px, py, [[a + 0.1, a + 0.1], [z + 0.12, a + 0.1], [z + 0.12, z + 0.12], [a + 0.1, z + 0.12]]);
+    poly(ctx, px, py, [
+      [a + 0.1, a + 0.1],
+      [z + 0.12, a + 0.1],
+      [z + 0.12, z + 0.12],
+      [a + 0.1, z + 0.12],
+    ]);
     ctx.fillStyle = '#dfe3ea';
     wallQuad(ctx, px, py, 'L', z, a, z, 0, h);
     ctx.fillStyle = '#b9c0cc';
@@ -254,11 +320,44 @@ export function drawAirTile(ctx: CanvasRenderingContext2D, px: number, py: numbe
     ctx.fillStyle = '#4a74a4';
     wallQuad(ctx, px, py, 'R', z, a + 0.05, z - 0.05, 8, 19);
     ctx.fillStyle = '#2f7dd1';
-    poly(ctx, px, py, [[a - 0.02, a - 0.02], [z + 0.02, a - 0.02], [z + 0.02, z + 0.02], [a - 0.02, z + 0.02]], h);
+    poly(
+      ctx,
+      px,
+      py,
+      [
+        [a - 0.02, a - 0.02],
+        [z + 0.02, a - 0.02],
+        [z + 0.02, z + 0.02],
+        [a - 0.02, z + 0.02],
+      ],
+      h,
+    );
     ctx.fillStyle = '#e8ecf2';
-    poly(ctx, px, py, [[0.4, 0.4], [0.6, 0.4], [0.6, 0.6], [0.4, 0.6]], h + 5); // 管制塔の基部
+    poly(
+      ctx,
+      px,
+      py,
+      [
+        [0.4, 0.4],
+        [0.6, 0.4],
+        [0.6, 0.6],
+        [0.4, 0.6],
+      ],
+      h + 5,
+    ); // 管制塔の基部
     ctx.fillStyle = '#8fc4ff';
-    poly(ctx, px, py, [[0.42, 0.42], [0.58, 0.42], [0.58, 0.58], [0.42, 0.58]], h + 9);
+    poly(
+      ctx,
+      px,
+      py,
+      [
+        [0.42, 0.42],
+        [0.58, 0.42],
+        [0.58, 0.58],
+        [0.42, 0.58],
+      ],
+      h + 9,
+    );
   }
 }
 
@@ -279,16 +378,35 @@ const shadeHex = (hex: string, k: number) => {
 function shadow(ctx: CanvasRenderingContext2D, px: number, py: number, a: number, z: number, h: number): void {
   const s = 0.1 + h / 160;
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
-  poly(ctx, px, py, [[a + 0.04, a + 0.04], [z + s, a + 0.04 + s * 0.4], [z + s, z + s], [a + 0.04 + s * 0.4, z + s]]);
+  poly(ctx, px, py, [
+    [a + 0.04, a + 0.04],
+    [z + s, a + 0.04 + s * 0.4],
+    [z + s, z + s],
+    [a + 0.04 + s * 0.4, z + s],
+  ]);
 }
 
 /** 窓の格子を壁面に描く */
-function windows(ctx: CanvasRenderingContext2D, px: number, py: number, face: 'L' | 'R', c: number, a0: number, a1: number, z0: number, z1: number, cols: number, rows: number, hv: number, lit: boolean): void {
+function windows(
+  ctx: CanvasRenderingContext2D,
+  px: number,
+  py: number,
+  face: 'L' | 'R',
+  c: number,
+  a0: number,
+  a1: number,
+  z0: number,
+  z1: number,
+  cols: number,
+  rows: number,
+  hv: number,
+  lit: boolean,
+): void {
   const cw = (a1 - a0) / cols;
   const rh = (z1 - z0) / rows;
   for (let r = 0; r < rows; r++) {
     for (let k = 0; k < cols; k++) {
-      const on = lit && ((Math.floor(hv * 1000) + r * 7 + k * 3) % 5 === 0);
+      const on = lit && (Math.floor(hv * 1000) + r * 7 + k * 3) % 5 === 0;
       ctx.fillStyle = on ? '#ffe9a0' : face === 'L' ? '#4e6f93' : '#3f5f82';
       wallQuad(ctx, px, py, face, c, a0 + k * cw + cw * 0.2, a0 + (k + 1) * cw - cw * 0.2, z0 + r * rh + rh * 0.22, z0 + (r + 1) * rh - rh * 0.22);
     }
@@ -386,14 +504,58 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, px: number, py: numb
       wallQuad(ctx, px, py, 'R', z, a, z, 0, 3);
     }
     ctx.fillStyle = shadeHex(roof, 0.9);
-    poly(ctx, px, py, [[a - 0.02, a - 0.02], [z + 0.02, a - 0.02], [z + 0.02, z + 0.02], [a - 0.02, z + 0.02]], h);
+    poly(
+      ctx,
+      px,
+      py,
+      [
+        [a - 0.02, a - 0.02],
+        [z + 0.02, a - 0.02],
+        [z + 0.02, z + 0.02],
+        [a - 0.02, z + 0.02],
+      ],
+      h,
+    );
     ctx.fillStyle = shadeHex(roof, 1.15);
-    poly(ctx, px, py, [[a + 0.04, a + 0.04], [z - 0.04, a + 0.04], [z - 0.04, z - 0.04], [a + 0.04, z - 0.04]], h);
+    poly(
+      ctx,
+      px,
+      py,
+      [
+        [a + 0.04, a + 0.04],
+        [z - 0.04, a + 0.04],
+        [z - 0.04, z - 0.04],
+        [a + 0.04, z - 0.04],
+      ],
+      h,
+    );
     if (detail) {
       ctx.fillStyle = '#9aa0a8';
-      poly(ctx, px, py, [[0.3, 0.3], [0.5, 0.3], [0.5, 0.45], [0.3, 0.45]], h + 4);
+      poly(
+        ctx,
+        px,
+        py,
+        [
+          [0.3, 0.3],
+          [0.5, 0.3],
+          [0.5, 0.45],
+          [0.3, 0.45],
+        ],
+        h + 4,
+      );
       ctx.fillStyle = '#c7ccd2';
-      poly(ctx, px, py, [[0.3, 0.3], [0.5, 0.3], [0.5, 0.45], [0.3, 0.45]], h + 4);
+      poly(
+        ctx,
+        px,
+        py,
+        [
+          [0.3, 0.3],
+          [0.5, 0.3],
+          [0.5, 0.45],
+          [0.3, 0.45],
+        ],
+        h + 4,
+      );
     }
     return;
   }
@@ -421,7 +583,18 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, px: number, py: numb
     wallQuad(ctx, px, py, 'L', z, a, a + 0.05, 0, h); // 角のハイライト
   }
   ctx.fillStyle = '#c9ced6';
-  poly(ctx, px, py, [[a - 0.02, a - 0.02], [z + 0.02, a - 0.02], [z + 0.02, z + 0.02], [a - 0.02, z + 0.02]], h);
+  poly(
+    ctx,
+    px,
+    py,
+    [
+      [a - 0.02, a - 0.02],
+      [z + 0.02, a - 0.02],
+      [z + 0.02, z + 0.02],
+      [a - 0.02, z + 0.02],
+    ],
+    h,
+  );
   // セットバックした上層
   const t1 = 0.32;
   const t2 = 0.68;
@@ -431,7 +604,18 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, px: number, py: numb
   ctx.fillStyle = shadeHex(glass, 0.72);
   wallQuad(ctx, px, py, 'R', t2, t1, t2, h, h + hh2);
   ctx.fillStyle = '#d8dce2';
-  poly(ctx, px, py, [[t1, t1], [t2, t1], [t2, t2], [t1, t2]], h + hh2);
+  poly(
+    ctx,
+    px,
+    py,
+    [
+      [t1, t1],
+      [t2, t1],
+      [t2, t2],
+      [t1, t2],
+    ],
+    h + hh2,
+  );
   if (detail) {
     ctx.strokeStyle = '#7a8088';
     ctx.lineWidth = 1;
@@ -515,7 +699,19 @@ export function drawBridgeTile(ctx: CanvasRenderingContext2D, px: number, py: nu
   ctx.fillStyle = '#6f6c67';
   ctx.fillRect(cxp + 1, cyp - lift, 2, lift + 2);
   // 桁の厚み
-  const gird = alongX ? [[0, 0.5 - half], [1, 0.5 - half], [1, 0.5 + half], [0, 0.5 + half]] : [[0.5 - half, 0], [0.5 + half, 0], [0.5 + half, 1], [0.5 - half, 1]];
+  const gird = alongX
+    ? [
+        [0, 0.5 - half],
+        [1, 0.5 - half],
+        [1, 0.5 + half],
+        [0, 0.5 + half],
+      ]
+    : [
+        [0.5 - half, 0],
+        [0.5 + half, 0],
+        [0.5 + half, 1],
+        [0.5 - half, 1],
+      ];
   ctx.fillStyle = '#74716b';
   for (let k = 5; k >= 1; k--) {
     ctx.beginPath();

@@ -200,12 +200,12 @@ export class Motion {
     if (v.state !== 'move' || v.pi >= v.path.length - 1) {
       const prev = v.pi > 0 ? v.path[v.pi - 1] : i;
       const dx = Math.sign(x0 - (prev % s));
-      const dy = Math.sign(y0 - (Math.floor(prev / s)));
+      const dy = Math.sign(y0 - Math.floor(prev / s));
       return { x: x0, y: y0, dx: dx || (dy ? 0 : 1), dy };
     }
     const n = v.path[v.pi + 1];
     const dx = (n % s) - x0;
-    const dy = (Math.floor(n / s)) - y0;
+    const dy = Math.floor(n / s) - y0;
     return { x: x0 + dx * v.t, y: y0 + dy * v.t, dx, dy };
   }
 
@@ -218,7 +218,7 @@ export class Motion {
       const n = v.path[v.pi + 1];
       const hx = h % s;
       const hy = Math.floor(h / s);
-      pts.push([hx + ((n % s) - hx) * v.t, hy + ((Math.floor(n / s)) - hy) * v.t]);
+      pts.push([hx + ((n % s) - hx) * v.t, hy + (Math.floor(n / s) - hy) * v.t]);
     }
     for (const t of v.trail) pts.push([t % s, Math.floor(t / s)]);
     return pts;
@@ -230,7 +230,7 @@ export class Motion {
     if (!f) {
       const s = this.t.map.size;
       const i = v.path[0];
-      return { x: (i % s) + 0.5, y: (Math.floor(i / s)) + 0.5, alt: 0, dx: v.hx, dy: v.hy };
+      return { x: (i % s) + 0.5, y: Math.floor(i / s) + 0.5, alt: 0, dx: v.hx, dy: v.hy };
     }
     const k = f.done / f.dist;
     const alt = Math.max(0, Math.min(1, f.done / 12, (f.dist - f.done) / 12));

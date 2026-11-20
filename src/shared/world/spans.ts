@@ -70,12 +70,12 @@ export function buildSpan(map: GameMap, x0: number, y0: number, x1: number, y1: 
   const flag = (plan.kind === 'bridge' ? SPAN_BRIDGE : SPAN_TUNNEL) | plan.level;
   const layer = mode === 'road' ? map.road : map.rail;
   const bit = (dir: number) => (mode === 'road' ? CONN(dir) | OUT(dir) : CONN(dir));
-  layer.set(tiles[0], layer.get(tiles[0]) | (bit(d)));
+  layer.set(tiles[0], layer.get(tiles[0]) | bit(d));
   for (let i = 1; i < n; i++) {
     layer.set(tiles[i], layer.get(tiles[i]) | (bit(d) | bit(od)));
     map.span.set(tiles[i], flag);
   }
-  layer.set(tiles[n], layer.get(tiles[n]) | (bit(od)));
+  layer.set(tiles[n], layer.get(tiles[n]) | bit(od));
   for (const k of tiles) map.touch(k % map.size, Math.floor(k / map.size));
   return plan;
 }
@@ -90,7 +90,7 @@ export function removeSpansAround(map: GameMap, x: number, y: number): boolean {
     const ny = y + DY[d];
     if (!map.inBounds(nx, ny)) continue;
     const k = map.idx(nx, ny);
-    if (map.span.get(k) && ((map.road.get(i) | map.rail.get(i)) & CONN(d))) any = removeSpanChain(map, k) || any;
+    if (map.span.get(k) && (map.road.get(i) | map.rail.get(i)) & CONN(d)) any = removeSpanChain(map, k) || any;
   }
   return any;
 }
@@ -103,10 +103,10 @@ function removeSpanChain(map: GameMap, start: number): boolean {
     const k = stack.pop()!;
     for (let d = 0; d < 4; d++) {
       const nx = (k % s) + DX[d];
-      const ny = (Math.floor(k / s)) + DY[d];
+      const ny = Math.floor(k / s) + DY[d];
       if (!map.inBounds(nx, ny)) continue;
       const nk = ny * s + nx;
-      if (map.span.get(nk) && !chain.has(nk) && ((map.road.get(k) | map.rail.get(k)) & CONN(d))) {
+      if (map.span.get(nk) && !chain.has(nk) && (map.road.get(k) | map.rail.get(k)) & CONN(d)) {
         chain.add(nk);
         stack.push(nk);
       }
@@ -115,13 +115,13 @@ function removeSpanChain(map: GameMap, start: number): boolean {
   for (const k of chain) {
     for (let d = 0; d < 4; d++) {
       const nx = (k % s) + DX[d];
-      const ny = (Math.floor(k / s)) + DY[d];
+      const ny = Math.floor(k / s) + DY[d];
       if (!map.inBounds(nx, ny)) continue;
       const nk = ny * s + nx;
       if (chain.has(nk)) continue;
       const od = opposite(d);
-      map.road.set(nk, map.road.get(nk) & (~(CONN(od) | OUT(od))));
-      map.rail.set(nk, map.rail.get(nk) & (~CONN(od)));
+      map.road.set(nk, map.road.get(nk) & ~(CONN(od) | OUT(od)));
+      map.rail.set(nk, map.rail.get(nk) & ~CONN(od));
       map.touch(nx, ny);
     }
   }

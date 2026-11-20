@@ -48,7 +48,7 @@ export function vehOffset(cmd: Extract<Cmd, { t: 'vehOffset' }>, ctx: CommandCon
   const v = t.vehicles.find((x) => x.id === cmd.id);
   if (!v || !mine(t.routes.get(v.routeId))) return fail('自社の車両ではありません');
   const P = t.routes.get(v.routeId)!.period;
-  v.offset = Math.round(((((cmd.offset % P) + P) % P) / MINT)) * MINT;
+  v.offset = Math.round((((cmd.offset % P) + P) % P) / MINT) * MINT;
   t.version++;
   return { ok: true };
 }

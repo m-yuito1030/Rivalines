@@ -18,11 +18,12 @@ async function bot(i: number) {
     if (m.type === 'res') waiters.get(m.req!)?.(m.res!);
   });
   await new Promise((res) => ws.on('open', res));
-  const cmd = (c: unknown) => new Promise<{ ok: boolean; id?: number; msg?: string }>((res) => {
-    const q = ++req;
-    waiters.set(q, res);
-    ws.send(JSON.stringify({ type: 'cmd', req: q, cmd: c }));
-  });
+  const cmd = (c: unknown) =>
+    new Promise<{ ok: boolean; id?: number; msg?: string }>((res) => {
+      const q = ++req;
+      waiters.set(q, res);
+      ws.send(JSON.stringify({ type: 'cmd', req: q, cmd: c }));
+    });
   void start;
   // 各ボットは自分の場所(街から離れた格子)で路線を作る
   const ox = 20000 + (i % 10) * 300;
@@ -47,7 +48,13 @@ for (let i = 0; i < N; i++) {
   bots.push(await bot(i));
   if (i % 20 === 19) console.log(`bots ${i + 1} (${((Date.now() - t0) / 1000).toFixed(1)}s)`);
 }
-console.log('ready', bots.filter((b) => b.ok).length, '路線 /', bots.reduce((s, b) => s + b.veh, 0), '車両');
+console.log(
+  'ready',
+  bots.filter((b) => b.ok).length,
+  '路線 /',
+  bots.reduce((s, b) => s + b.veh, 0),
+  '車両',
+);
 for (let k = 0; k < 6; k++) {
   await sleep(5000);
   const s = (await (await fetch(`${BASE}/api/status`)).json()) as { tick: number; online: string[]; vehicles: number };

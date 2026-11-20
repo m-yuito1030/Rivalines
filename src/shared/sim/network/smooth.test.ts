@@ -5,7 +5,30 @@ import { Transit, type Vehicle } from './transit';
 
 const map = () => new GameMap(64, 1, () => new Uint8Array(4096).fill(SEA_LEVEL + 20));
 const snap = (id: number, pi: number, t: number, trail: number[], path?: number[]) =>
-  ({ id, routeId: 1, modelId: 'mirai8000', mode: 'rail', order: 0, pi, t, state: 'move', load: 0, cap: 100, speed: 0.1, trail, len: trail.length, flight: null, hx: 1, hy: 0, dir: 0, stuck: 0, cars: 4, hold: false, resTo: 9, ...(path ? { path } : {}) }) as unknown as Omit<Vehicle, 'path' | 'cargo'> & { path?: number[] };
+  ({
+    id,
+    routeId: 1,
+    modelId: 'mirai8000',
+    mode: 'rail',
+    order: 0,
+    pi,
+    t,
+    state: 'move',
+    load: 0,
+    cap: 100,
+    speed: 0.1,
+    trail,
+    len: trail.length,
+    flight: null,
+    hx: 1,
+    hy: 0,
+    dir: 0,
+    stuck: 0,
+    cars: 4,
+    hold: false,
+    resTo: 9,
+    ...(path ? { path } : {}),
+  }) as unknown as Omit<Vehicle, 'path' | 'cargo'> & { path?: number[] };
 
 describe('クライアントの補間(なめらかに動かす)', () => {
   it('10Hz の更新の間を、60fps で単調に・なめらかに進む(1フレームの移動が小さく、飛ばない)', () => {

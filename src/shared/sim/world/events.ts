@@ -34,7 +34,18 @@ export function isHoliday(day: number): boolean {
   const c = calendarOf(day);
   if (c.weekday === 0 || c.weekday === 6) return true;
   const md = c.month * 100 + c.day;
-  return md === 101 || md === 102 || md === 103 || md === 211 || md === 429 || (md >= 503 && md <= 505) || (md >= 813 && md <= 816) || md === 1103 || md === 1123 || (md >= 1229 && md <= 1231);
+  return (
+    md === 101 ||
+    md === 102 ||
+    md === 103 ||
+    md === 211 ||
+    md === 429 ||
+    (md >= 503 && md <= 505) ||
+    (md >= 813 && md <= 816) ||
+    md === 1103 ||
+    md === 1123 ||
+    (md >= 1229 && md <= 1231)
+  );
 }
 
 const LEISURE: FacilityType[] = ['stadium', 'amusement', 'park', 'mall', 'hotel'];
@@ -45,13 +56,20 @@ export function seasonMul(type: FacilityType, month: number): number {
   const summer = month >= 6 && month <= 8;
   const autumn = month >= 9 && month <= 11;
   switch (type) {
-    case 'amusement': return spring || autumn ? 1.15 : summer ? 0.95 : 0.8;
-    case 'park': return spring ? 1.3 : autumn ? 1.2 : summer ? 0.8 : 0.6;
-    case 'stadium': return summer ? 1.1 : spring || autumn ? 1 : 0.8;
-    case 'mall': return month === 12 ? 1.3 : month === 1 ? 1.2 : 1;
-    case 'department': return month === 12 ? 1.3 : month === 7 || month === 1 ? 1.15 : 1;
-    case 'hotel': return month === 8 || month === 1 || month === 5 ? 1.3 : 1;
-    default: return 1;
+    case 'amusement':
+      return spring || autumn ? 1.15 : summer ? 0.95 : 0.8;
+    case 'park':
+      return spring ? 1.3 : autumn ? 1.2 : summer ? 0.8 : 0.6;
+    case 'stadium':
+      return summer ? 1.1 : spring || autumn ? 1 : 0.8;
+    case 'mall':
+      return month === 12 ? 1.3 : month === 1 ? 1.2 : 1;
+    case 'department':
+      return month === 12 ? 1.3 : month === 7 || month === 1 ? 1.15 : 1;
+    case 'hotel':
+      return month === 8 || month === 1 || month === 5 ? 1.3 : 1;
+    default:
+      return 1;
   }
 }
 
@@ -73,17 +91,23 @@ export function facilityEvent(seed: number, f: Pick<Facility, 'id' | 'type'>, da
   const hol = isHoliday(day);
   const r = hash01(seed, day, f.id * 7 + 3);
   switch (f.type) {
-    case 'stadium': return r < (hol ? 0.45 : 0.2) ? { name: '試合', mul: 2.5 } : null;
-    case 'amusement': return r < 0.15 ? { name: 'パレード', mul: 2 } : null;
-    case 'mall': return r < 0.2 ? { name: 'セール', mul: 1.8 } : null;
-    case 'department': return r < 0.2 ? { name: '催事', mul: 1.6 } : null;
-    case 'hotel': return r < 0.1 ? { name: '団体客', mul: 1.5 } : null;
+    case 'stadium':
+      return r < (hol ? 0.45 : 0.2) ? { name: '試合', mul: 2.5 } : null;
+    case 'amusement':
+      return r < 0.15 ? { name: 'パレード', mul: 2 } : null;
+    case 'mall':
+      return r < 0.2 ? { name: 'セール', mul: 1.8 } : null;
+    case 'department':
+      return r < 0.2 ? { name: '催事', mul: 1.6 } : null;
+    case 'hotel':
+      return r < 0.1 ? { name: '団体客', mul: 1.5 } : null;
     case 'park':
       if (c.month === 3 || c.month === 4) return r < 0.4 ? { name: '花見', mul: 3 } : null;
       if (c.month === 11) return r < 0.3 ? { name: '紅葉まつり', mul: 2.5 } : null;
       if (c.month === 8) return r < 0.15 ? { name: '花火大会', mul: 3 } : null;
       return null;
-    default: return null;
+    default:
+      return null;
   }
 }
 

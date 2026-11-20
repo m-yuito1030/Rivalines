@@ -91,7 +91,8 @@ export class PassengerFlow {
   generate(s: Stop, tick: number): void {
     const tbl = this.t.router.table(s.id, this.t.version);
     if (tbl.next.size === 0) return;
-    const n = (s.pop + this.facilityDemand(s, tick)) * PAX_RATE * GEN_EVERY * this.stopFareDemand(s.id) * (this.t.serviceMul?.(s.owner) ?? 1) * (1 + DEV.demandUp * (s.dev ?? 0)) + s.frac;
+    const n =
+      (s.pop + this.facilityDemand(s, tick)) * PAX_RATE * GEN_EVERY * this.stopFareDemand(s.id) * (this.t.serviceMul?.(s.owner) ?? 1) * (1 + DEV.demandUp * (s.dev ?? 0)) + s.frac;
     const whole = Math.floor(n);
     s.frac = n - whole;
     const room = WAIT_CAP[s.kind] - s.waiting;

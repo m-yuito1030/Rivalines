@@ -11,7 +11,17 @@ const world = (pop = 5000) => {
   map.towns.push({ id: 1, name: 'テスト町', x: 100, y: 100, pop, houses: 100, roads: [], nextGrowth: 0, pax: 0 });
   return { map, transit: new Transit(map) };
 };
-const fac = (id: number, type: Facility['type'], x: number, y: number, owner: Facility['owner'] = 'player', playerId?: number): Facility => ({ id, type, x0: x, y0: y, w: 2, h: 2, name: `${type}${id}`, owner, playerId });
+const fac = (id: number, type: Facility['type'], x: number, y: number, owner: Facility['owner'] = 'player', playerId?: number): Facility => ({
+  id,
+  type,
+  x0: x,
+  y0: y,
+  w: 2,
+  h: 2,
+  name: `${type}${id}`,
+  owner,
+  playerId,
+});
 const avg = (map: GameMap, transit: Transit, f: Facility, days: number, seed = 1) => {
   const rng = makeRng(seed);
   const before = f.visits ?? 0;

@@ -35,7 +35,7 @@ export const PRICES = {
 /** 車両の価格: 道路・航空は1台あたり、鉄道は1両あたり(両数を掛ける) */
 export function vehiclePrice(model: VehicleModel, cars = 1): number {
   const per = model.mode === 'road' ? model.cap * 3000 : model.mode === 'rail' ? model.cap * 2500 * (0.8 + model.speed * 0.4) : model.cap * 20000;
-  return Math.round(per * (model.mode === 'rail' ? cars : 1) / 1000) * 1000;
+  return Math.round((per * (model.mode === 'rail' ? cars : 1)) / 1000) * 1000;
 }
 /** 車両の運行費(1日あたり): 価格の3% */
 export const RUNNING_RATE = 0.03;
@@ -293,10 +293,11 @@ export class Company {
     for (const s of transit.stops.values()) if (s.dev && !s.waypoint && (ownerId === undefined || s.owner === ownerId)) dev += devIncome(s);
     this.earn('realestate', dev);
     // 施設の1日の収益を更新(買収額の目安に使う)。マルチプレイでは全社分を最初の会社の締めで1回だけ更新する
-    if (ownerId === undefined || ownerId === FIRST_OWNER.id) for (const f of map.facilities) {
-      f.income = (f.income ?? 0) * 0.8 + (f.dayIncome ?? 0) * 0.2;
-      f.dayIncome = 0;
-    }
+    if (ownerId === undefined || ownerId === FIRST_OWNER.id)
+      for (const f of map.facilities) {
+        f.income = (f.income ?? 0) * 0.8 + (f.dayIncome ?? 0) * 0.2;
+        f.dayIncome = 0;
+      }
     const revenue = REVENUE_CATS.reduce((a, c) => a + (this.today[c] ?? 0), 0);
     const cost = COST_CATS.reduce((a, c) => a + (this.today[c] ?? 0), 0);
     this.history.push({ day, revenue, cost });
@@ -424,7 +425,25 @@ export class Company {
   }
 
   toJSON(): CompanyState {
-    return { cash: this.cash, loan: this.loan, today: this.today, total: this.total, history: this.history, lastDay: this.lastDay, credit: this.credit, stock: this.stock, stockHistory: this.stockHistory, fy: this.fy, infra: this.infra, loss: this.loss, period: this.period, payout: this.payout, reports: this.reports, training: this.training, trainingPending: this.trainingPending };
+    return {
+      cash: this.cash,
+      loan: this.loan,
+      today: this.today,
+      total: this.total,
+      history: this.history,
+      lastDay: this.lastDay,
+      credit: this.credit,
+      stock: this.stock,
+      stockHistory: this.stockHistory,
+      fy: this.fy,
+      infra: this.infra,
+      loss: this.loss,
+      period: this.period,
+      payout: this.payout,
+      reports: this.reports,
+      training: this.training,
+      trainingPending: this.trainingPending,
+    };
   }
 
   static from(s: CompanyState): Company {
@@ -470,7 +489,8 @@ export function assetValue(map: GameMap, transit: Transit, rivals: Rival[] = [],
   for (const r of rivals) if (r.acquired && (all || r.acquiredBy === ownerId)) a += r.value * 0.7; // 子会社の評価
   for (const f of map.facilities) if ((f.owner ?? 'player') === 'player' && (all || f.playerId === ownerId)) a += facilityValue(f) * 0.7;
   for (const v of transit.vehicles) if (all || transit.routes.get(v.routeId)?.owner === ownerId) a += vehiclePrice(modelOf(v.modelId), v.cars) * 0.5;
-  for (const d of transit.depots.values()) if (all || d.owner === ownerId) a += (d.kind === 'road' ? PRICES.depotRoad : d.kind === 'rail' ? PRICES.depotRail : PRICES.depotAir) * 0.5;
+  for (const d of transit.depots.values())
+    if (all || d.owner === ownerId) a += (d.kind === 'road' ? PRICES.depotRoad : d.kind === 'rail' ? PRICES.depotRail : PRICES.depotAir) * 0.5;
   return Math.round(a);
 }
 

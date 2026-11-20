@@ -185,7 +185,16 @@ export function suggestPassing(routes: DiaRoute[], stops: Map<number, DiaStop>):
               seen.add(key);
               const stopName = stops.get(La[w < 0 ? k : w])?.name ?? '?';
               if (w < 0) {
-                out.push({ routeId: A.id, orderIdx: realA[k], stopName, byRouteId: B.id, byName: B.name, delta: 0, waitMin: 0, problem: `${A.name} を ${B.name} が追い越しますが、手前に番線が2以上の駅がないため待避できません(駅の番線を増やしてください)` });
+                out.push({
+                  routeId: A.id,
+                  orderIdx: realA[k],
+                  stopName,
+                  byRouteId: B.id,
+                  byName: B.name,
+                  delta: 0,
+                  waitMin: 0,
+                  problem: `${A.name} を ${B.name} が追い越しますが、手前に番線が2以上の駅がないため待避できません(駅の番線を増やしてください)`,
+                });
                 continue;
               }
               const newDep = passB[w].dep + MIN;

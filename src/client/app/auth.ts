@@ -17,7 +17,10 @@ export function initAuth(startGame: StartGame): void {
   const errEl = $('err');
   /** クライアントが持つ「ミラー」用の空の状態(世界はサーバーが進める) */
   const emptyState = (): SimState => ({
-    tick: 0, speed: 1, rng: 1, towns: [],
+    tick: 0,
+    speed: 1,
+    rng: 1,
+    towns: [],
     transit: { nextId: 1, delivered: 0, transfers: 0, stops: [], routes: [], vehicles: [] },
     rivals: [],
   });
@@ -80,9 +83,15 @@ export function initAuth(startGame: StartGame): void {
   $('register').addEventListener('click', () => void doAuth('register'));
   void fetch('/api/status')
     .then((r) => r.json())
-    .then((s: { world: { size: number }; accounts: number; maxUsers: number; online: string[] }) => (note.textContent = `サーバー稼働中: ${s.world.size}² / 登録${s.accounts}/${s.maxUsers}人 / オンライン${s.online.length}人`))
+    .then(
+      (s: { world: { size: number }; accounts: number; maxUsers: number; online: string[] }) =>
+        (note.textContent = `サーバー稼働中: ${s.world.size}² / 登録${s.accounts}/${s.maxUsers}人 / オンライン${s.online.length}人`),
+    )
     .catch(() => (note.textContent = 'サーバーに接続できません'));
-  const serverUp = () => fetch('/api/status').then((r) => r.ok).catch(() => false);
+  const serverUp = () =>
+    fetch('/api/status')
+      .then((r) => r.ok)
+      .catch(() => false);
   /** 保存済みのログインで入り直す。サーバーが落ちている間は待って再試行し、トークンが無効なときだけログイン画面に戻す */
   async function resume(token: string): Promise<void> {
     for (let i = 0; i < 90; i++) {

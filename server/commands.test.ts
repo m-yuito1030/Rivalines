@@ -204,7 +204,7 @@ describe('ダイヤ操作', () => {
     const route = sim.transit.routes.get(rid)!;
     expect(route.orders.every((o) => o.kind === 'timed' || sim.transit.stops.get(o.stopId)?.waypoint)).toBe(true);
     const vs = sim.transit.vehicles.filter((v) => v.routeId === rid);
-    const n = Math.max(1, Math.round(route.period / (30 * (30 * 60 * 10 / 1440))));
+    const n = Math.max(1, Math.round(route.period / (30 * ((30 * 60 * 10) / 1440))));
     expect(vs.length).toBe(n);
     const offs = vs.map((v) => v.offset).sort((x, y) => x - y);
     for (let i = 1; i < offs.length; i++) expect(offs[i] - offs[i - 1]).toBeCloseTo(route.period / n, -1);
@@ -216,7 +216,7 @@ describe('ダイヤ操作', () => {
     sim.setOnline([1, 2]);
     expect(execute(sim, 2, { t: 'vehOffset', id: v.id, offset: 100 }).ok).toBe(false);
     expect(execute(sim, 1, { t: 'vehOffset', id: v.id, offset: 1000 }).ok).toBe(true);
-    expect(v.offset % (30 * 60 * 10 / 1440)).toBeCloseTo(0, 5);
+    expect(v.offset % ((30 * 60 * 10) / 1440)).toBeCloseTo(0, 5);
     const rev = execute(sim, 1, { t: 'routeClone', routeId: rid, reverse: true, shiftMin: 0 });
     expect(rev.ok).toBe(true);
     const copy = sim.transit.routes.get(rev.id!)!;
@@ -226,7 +226,7 @@ describe('ダイヤ操作', () => {
     const sh = execute(sim, 1, { t: 'routeClone', routeId: rid, reverse: false, shiftMin: 30 });
     const shifted = sim.transit.routes.get(sh.id!)!;
     const dt = (shifted.orders[0].departTod - src.orders[0].departTod + 18000) % 18000;
-    expect(dt).toBeCloseTo(30 * (30 * 60 * 10 / 1440), 3);
+    expect(dt).toBeCloseTo(30 * ((30 * 60 * 10) / 1440), 3);
     expect(execute(sim, 2, { t: 'routeClone', routeId: rid, reverse: false, shiftMin: 5 }).ok).toBe(false);
     const before = src.orders[1].departTod;
     expect(execute(sim, 1, { t: 'orderShift', routeId: rid, from: 1, delta: 120 }).ok).toBe(true);
@@ -673,7 +673,8 @@ describe('通っている線路を変えたら、その上の経路が変わる'
 });
 
 describe('要素ごとの範囲撤去', () => {
-  const kinds = (o: Partial<Record<string, boolean>>) => ({ road: false, rail: false, signal: false, stop: false, depot: false, waypoint: false, span: false, building: false, airport: false, ...o }) as never;
+  const kinds = (o: Partial<Record<string, boolean>>) =>
+    ({ road: false, rail: false, signal: false, stop: false, depot: false, waypoint: false, span: false, building: false, airport: false, ...o }) as never;
   const setup = () => {
     const sim = world();
     sim.setOnline([1]);

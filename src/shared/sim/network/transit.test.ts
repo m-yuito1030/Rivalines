@@ -234,7 +234,8 @@ describe('JGRPP風オーダー', () => {
     tr.addVehicle(r.id, 0);
     const v = tr.vehicles[0];
     v.load = 0;
-    const hold = (c: NonNullable<(typeof r.orders)[0]['cond']>, tick = 0) => (tr as unknown as { condHolds: (v: unknown, r: unknown, c: unknown, t: number) => boolean }).condHolds(v, r, c, tick);
+    const hold = (c: NonNullable<(typeof r.orders)[0]['cond']>, tick = 0) =>
+      (tr as unknown as { condHolds: (v: unknown, r: unknown, c: unknown, t: number) => boolean }).condHolds(v, r, c, tick);
     expect(hold({ kind: 'load', op: 'ge', value: 50, to: 2 })).toBe(false);
     expect(hold({ kind: 'load', op: 'lt', value: 50, to: 2 })).toBe(true);
     v.load = v.cap;

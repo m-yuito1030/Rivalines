@@ -38,9 +38,9 @@ export function connect(map: GameMap, x: number, y: number, d: number, oneway: b
   const b = map.idx(nx, ny);
   const od = opposite(d);
   map.road.set(a, map.road.get(a) | (CONN(d) | OUT(d)));
-  map.road.set(b, map.road.get(b) | (CONN(od)));
-  if (oneway) map.road.set(b, map.road.get(b) & (~OUT(od)));
-  else map.road.set(b, map.road.get(b) | (OUT(od)));
+  map.road.set(b, map.road.get(b) | CONN(od));
+  if (oneway) map.road.set(b, map.road.get(b) & ~OUT(od));
+  else map.road.set(b, map.road.get(b) | OUT(od));
   map.touch(x, y);
   map.touch(nx, ny);
   return true;
@@ -55,8 +55,8 @@ export function makeTwoWay(map: GameMap, x: number, y: number, d: number): boole
   const a = map.idx(x, y);
   const b = map.idx(nx, ny);
   if (!(map.road.get(a) & CONN(d))) return false;
-  map.road.set(a, map.road.get(a) | (OUT(d)));
-  map.road.set(b, map.road.get(b) | (OUT(opposite(d))));
+  map.road.set(a, map.road.get(a) | OUT(d));
+  map.road.set(b, map.road.get(b) | OUT(opposite(d)));
   map.touch(x, y);
   map.touch(nx, ny);
   return true;
@@ -67,9 +67,9 @@ export function disconnect(map: GameMap, x: number, y: number, d: number): void 
   const nx = x + DX[d];
   const ny = y + DY[d];
   if (!map.inBounds(x, y)) return;
-  map.road.set(map.idx(x, y), map.road.get(map.idx(x, y)) & (~(CONN(d) | OUT(d))));
+  map.road.set(map.idx(x, y), map.road.get(map.idx(x, y)) & ~(CONN(d) | OUT(d)));
   if (map.inBounds(nx, ny)) {
-    map.road.set(map.idx(nx, ny), map.road.get(map.idx(nx, ny)) & (~(CONN(opposite(d)) | OUT(opposite(d)))));
+    map.road.set(map.idx(nx, ny), map.road.get(map.idx(nx, ny)) & ~(CONN(opposite(d)) | OUT(opposite(d))));
     map.touch(nx, ny);
   }
   map.touch(x, y);

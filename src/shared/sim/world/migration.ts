@@ -41,7 +41,7 @@ export function migrateStep(map: GameMap, transit: Transit, rng: () => number, c
       const ri = town.roads[(rng() * town.roads.length) | 0];
       const d = (rng() * 4) | 0;
       const x = (ri % map.size) + DX[d];
-      const y = (Math.floor(ri / map.size)) + DY[d];
+      const y = Math.floor(ri / map.size) + DY[d];
       if (!map.inBounds(x, y)) continue;
       const b = map.building.get(map.idx(x, y));
       const level = b & 3;
@@ -49,7 +49,12 @@ export function migrateStep(map: GameMap, transit: Transit, rng: () => number, c
     }
     if (!src) continue;
     // 移住先: まず同じ街のサービス圏内、なければ近くの街(近い順)のサービス圏内
-    const targets = [town, ...map.towns.filter((o) => o !== town && Math.hypot(o.x - town.x, o.y - town.y) < NEIGHBOR_DIST).sort((a, b) => Math.hypot(a.x - town.x, a.y - town.y) - Math.hypot(b.x - town.x, b.y - town.y))];
+    const targets = [
+      town,
+      ...map.towns
+        .filter((o) => o !== town && Math.hypot(o.x - town.x, o.y - town.y) < NEIGHBOR_DIST)
+        .sort((a, b) => Math.hypot(a.x - town.x, a.y - town.y) - Math.hypot(b.x - town.x, b.y - town.y)),
+    ];
     const before = (t: { houses: number }) => t.houses;
     for (const dst of targets) {
       const h0 = before(dst);

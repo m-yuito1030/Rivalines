@@ -42,7 +42,18 @@ function onStreet(map: GameMap, tiles: [number, number][]): boolean {
   return tiles.some(([x, y]) => [0, 1, 2, 3].some((d) => map.inBounds(x + DX[d], y + DY[d]) && map.road.get(map.idx(x + DX[d], y + DY[d])) !== 0));
 }
 
-function tryPlace(map: GameMap, transit: Transit, rng: () => number, town: Town, type: FacilityType, size: Size, rMin: number, rMax: number, tries: number, extra?: (x: number, y: number) => boolean): Facility | null {
+function tryPlace(
+  map: GameMap,
+  transit: Transit,
+  rng: () => number,
+  town: Town,
+  type: FacilityType,
+  size: Size,
+  rMin: number,
+  rMax: number,
+  tries: number,
+  extra?: (x: number, y: number) => boolean,
+): Facility | null {
   const occ = (i: number) => !!transit.stopAtTile(i % map.size, Math.floor(i / map.size)) || !!transit.depotAtTile(i % map.size, Math.floor(i / map.size));
   for (let t = 0; t < tries; t++) {
     const r = rMin + rng() * (rMax - rMin);
@@ -64,7 +75,8 @@ function tryPlace(map: GameMap, transit: Transit, rng: () => number, town: Town,
 
 /** 観光地の数(1〜3): 街ごとに決まる(座標から決定論的)。村・街・都市にだけあり、特大都市・首都にはない */
 export const sightTarget = (town: Town): number => (townTier(town) <= 2 ? 1 + ((((Math.imul(town.x, 73856093) ^ Math.imul(town.y, 19349663)) >>> 0) >>> 3) % 3) : 0);
-const sightSize = (town: Town, r: number): Size => (townTier(town) === 0 ? (r < 0.6 ? 'S' : 'M') : townTier(town) === 1 ? (r < 0.25 ? 'S' : r < 0.65 ? 'M' : 'L') : r < 0.2 ? 'M' : 'L');
+const sightSize = (town: Town, r: number): Size =>
+  townTier(town) === 0 ? (r < 0.6 ? 'S' : 'M') : townTier(town) === 1 ? (r < 0.25 ? 'S' : r < 0.65 ? 'M' : 'L') : r < 0.2 ? 'M' : 'L';
 
 /** 街が生まれた直後に市役所を先に置く(人口を育てたあとだと、街が建物で埋まって置けなくなるため) */
 export function placeTownHall(map: GameMap, town: Town, rng: () => number): boolean {
@@ -98,11 +110,12 @@ export function placePublicFacilities(map: GameMap, transit: Transit, rng: () =>
     // 観光地(村・街・都市に1〜3か所。足りなければ少しずつ。街の外縁に近いところ)
     const wantSights = sightTarget(town);
     // 規模に合わない見た目(古いセーブや段階の変更)は付け替える
-    for (const f of map.facilities) if (f.type === 'sight' && f.townId === town.id && f.design !== undefined && !sightFits(sights[f.design], Math.min(2, townTier(town)))) {
-      f.design = pickSight(town, rng);
-      f.name = `${town.name}の${sightLabel(sights[f.design])}`;
-      map.facilityVer++;
-    }
+    for (const f of map.facilities)
+      if (f.type === 'sight' && f.townId === town.id && f.design !== undefined && !sightFits(sights[f.design], Math.min(2, townTier(town)))) {
+        f.design = pickSight(town, rng);
+        f.name = `${town.name}の${sightLabel(sights[f.design])}`;
+        map.facilityVer++;
+      }
     if (wantSights > 0 && rng() < 0.5 && map.facilities.filter((f) => f.type === 'sight' && f.townId === town.id).length < wantSights) {
       const rs = TIERS[townTier(town)].radius / 10;
       const sz = sightSize(town, rng());

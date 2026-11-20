@@ -17,8 +17,7 @@ export interface Account {
   last?: { x: number; y: number };
 }
 
-const kdf = (pw: string, salt: Buffer) =>
-  new Promise<Buffer>((res, rej) => scrypt(pw, salt, 64, { N: 16384, r: 8, p: 1 }, (e, k) => (e ? rej(e) : res(k))));
+const kdf = (pw: string, salt: Buffer) => new Promise<Buffer>((res, rej) => scrypt(pw, salt, 64, { N: 16384, r: 8, p: 1 }, (e, k) => (e ? rej(e) : res(k))));
 
 export const validName = (n: string) => /^[\p{L}\p{N}_\-]{2,16}$/u.test(n);
 export const validPassword = (p: string) => p.length >= 6 && p.length <= 72;
@@ -96,7 +95,14 @@ export class Accounts {
     if (this.list.length >= maxUsers) return { ok: false, reason: `参加人数の上限(${maxUsers}人)に達しています` };
     const salt = randomBytes(16);
     const hash = await kdf(password, salt);
-    const account: Account = { id: (this.list.at(-1)?.id ?? 0) + 1, name, salt: salt.toString('hex'), hash: hash.toString('hex'), createdAt: Date.now(), color: Math.floor(Math.random() * 0xffffff) };
+    const account: Account = {
+      id: (this.list.at(-1)?.id ?? 0) + 1,
+      name,
+      salt: salt.toString('hex'),
+      hash: hash.toString('hex'),
+      createdAt: Date.now(),
+      color: Math.floor(Math.random() * 0xffffff),
+    };
     this.list.push(account);
     this.save();
     return { ok: true, account };

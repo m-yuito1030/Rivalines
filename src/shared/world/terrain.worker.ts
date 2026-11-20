@@ -4,9 +4,7 @@ export interface TerrainRequest {
   size: number;
   seed: number;
 }
-export type TerrainMessage =
-  | { type: 'progress'; value: number }
-  | { type: 'done'; height: Uint8Array };
+export type TerrainMessage = { type: 'progress'; value: number } | { type: 'done'; height: Uint8Array };
 
 self.onmessage = (e: MessageEvent<TerrainRequest>) => {
   const { size, seed } = e.data;

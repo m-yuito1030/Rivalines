@@ -19,7 +19,10 @@ export function ad(cmd: Extract<Cmd, { t: 'ad' }>, ctx: CommandContext): CmdResu
   f.ad = { kind: cmd.kind, from: sim.day };
   map.facilityVer++;
   const a = AD_TYPES[cmd.kind];
-  return { ok: true, msg: `${FACILITY_SPECS[f.type].name}に${a.name}広告を出しました(${yen(cost)})。${a.days}日間、来場者が約${Math.round((a.mul - 1) * 100)}%増え、近くの他の施設は約${Math.round((1 - a.rival) * 100)}%減ります` };
+  return {
+    ok: true,
+    msg: `${FACILITY_SPECS[f.type].name}に${a.name}広告を出しました(${yen(cost)})。${a.days}日間、来場者が約${Math.round((a.mul - 1) * 100)}%増え、近くの他の施設は約${Math.round((1 - a.rival) * 100)}%減ります`,
+  };
 }
 
 /** bid */

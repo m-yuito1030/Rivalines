@@ -80,7 +80,9 @@ describe('人口移動', () => {
     const tr = sim.transit;
     // 街の道路の2点に停留所を置いて運行を始める
     // 街のはずれ(中心から最も遠い道路)に停留所を置く: 周囲に空き地があり、中心部の建物は圏外になる
-    const roads = town.roads.filter((i) => map.road.get(i)).sort((a, b) => Math.hypot((b % size) - town.x, (Math.floor(b / size)) - town.y) - Math.hypot((a % size) - town.x, (Math.floor(a / size)) - town.y));
+    const roads = town.roads
+      .filter((i) => map.road.get(i))
+      .sort((a, b) => Math.hypot((b % size) - town.x, Math.floor(b / size) - town.y) - Math.hypot((a % size) - town.x, Math.floor(a / size) - town.y));
     const p1 = roads[0];
     const p2 = roads[Math.min(roads.length - 1, 6)];
     const s1 = tr.addStop(p1 % size, Math.floor(p1 / size), 'road')!;
@@ -91,7 +93,8 @@ describe('人口移動', () => {
     expect(areas.length).toBe(2);
     const inside = () => {
       let n = 0;
-      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (map.building.get(map.idx(x, y)) & 3 && areas.some((a) => Math.abs(a.x - x) <= a.r && Math.abs(a.y - y) <= a.r)) n++;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) if (map.building.get(map.idx(x, y)) & 3 && areas.some((a) => Math.abs(a.x - x) <= a.r && Math.abs(a.y - y) <= a.r)) n++;
       return n;
     };
     const pop0 = map.towns.reduce((s, t) => s + t.pop, 0);

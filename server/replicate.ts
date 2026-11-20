@@ -53,7 +53,12 @@ export class Replicator {
     const hw = Math.min(MAX_VIEW, Math.max(8, x1 - x0)) / 2;
     const hh = Math.min(MAX_VIEW, Math.max(8, y1 - y0)) / 2;
     const S = this.sim.map.size;
-    c.view = { x0: Math.max(0, Math.floor(cx - hw - MARGIN)), y0: Math.max(0, Math.floor(cy - hh - MARGIN)), x1: Math.min(S - 1, Math.ceil(cx + hw + MARGIN)), y1: Math.min(S - 1, Math.ceil(cy + hh + MARGIN)) };
+    c.view = {
+      x0: Math.max(0, Math.floor(cx - hw - MARGIN)),
+      y0: Math.max(0, Math.floor(cy - hh - MARGIN)),
+      x1: Math.min(S - 1, Math.ceil(cx + hw + MARGIN)),
+      y1: Math.min(S - 1, Math.ceil(cy + hh + MARGIN)),
+    };
   }
 
   private send(c: Client, m: ServerMsg): void {
@@ -78,7 +83,13 @@ export class Replicator {
         const y = (cy << CHUNK_SHIFT) + ly;
         if (x >= m.size || y >= m.size) continue;
         const i = m.idx(x, y);
-        const a = m.road.get(i), b = m.rail.get(i), c = m.span.get(i), d = m.air.get(i), e = m.building.get(i), f = m.owner.get(i), g = m.infraOwner.get(i);
+        const a = m.road.get(i),
+          b = m.rail.get(i),
+          c = m.span.get(i),
+          d = m.air.get(i),
+          e = m.building.get(i),
+          f = m.owner.get(i),
+          g = m.infraOwner.get(i);
         if (a | b | c | d | e | f | g) tiles.push([ly * CHUNK + lx, a, b, c, d, e, f, g]);
       }
     }
@@ -94,8 +105,27 @@ export class Replicator {
   private vehMsg(c: Client, v: Vehicle): VehMsg {
     const pid = this.pathIds.get(v.path) ?? (this.pathIds.set(v.path, this.nextPathId), this.nextPathId++);
     const out: VehMsg = {
-      id: v.id, routeId: v.routeId, modelId: v.modelId, mode: v.mode, order: v.order, pi: v.pi, t: v.t, state: v.state, load: v.load, cap: v.cap, speed: v.speed,
-      trail: v.trail, len: v.len, flight: v.flight, hx: v.hx, hy: v.hy, dir: v.dir, stuck: v.stuck, cars: v.cars, hold: v.hold, resTo: v.resTo,
+      id: v.id,
+      routeId: v.routeId,
+      modelId: v.modelId,
+      mode: v.mode,
+      order: v.order,
+      pi: v.pi,
+      t: v.t,
+      state: v.state,
+      load: v.load,
+      cap: v.cap,
+      speed: v.speed,
+      trail: v.trail,
+      len: v.len,
+      flight: v.flight,
+      hx: v.hx,
+      hy: v.hy,
+      dir: v.dir,
+      stuck: v.stuck,
+      cars: v.cars,
+      hold: v.hold,
+      resTo: v.resTo,
     };
     if (c.paths.get(v.id) !== pid) {
       out.path = Array.from(v.path);
@@ -177,7 +207,11 @@ export class Replicator {
             msg: JSON.stringify({
               type: 'struct',
               nextId: t.idCounter,
-              routes: [...t.routes.values()].map((r) => ({ ...r, vs: t.vehicles.filter((v) => v.routeId === r.id).map((v) => [v.id, v.offset]), legs: r.orders.some((o) => o.kind === 'timed') ? t.legsOf(r) : undefined })),
+              routes: [...t.routes.values()].map((r) => ({
+                ...r,
+                vs: t.vehicles.filter((v) => v.routeId === r.id).map((v) => [v.id, v.offset]),
+                legs: r.orders.some((o) => o.kind === 'timed') ? t.legsOf(r) : undefined,
+              })),
               stops: [...t.stops.values()].map((s) => ({ ...s, wait: [] })),
               depots: [...t.depots.values()],
               signals: [...t.signals],
@@ -220,7 +254,17 @@ export class Replicator {
       }
       let l = mine.get(owner);
       if (!l) mine.set(owner, (l = []));
-      l.push([v.id, v.routeId, v.modelId, v.mode, Math.round(pos.x), Math.round(pos.y), v.hold ? 3 : v.state === 'noroute' ? 2 : v.state === 'load' ? 1 : 0, v.cap ? Math.round((v.load / v.cap) * 100) : 0, v.cars]);
+      l.push([
+        v.id,
+        v.routeId,
+        v.modelId,
+        v.mode,
+        Math.round(pos.x),
+        Math.round(pos.y),
+        v.hold ? 3 : v.state === 'noroute' ? 2 : v.state === 'load' ? 1 : 0,
+        v.cap ? Math.round((v.load / v.cap) * 100) : 0,
+        v.cars,
+      ]);
     }
     // 路線の収入・利益・輸送人数は日々変わるが、構造(struct)は変更があったときしか送られないので、ここで毎回送る
     const routeStats: [number, number, number, number][] = [...sim.transit.routes.values()].map((r) => [r.id, r.income ?? 0, r.profit ?? 0, r.carried ?? 0]);
@@ -254,7 +298,20 @@ export class Replicator {
       const assets = assetValue(sim.map, sim.transit, sim.rivals, id);
       let passengers = 0;
       for (const r of sim.transit.routes.values()) if (r.owner === id) passengers += r.carried ?? 0;
-      out.push({ id, name: a.name, company: a.company || a.name, bio: a.bio ?? '', color: a.color, online: sim.online.has(id), marketCap: co.marketCap, price: co.stock, netWorth: co.netWorth(assets), profit: co.profitStats().avg, passengers: Math.floor(passengers), profitTotal: profitTotalOf(co) });
+      out.push({
+        id,
+        name: a.name,
+        company: a.company || a.name,
+        bio: a.bio ?? '',
+        color: a.color,
+        online: sim.online.has(id),
+        marketCap: co.marketCap,
+        price: co.stock,
+        netWorth: co.netWorth(assets),
+        profit: co.profitStats().avg,
+        passengers: Math.floor(passengers),
+        profitTotal: profitTotalOf(co),
+      });
     }
     return out;
   }

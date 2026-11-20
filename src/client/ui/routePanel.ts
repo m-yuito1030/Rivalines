@@ -10,7 +10,11 @@ const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
 const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
 const MODE_ICON: Record<Mode, string> = { road: '🚌', rail: '🚆', air: '✈' };
 const MODE_LABEL: Record<Mode, string> = { road: 'バス', rail: '鉄道', air: '航空' };
-const KIND_HINT: Record<Mode, string> = { road: '道路上をクリック(自動で停留所を設置)', rail: '駅(または経由点)をクリック。線路上の何もない所は簡易駅になります。経由点は鉄道▾の📍で先に置く', air: '空港をクリック' };
+const KIND_HINT: Record<Mode, string> = {
+  road: '道路上をクリック(自動で停留所を設置)',
+  rail: '駅(または経由点)をクリック。線路上の何もない所は簡易駅になります。経由点は鉄道▾の📍で先に置く',
+  air: '空港をクリック',
+};
 
 const PERIODS = PERIOD_OPTIONS;
 
@@ -137,7 +141,8 @@ export class RoutePanel {
       const r = t.routes.get(this.inserting.routeId);
       html += `<div class="build">${r ? esc(r.name) : ''} の ${this.inserting.index + 1} 番に追加する停留所(経由点)をクリック<br><button data-act="cancel">キャンセル (Esc)</button></div>`;
     }
-    if (t.routes.size === 0 && !this.building) html += `<div class="muted">上の ＋🚌 ＋🚆 ＋✈ で路線を作成します。バス停(B)・駅(K)・空港(P)は路線作成中にクリックしても設置されます。車両は車両基地(🏭)から購入します。</div>`;
+    if (t.routes.size === 0 && !this.building)
+      html += `<div class="muted">上の ＋🚌 ＋🚆 ＋✈ で路線を作成します。バス停(B)・駅(K)・空港(P)は路線作成中にクリックしても設置されます。車両は車両基地(🏭)から購入します。</div>`;
     for (const m of ['road', 'rail', 'air'] as Mode[]) {
       const rs = [...t.routes.values()].filter((r) => r.mode === m && (r.owner === undefined || r.owner === net.id)); // 自社の路線だけ一覧に出す
       const open = this.openMode === m;
@@ -236,7 +241,12 @@ export class RoutePanel {
       <div class="rm">運賃 <input type="number" data-f="fare" min="${FARE_MUL_MIN * 100}" max="${FARE_MUL_MAX * 100}" step="10" value="${Math.round(fareMulOf(r) * 100)}" style="width:64px">% <span class="muted">標準=100%。高いと1人の収入は増えるが乗客が減る(需要 ${Math.round(fareDemand(fareMulOf(r)) * 100)}%)</span></div>
       <div class="rm">積載 <b data-load="${r.id}">-</b> / 停滞 <b data-stuck="${r.id}">0</b>台${hasTimed ? ` / 周期 <select data-f="period">${periods}</select> / 遅延 <b data-late="${r.id}">-</b>` : ''}</div>
       ${rows}
-      <div class="rm muted">車両: ${this.transit.vehicles.filter((v) => v.routeId === r.id).map((v) => `#${v.id}${r.mode === 'rail' ? `(${v.cars}両)` : ''}`).join(' ') || 'なし'}</div></div>`;
+      <div class="rm muted">車両: ${
+        this.transit.vehicles
+          .filter((v) => v.routeId === r.id)
+          .map((v) => `#${v.id}${r.mode === 'rail' ? `(${v.cars}両)` : ''}`)
+          .join(' ') || 'なし'
+      }</div></div>`;
   }
 
   /** オーダー行の操作: 上へ・下へ・削除・この後ろに挿入 */
@@ -248,7 +258,12 @@ export class RoutePanel {
   /** 出発時の条件付きジャンプ(条件を満たしたら N 番のオーダーへ) */
   private condHtml(r: Route, o: Order): string {
     const c = o.cond;
-    const kinds: [string, string][] = [['', 'なし'], ['load', '積載率'], ['wait', '待ち人数'], ['tod', '時刻']];
+    const kinds: [string, string][] = [
+      ['', 'なし'],
+      ['load', '積載率'],
+      ['wait', '待ち人数'],
+      ['tod', '時刻'],
+    ];
     const kindSel = `<select data-f="ckind">${kinds.map(([k, l]) => `<option value="${k}" ${(c?.kind ?? '') === k ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
     if (!c) return `<div class="cond">出発時の条件 ${kindSel}</div>`;
     const real = r.orders.map((x, i) => [x, i] as const).filter(([x]) => !this.transit.stops.get(x.stopId)?.waypoint);
@@ -271,7 +286,8 @@ export class RoutePanel {
     if (!b) return;
     const act = b.dataset.act;
     const rid = Number(b.dataset.r);
-    const tx = (m: 'removeRoute' | 'moveOrder' | 'removeOrder' | 'shareRoute' | 'unshareRoute' | 'autoTimetable' | 'removeVehicle', a: number[]) => void this.send({ t: 'tx', m, a });
+    const tx = (m: 'removeRoute' | 'moveOrder' | 'removeOrder' | 'shareRoute' | 'unshareRoute' | 'autoTimetable' | 'removeVehicle', a: number[]) =>
+      void this.send({ t: 'tx', m, a });
     if (act === 'build') this.startBuild(b.dataset.kind as Mode);
     else if (act === 'gen') {
       const k = b.dataset.kind as Mode;

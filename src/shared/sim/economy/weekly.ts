@@ -86,9 +86,7 @@ export interface Standing {
 /** 今週の途中経過(現在の指標 − 週の初めの基準)。純資産の増加が多い順 */
 export function standings(state: WeeklyState, players: { id: number; name: string; netWorth: number; passengers: number; profitTotal: number }[]): Standing[] {
   const base = new Map(state.base);
-  return players
-    .map((p) => ({ id: p.id, name: p.name, d: diff({ nw: p.netWorth, pax: p.passengers, profit: p.profitTotal }, base.get(p.id)) }))
-    .sort((a, b) => b.d.nw - a.d.nw);
+  return players.map((p) => ({ id: p.id, name: p.name, d: diff({ nw: p.netWorth, pax: p.passengers, profit: p.profitTotal }, base.get(p.id)) })).sort((a, b) => b.d.nw - a.d.nw);
 }
 
 /** 先週の結果の部門ごとの1位(部門: 純資産・旅客数・利益) */

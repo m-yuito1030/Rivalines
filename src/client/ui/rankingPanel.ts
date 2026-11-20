@@ -76,8 +76,13 @@ export class RankingPanel {
     if (this.tab === 'company') {
       const rows: CompanyRow[] = this.companyRows();
       h += `<table><tr><th>順位</th><th>会社</th><th>時価総額</th><th>株価</th><th>純資産</th><th>利益/日</th><th>旅客数</th></tr>${rows
-        .map((r, i) => `<tr class="${r.isPlayer ? 'me' : ''}"><td>${this.medal(i)}</td><td>${esc(r.name)}</td><td>${yen(r.marketCap)}</td><td>${yen(r.price)}</td><td>${yen(r.netWorth)}</td><td>${yen(r.profit)}</td><td>${r.passengers}</td></tr>`)
-        .join('')}</table><div class="muted">時価総額=株価×発行済み株式数。競合会社は経営画面(F)から買収できます(買収すると傘下に入り、この表から外れて自社の資産になります)。</div>`;
+        .map(
+          (r, i) =>
+            `<tr class="${r.isPlayer ? 'me' : ''}"><td>${this.medal(i)}</td><td>${esc(r.name)}</td><td>${yen(r.marketCap)}</td><td>${yen(r.price)}</td><td>${yen(r.netWorth)}</td><td>${yen(r.profit)}</td><td>${r.passengers}</td></tr>`,
+        )
+        .join(
+          '',
+        )}</table><div class="muted">時価総額=株価×発行済み株式数。競合会社は経営画面(F)から買収できます(買収すると傘下に入り、この表から外れて自社の資産になります)。</div>`;
     } else if (this.tab === 'week') {
       const ws = this.weekly();
       const ps = this.players();
@@ -86,7 +91,10 @@ export class RankingPanel {
       h += `<div class="muted">第${ws.week}週(7日ごとに結果を残して数え直します)。週の初めからの増加分で競います。</div>`;
       h += rows.length
         ? `<table><tr><th>順位</th><th>会社</th><th>純資産の増加</th><th>旅客数</th><th>利益</th></tr>${rows
-            .map((r, i) => `<tr class="${r.id === net.id ? 'me' : ''}"><td>${this.medal(i)}</td><td>${esc(r.name)}</td><td class="${r.d.nw < 0 ? 'neg' : ''}">${yen(r.d.nw)}</td><td>${r.d.pax}</td><td class="${r.d.profit < 0 ? 'neg' : ''}">${yen(r.d.profit)}</td></tr>`)
+            .map(
+              (r, i) =>
+                `<tr class="${r.id === net.id ? 'me' : ''}"><td>${this.medal(i)}</td><td>${esc(r.name)}</td><td class="${r.d.nw < 0 ? 'neg' : ''}">${yen(r.d.nw)}</td><td>${r.d.pax}</td><td class="${r.d.profit < 0 ? 'neg' : ''}">${yen(r.d.profit)}</td></tr>`,
+            )
             .join('')}</table>`
         : '<div class="muted">まだデータがありません</div>';
       if (ws.last) {
@@ -113,7 +121,10 @@ export class RankingPanel {
       h += rows.length
         ? `<table><tr><th>順位</th><th>路線</th><th>利益/日</th><th>収入/日</th><th>輸送人数</th><th>車両</th></tr>${rows
             .slice(0, 30)
-            .map((r, i) => `<tr><td>${this.medal(i)}</td><td>${ICON[r.mode]} ${esc(r.name)}</td><td class="${r.profit < 0 ? 'neg' : ''}">${yen(r.profit)}</td><td>${yen(r.income)}</td><td>${r.carried}</td><td>${r.vehicles}</td></tr>`)
+            .map(
+              (r, i) =>
+                `<tr><td>${this.medal(i)}</td><td>${ICON[r.mode]} ${esc(r.name)}</td><td class="${r.profit < 0 ? 'neg' : ''}">${yen(r.profit)}</td><td>${yen(r.income)}</td><td>${r.carried}</td><td>${r.vehicles}</td></tr>`,
+            )
             .join('')}</table><div class="muted">利益=運賃収入 − 車両の運行費。1日が終わるごとに更新されます。</div>`
         : '<div class="muted">路線がありません</div>';
     }
