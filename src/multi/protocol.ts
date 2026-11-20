@@ -137,7 +137,7 @@ export type ServerMsg =
   | { type: 'frame'; tick: number; veh: VehMsg[]; gone: number[]; tiles: TileRec[] }
   | { type: 'chunk'; cx: number; cy: number; tiles: number[][]; edits: [number, number][] }
   | { type: 'struct'; nextId: number; routes: unknown[]; stops: unknown[]; depots: unknown[]; signals: [number, number][]; grants?: [number, number[]][] }
-  | { type: 'misc'; myVehicles: MyVeh[]; tick: number; company: unknown; rivals: unknown[]; rating: unknown; delivered: number; transfers: number; waiting: [number, number][]; players: PlayerInfo[]; online: string[]; pacts: PactState; auctions: AuctionState; weekly: WeeklyState }
+  | { type: 'misc'; routeStats: [number, number, number, number][]; myVehicles: MyVeh[]; tick: number; company: unknown; rivals: unknown[]; rating: unknown; delivered: number; transfers: number; waiting: [number, number][]; players: PlayerInfo[]; online: string[]; pacts: PactState; auctions: AuctionState; weekly: WeeklyState }
   | { type: 'towns'; towns: unknown[] }
   | { type: 'fac'; facilities: unknown[] }
   | { type: 'res'; req: number; res: CmdResult };

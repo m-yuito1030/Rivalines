@@ -222,9 +222,12 @@ export class Replicator {
       if (!l) mine.set(owner, (l = []));
       l.push([v.id, v.routeId, v.modelId, v.mode, Math.round(pos.x), Math.round(pos.y), v.hold ? 3 : v.state === 'noroute' ? 2 : v.state === 'load' ? 1 : 0, v.cap ? Math.round((v.load / v.cap) * 100) : 0, v.cars]);
     }
+    // 路線の収入・利益・輸送人数は日々変わるが、構造(struct)は変更があったときしか送られないので、ここで毎回送る
+    const routeStats: [number, number, number, number][] = [...sim.transit.routes.values()].map((r) => [r.id, r.income ?? 0, r.profit ?? 0, r.carried ?? 0]);
     for (const c of clients) {
       this.send(c, {
         type: 'misc',
+        routeStats,
         myVehicles: mine.get(c.id) ?? [],
         tick: sim.tick,
         company: sim.playerCompany(c.id).toJSON(),

@@ -73,6 +73,9 @@ describe('マルチプレイ: 会社・コマンド・所有', () => {
     // 運賃の倍率: 範囲に収める。標準(1)に戻すと未設定に戻る。他社は変えられない
     expect(execute(sim, 1, { t: 'routeSet', routeId: rt.id!, patch: { fareMul: 9 } }).ok).toBe(true);
     expect(sim.transit.routes.get(rt.id!)!.fareMul).toBe(2.5);
+    expect(execute(sim, 1, { t: 'routeSet', routeId: rt.id!, patch: { fareMul: 1.4 } }).ok).toBe(true);
+    expect(execute(sim, 1, { t: 'routeSet', routeId: rt.id!, patch: { fareMul: 'abc' as never } }).ok).toBe(false); // 不正な値で標準に戻さない
+    expect(sim.transit.routes.get(rt.id!)!.fareMul).toBe(1.4);
     expect(execute(sim, 1, { t: 'routeSet', routeId: rt.id!, patch: { fareMul: 1 } }).ok).toBe(true);
     expect(sim.transit.routes.get(rt.id!)!.fareMul).toBeUndefined();
     expect(execute(sim, 2, { t: 'routeSet', routeId: rt.id!, patch: { fareMul: 2 } }).ok).toBe(false);
@@ -155,6 +158,30 @@ describe('マルチプレイ: 会社・コマンド・所有', () => {
     repl.frame([c]);
     const f2 = sent.find((m) => (m as { type: string }).type === 'frame') as { tiles: number[][] };
     expect(f2.tiles.length).toBe(0);
+  });
+});
+
+describe('配信: 路線の経営データ', () => {
+  it('路線の収入・利益・輸送人数は、構造が変わらなくても misc で毎回届く', () => {
+    const sim = world();
+    sim.setOnline([1]);
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 90, y: 100 }, b: { x: 120, y: 100 } });
+    const a = execute(sim, 1, { t: 'ensureStop', x: 92, y: 100, kind: 'road' });
+    const b = execute(sim, 1, { t: 'ensureStop', x: 118, y: 100, kind: 'road' });
+    const rt = execute(sim, 1, { t: 'routeCreate', stops: [a.id!, b.id!] });
+    const r = sim.transit.routes.get(rt.id!)!;
+    const repl = new Replicator(sim, new Accounts('/tmp/none-' + Math.random() + '.json'));
+    const sent: { type: string; routeStats?: number[][] }[] = [];
+    const c = repl.newClient({ readyState: 1, send: (s: string) => sent.push(JSON.parse(s)) } as never, 1, 'a');
+    r.income = 1234;
+    r.profit = 1000;
+    r.carried = 55.7;
+    repl.misc([c]);
+    expect(sent.find((m) => m.type === 'misc')!.routeStats).toContainEqual([r.id, 1234, 1000, 55.7]);
+    sent.length = 0;
+    r.income = 2000; // 構造のバージョンを上げなくても、次の misc に反映される
+    repl.misc([c]);
+    expect(sent.find((m) => m.type === 'misc')!.routeStats).toContainEqual([r.id, 2000, 1000, 55.7]);
   });
 });
 

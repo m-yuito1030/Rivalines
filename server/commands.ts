@@ -240,6 +240,7 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
           r.cars = m.defaultCars;
         }
         if (p.cars !== undefined) r.cars = clampCars(modelOf(r.modelId), Number(p.cars));
+        if (p.fareMul !== undefined && !Number.isFinite(Number(p.fareMul))) return fail('運賃の倍率が不正です');
         if (p.fareMul !== undefined) r.fareMul = clampFareMul(p.fareMul) === 1 ? undefined : clampFareMul(p.fareMul);
         if (p.period !== undefined && Number(p.period) > 0) {
           // 運行の周期は 15分〜7日(tick)の範囲だけ。極端な値でダイヤが壊れないように
