@@ -18,7 +18,7 @@ export type Cmd =
   | { t: 'ensureStop'; x: number; y: number; kind: Mode }
   | { t: 'routeCreate'; stops: number[] }
   | { t: 'tx'; m: TxMethod; a: number[] }
-  | { t: 'routeSet'; routeId: number; patch: { name?: string; modelId?: string; cars?: number; period?: number } }
+  | { t: 'routeSet'; routeId: number; patch: { name?: string; modelId?: string; cars?: number; period?: number; fareMul?: number } }
   | { t: 'orderSet'; routeId: number; index: number; patch: Record<string, unknown> }
   | { t: 'rename'; kind: 'stop' | 'depot'; id: number; name: string }
   | { t: 'buyVehicle'; depotId?: number; routeId: number; modelId: string; cars: number }

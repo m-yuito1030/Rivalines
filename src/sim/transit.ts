@@ -7,7 +7,7 @@ import { POP_PER_LEVEL, popMul } from '../world/town';
 import { makeRng } from '../world/towns';
 import { findPath } from './pathfinding';
 import { FACILITY_SPECS, facilitiesNear, facilityAttract, hourFactor } from '../world/facilities';
-import { FARE } from './fares';
+import { FARE, fareDemand, fareMulOf } from './fares';
 import { type StationInfo, type StationOptions, layStationTracks, planStation, stationTile, stationTiles } from '../world/stations';
 import { Router } from './routing';
 
@@ -87,6 +87,8 @@ export interface Route {
   cars?: number;
   /** 時刻表の周期(tick)。例: 1日 / 6時間 */
   period: number;
+  /** 運賃の倍率(なければ1)。収入にそのまま掛かり、停留所の乗客の発生を増減させる */
+  fareMul?: number;
   /** 平均遅延(tick, 指数移動平均) */
   late: number;
   /** 累計輸送人数(目的地まで運んだ人数) */
@@ -1333,10 +1335,32 @@ export class Transit {
   }
 
   /** 目的地を選んで乗客を発生させる(路線に接続された停留所のみ) */
+  private fareDemandVer = -1;
+  private fareDemandBy = new Map<number, number>();
+  /** 停留所に停まる路線の運賃から決まる需要の倍率(路線の平均。構造が変わったときだけ作り直す) */
+  private stopFareDemand(stopId: number): number {
+    if (this.fareDemandVer !== this.version) {
+      const sum = new Map<number, { s: number; n: number }>();
+      for (const r of this.routes.values()) {
+        const d = fareDemand(fareMulOf(r));
+        for (const id of new Set(r.orders.map((o) => o.stopId))) {
+          const e = sum.get(id) ?? { s: 0, n: 0 };
+          e.s += d;
+          e.n++;
+          sum.set(id, e);
+        }
+      }
+      this.fareDemandBy.clear();
+      for (const [id, e] of sum) this.fareDemandBy.set(id, e.s / e.n);
+      this.fareDemandVer = this.version;
+    }
+    return this.fareDemandBy.get(stopId) ?? 1;
+  }
+
   private generate(s: Stop, tick: number): void {
     const tbl = this.router.table(s.id, this.version);
     if (tbl.next.size === 0) return;
-    const n = (s.pop + this.facilityDemand(s, tick)) * PAX_RATE * GEN_EVERY + s.frac;
+    const n = (s.pop + this.facilityDemand(s, tick)) * PAX_RATE * GEN_EVERY * this.stopFareDemand(s.id) + s.frac;
     const whole = Math.floor(n);
     s.frac = n - whole;
     const room = WAIT_CAP[s.kind] - s.waiting;
@@ -1395,7 +1419,7 @@ export class Transit {
         boarded += take;
       }
       if (boarded > 0) {
-        this.onFare?.(v.mode, boarded * FARE[v.mode].base, v.routeId); // 乗車時の基本運賃
+        this.onFare?.(v.mode, boarded * FARE[v.mode].base * fareMulOf(route), v.routeId); // 乗車時の基本運賃
         stop.traffic = (stop.traffic ?? 0) + boarded;
         v.load += boarded;
         stop.waiting -= boarded;
@@ -1826,7 +1850,7 @@ export class Transit {
   private alight(v: Vehicle, stop: Stop, route: Route, tick: number): void {
     // 乗っていた全員の、前の停留所からここまでの距離運賃
     const prev = v.lastStop !== undefined ? this.stops.get(v.lastStop) : undefined;
-    if (prev && v.load > 0) this.onFare?.(v.mode, v.load * FARE[v.mode].perTile * (Math.abs(prev.x - stop.x) + Math.abs(prev.y - stop.y)), v.routeId);
+    if (prev && v.load > 0) this.onFare?.(v.mode, v.load * FARE[v.mode].perTile * fareMulOf(route) * (Math.abs(prev.x - stop.x) + Math.abs(prev.y - stop.y)), v.routeId);
     const tbl = this.router.table(stop.id, this.version);
     for (const [d, n] of v.cargo) {
       if (d === stop.id) {

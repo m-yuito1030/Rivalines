@@ -66,6 +66,12 @@ describe('マルチプレイ: 会社・コマンド・所有', () => {
     expect(execute(sim, 1, { t: 'routeSet', routeId: rt.id!, patch: { name: '朝の快速' } }).ok).toBe(true);
     expect(sim.transit.routes.get(rt.id!)!.name).toBe('朝の快速');
     expect(execute(sim, 2, { t: 'routeSet', routeId: rt.id!, patch: { name: 'x' } }).ok).toBe(false);
+    // 運賃の倍率: 範囲に収める。標準(1)に戻すと未設定に戻る。他社は変えられない
+    expect(execute(sim, 1, { t: 'routeSet', routeId: rt.id!, patch: { fareMul: 9 } }).ok).toBe(true);
+    expect(sim.transit.routes.get(rt.id!)!.fareMul).toBe(2.5);
+    expect(execute(sim, 1, { t: 'routeSet', routeId: rt.id!, patch: { fareMul: 1 } }).ok).toBe(true);
+    expect(sim.transit.routes.get(rt.id!)!.fareMul).toBeUndefined();
+    expect(execute(sim, 2, { t: 'routeSet', routeId: rt.id!, patch: { fareMul: 2 } }).ok).toBe(false);
   });
 
   it('切断中の会社の車両は止まり、日次の処理も止まる(そのまま止める)', () => {

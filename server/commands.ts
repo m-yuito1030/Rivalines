@@ -8,6 +8,7 @@ import { FACILITY_SPECS, FACILITY_TYPES, type FacilityType, SPRITE_TYPES, planFa
 import { placeAirport } from '../src/world/airports';
 import { modelOf, clampCars } from '../src/data/models';
 import { DAY_TICKS, RANKS } from '../src/sim/transit';
+import { clampFareMul } from '../src/sim/fares';
 const MINT = DAY_TICKS / 1440;
 import { acquireRival, divestRival } from '../src/sim/rivals';
 import type { Route } from '../src/sim/transit';
@@ -182,6 +183,7 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
           r.cars = m.defaultCars;
         }
         if (p.cars !== undefined) r.cars = clampCars(modelOf(r.modelId), Number(p.cars));
+        if (p.fareMul !== undefined) r.fareMul = clampFareMul(p.fareMul) === 1 ? undefined : clampFareMul(p.fareMul);
         if (p.period !== undefined && p.period > 0) {
           r.period = Number(p.period);
           t.syncOrders(r.id);
