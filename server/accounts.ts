@@ -1,4 +1,4 @@
-import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
@@ -26,10 +26,22 @@ export const validPassword = (p: string) => p.length >= 6 && p.length <= 72;
 /** アカウントの保存(JSONファイル。書き込みは一時ファイル経由で原子的に) */
 export class Accounts {
   private list: Account[] = [];
-  private tokens = new Map<string, { id: number; exp: number }>();
+  /** トークンの署名鍵(データ置き場に保存する。サーバーを再起動してもログインが切れない) */
+  private secret: Buffer;
 
   constructor(private file: string) {
     if (existsSync(file)) this.list = JSON.parse(readFileSync(file, 'utf8')) as Account[];
+    const sf = `${dirname(file)}/token.secret`;
+    if (existsSync(sf)) this.secret = Buffer.from(readFileSync(sf, 'utf8').trim(), 'hex');
+    else {
+      this.secret = randomBytes(32);
+      mkdirSync(dirname(file), { recursive: true });
+      writeFileSync(sf, this.secret.toString('hex'), { mode: 0o600 });
+    }
+  }
+
+  private sign(body: string): string {
+    return createHmac('sha256', this.secret).update(body).digest('hex').slice(0, 32);
   }
 
   private save(): void {
@@ -99,19 +111,17 @@ export class Accounts {
     return timingSafeEqual(h, Buffer.from(a.hash, 'hex')) ? a : null;
   }
 
+  /** ログイン用のトークン(アカウントID・期限・署名)。サーバーに状態を持たないので、再起動しても有効 */
   issueToken(id: number): string {
-    const t = randomBytes(24).toString('hex');
-    this.tokens.set(t, { id, exp: Date.now() + 7 * 24 * 3600 * 1000 });
-    return t;
+    const body = `${id}.${Date.now() + 14 * 24 * 3600 * 1000}`;
+    return `${body}.${this.sign(body)}`;
   }
 
   fromToken(t: string): Account | null {
-    const e = this.tokens.get(t);
-    if (!e) return null;
-    if (e.exp < Date.now()) {
-      this.tokens.delete(t);
-      return null;
-    }
-    return this.byId(e.id) ?? null;
+    const m = /^(\d{1,9})\.(\d{10,15})\.([0-9a-f]{32})$/.exec(t);
+    if (!m) return null;
+    const ok = timingSafeEqual(Buffer.from(this.sign(`${m[1]}.${m[2]}`)), Buffer.from(m[3]));
+    if (!ok || Number(m[2]) < Date.now()) return null;
+    return this.byId(Number(m[1])) ?? null;
   }
 }

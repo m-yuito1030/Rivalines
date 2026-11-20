@@ -10,6 +10,7 @@ services:
     build: { context: ., target: server }
     container_name: simulator-multi-server
     restart: unless-stopped
+    stop_grace_period: 30s # 終了の合図を受けたら世界を保存してから終わる
     environment:
       WORLD_SIZE: "65535"
       MAX_USERS: "100"

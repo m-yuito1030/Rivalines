@@ -132,6 +132,8 @@ server.on('upgrade', (req, socket, head) => {
   wss.handleUpgrade(req, socket, head, (ws) => {
     // 同じアカウントの二重接続は古い方を切る
     for (const c of clients) if (c.id === a.id) c.ws.close(4000, 'other login');
+    (ws as typeof ws & { alive?: boolean }).alive = true;
+    ws.on('pong', () => ((ws as typeof ws & { alive?: boolean }).alive = true));
     const c = repl.newClient(ws, a.id, a.name);
     clients.add(c);
     sim.playerCompany(a.id);
@@ -202,7 +204,16 @@ function status() {
 let last = performance.now();
 let frameN = 0;
 const perf = { sim: 0, repl: 0, loop: 0 };
+let loopErrors = 0;
 setInterval(() => {
+  try {
+    tickLoop();
+  } catch (e) {
+    // 1回の失敗でサーバー全体を落とさない(落ちると全員が切断され、最後のオートセーブまで巻き戻る)
+    if (++loopErrors <= 20 || loopErrors % 600 === 0) console.error(`[loop] エラー(${loopErrors}回目):`, (e as Error).stack ?? e);
+  }
+}, 100);
+function tickLoop() {
   const now = performance.now();
   // 誰もログインしていない間は世界(街・AI会社を含む)を進めない
   if (clients.size === 0) {
@@ -219,11 +230,26 @@ setInterval(() => {
   perf.sim = perf.sim * 0.9 + (t1 - now) * 0.1;
   perf.repl = perf.repl * 0.9 + (t2 - t1) * 0.1;
   perf.loop = perf.loop * 0.9 + (t2 - now) * 0.1;
-}, 100);
-setInterval(() => void saveWorld(), 5 * 60 * 1000);
+}
+setInterval(() => void saveWorld().catch((e) => console.error('[world] 保存に失敗:', (e as Error).message)), 5 * 60 * 1000);
+// 想定外の例外・未処理の失敗でも落ちない(記録して続行)。終了の合図(SIGTERM)のときは保存してから終わる
+process.on('uncaughtException', (e) => console.error('[fatal?] 未処理の例外:', e.stack ?? e));
+process.on('unhandledRejection', (e) => console.error('[fatal?] 未処理の失敗:', e));
+// 切れた接続を見つける(スマホの回線切替などで黙って切れたままの接続を片付ける)
+setInterval(() => {
+  for (const ws of wss.clients) {
+    const w = ws as typeof ws & { alive?: boolean };
+    if (w.alive === false) {
+      ws.terminate();
+      continue;
+    }
+    w.alive = false;
+    ws.ping();
+  }
+}, 30000);
 for (const sig of ['SIGINT', 'SIGTERM'] as const)
   process.on(sig, () => {
-    void saveWorld().finally(() => process.exit(0));
+    void saveWorld().catch((e) => console.error('[world] 保存に失敗:', (e as Error).message)).finally(() => process.exit(0));
   });
 
 server.listen(PORT, () => console.log(`[server] http/ws :${PORT} (最大${MAX_USERS}人)`));

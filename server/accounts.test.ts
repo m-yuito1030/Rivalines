@@ -22,3 +22,22 @@ describe('会社名・プロフィール', () => {
     expect(new Accounts(file).byId(id)!.color).toBe(5);
   });
 });
+
+describe('ログインのトークン', () => {
+  it('署名つきで、サーバーを作り直しても有効。改ざん・期限切れ・別の鍵は無効', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tok-'));
+    const file = join(dir, 'a.json');
+    const acc = new Accounts(file);
+    await acc.register('hanako', 'secret12', 10);
+    const t = acc.issueToken(1);
+    expect(acc.fromToken(t)?.name).toBe('hanako');
+    expect(new Accounts(file).fromToken(t)?.name).toBe('hanako'); // 再起動後も有効
+    expect(acc.fromToken(t.replace(/^1\./, '2.'))).toBeNull(); // 別のIDにすり替え
+    expect(acc.fromToken(t.slice(0, -1) + (t.endsWith('0') ? '1' : '0'))).toBeNull(); // 署名の改ざん
+    expect(acc.fromToken('')).toBeNull();
+    expect(acc.fromToken('1.9999999999999.' + 'a'.repeat(32))).toBeNull();
+    const other = new Accounts(join(mkdtempSync(join(tmpdir(), 'tok-')), 'a.json'));
+    await other.register('hanako', 'secret12', 10);
+    expect(other.fromToken(t)).toBeNull(); // 別のサーバー(別の鍵)のトークン
+  });
+});

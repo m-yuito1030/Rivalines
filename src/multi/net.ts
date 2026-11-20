@@ -62,7 +62,7 @@ export class Net {
         for (const f of this.pending.values()) f({ ok: false, msg: '接続が切れました' });
         this.pending.clear();
         if (!inited) {
-          localStorage.removeItem(SESSION);
+          // セッションは消さない(サーバーが一時的に落ちているだけかもしれない)。無効かどうかは呼び出し側が判断する
           reject(new Error(e.code === 1006 ? 'ログインの有効期限が切れたか、サーバーに接続できません' : '接続が切れました'));
         } else this.onClose(e.code);
       };

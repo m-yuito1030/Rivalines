@@ -108,15 +108,45 @@ void fetch('/api/status')
   .then((r) => r.json())
   .then((s: { world: { size: number }; accounts: number; maxUsers: number; online: string[] }) => (note.textContent = `サーバー稼働中: ${s.world.size}² / 登録${s.accounts}/${s.maxUsers}人 / オンライン${s.online.length}人`))
   .catch(() => (note.textContent = 'サーバーに接続できません'));
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const serverUp = () => fetch('/api/status').then((r) => r.ok).catch(() => false);
+/** 保存済みのログインで入り直す。サーバーが落ちている間は待って再試行し、トークンが無効なときだけログイン画面に戻す */
+async function resume(token: string): Promise<void> {
+  for (let i = 0; i < 90; i++) {
+    try {
+      await enterWorld(token);
+      return;
+    } catch {
+      if (await serverUp()) {
+        net.logout(); // サーバーは生きているのに入れない = トークンが無効
+        note.textContent = '';
+        return;
+      }
+      note.textContent = 'サーバーに再接続しています…';
+      await sleep(2000);
+    }
+  }
+  note.textContent = 'サーバーに接続できません。しばらくしてから再読み込みしてください';
+}
 {
   const saved = net.saved();
-  if (saved) void enterWorld(saved.token).catch(() => {
-    note.textContent = '';
-  });
+  if (saved) void resume(saved.token);
 }
 net.onClose = (code) => {
-  alert(code === 4000 ? '別の場所でログインされたため切断されました' : 'サーバーとの接続が切れました。再読み込みしてください');
-  location.reload();
+  if (code === 4000) {
+    alert('別の場所でログインされたため切断されました');
+    location.reload();
+    return;
+  }
+  // 回線の切り替え・スマホのバックグラウンド・サーバーの再起動などで切れたとき: 戻るまで待って自動で入り直す(ログインは保存済みなのでそのまま再開)
+  const bar = document.createElement('div');
+  bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:100;background:#b3261e;color:#fff;padding:10px;text-align:center;font-size:14px';
+  bar.textContent = '接続が切れました。再接続しています…';
+  document.body.appendChild(bar);
+  void (async () => {
+    while (!(await serverUp())) await sleep(2000);
+    location.reload();
+  })();
 };
 
 /** スマホ/タブレット(タッチ主体)かどうか */
