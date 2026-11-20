@@ -1,3 +1,4 @@
+import { ModalPanel } from './modalPanel';
 import type { Transit } from '../../shared/sim/network/transit';
 import type { Facility } from '../../shared/world/facilities';
 import { yen } from '../../shared/sim/economy/economy';
@@ -11,18 +12,18 @@ const ICON = { road: '🚌', rail: '🚆', air: '✈' } as const;
 const cls = (n: number) => (n < 0 ? 'neg' : '');
 
 /** 経営分析: 自社の路線・停留所・施設の採算と混雑を、悪い順に並べる */
-export class AnalysisPanel {
-  private timer = 0;
+export class AnalysisPanel extends ModalPanel {
   /** ボタンを押している間は再描画しない(クリック直前に要素が入れ替わるのを防ぐ) */
   private pressed = false;
   constructor(
-    private modal: HTMLElement,
+    modal: HTMLElement,
     private body: HTMLElement,
     private transit: Transit,
     private facilities: () => Facility[],
     private onJump: (x: number, y: number) => void,
     private onMessage: (msg: string) => void = () => {},
   ) {
+    super(modal, 2000);
     modal.addEventListener('pointerdown', () => (this.pressed = true));
     window.addEventListener('pointerup', () => setTimeout(() => (this.pressed = false), 0));
     window.addEventListener('pointercancel', () => (this.pressed = false));
@@ -40,27 +41,7 @@ export class AnalysisPanel {
     });
   }
 
-  get isOpen(): boolean {
-    return !this.modal.hidden;
-  }
-
-  toggle(): void {
-    if (this.isOpen) this.close();
-    else this.open();
-  }
-
-  open(): void {
-    this.modal.hidden = false;
-    this.render();
-    this.timer = window.setInterval(() => this.render(), 2000);
-  }
-
-  close(): void {
-    this.modal.hidden = true;
-    clearInterval(this.timer);
-  }
-
-  private render(): void {
+  protected render(): void {
     if (this.pressed) return;
     const me = net.id || undefined;
     const routes = routeEcon(this.transit, me).sort((a, b) => a.profit - b.profit);

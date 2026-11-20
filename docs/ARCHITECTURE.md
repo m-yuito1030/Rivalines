@@ -24,7 +24,7 @@ src/
     app/                      画面の部品(auth, toast, toolbar, stationPicker, facilityPicker, bulldozeOptions, playerMenu, dom)
     connection/               サーバーとの接続(net.ts)と、届いた状態の反映(mirror.ts)
     render/                   描画(chunkRenderer, transitLayer, frontOverlay, buildingSprites, vehicleSprites, camera …)
-    ui/                       各パネル(info, route, diagram, finance, list, ranking, analysis …)
+    ui/                       各パネル。全画面ウィンドウは ModalPanel(開閉と定期再描画)を継承(finance, ranking, list, diagram, stats, analysis, auction)。info / route は別
     assets/ style.css
 server/                       Node 側(1つの世界を進行する)
   index.ts                    HTTP / WebSocket / 進行ループ / 保存
@@ -78,5 +78,4 @@ docs/                         ARCHITECTURE(このファイル) / MULTIPLAYER / H
 
 - `Transit.actor`(いま操作している会社を一時的に書き込む)を、メソッドの引数にする
 - `render/transitLayer.ts` の駅・車両の描画をさらに分ける
-- パネルの共通の基底クラス(開閉・再描画)
 - ESLint の導入(TypeScript 7 に対応した版が出たら)

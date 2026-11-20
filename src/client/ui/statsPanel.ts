@@ -1,3 +1,4 @@
+import { ModalPanel } from './modalPanel';
 import type { Mode } from '../../shared/data/models';
 import type { Transit } from '../../shared/sim/network/transit';
 import type { Town } from '../../shared/world/town';
@@ -56,41 +57,21 @@ export function townStats(t: Transit, towns: Town[]): TownStat[] {
 }
 
 /** 統計モーダル: 路線別の輸送人数・積載率、街の一覧(人口・待ち人数) */
-export class StatsPanel {
-  private timer = 0;
+export class StatsPanel extends ModalPanel {
   constructor(
-    private modal: HTMLElement,
+    modal: HTMLElement,
     private body: HTMLElement,
     private transit: Transit,
     private towns: () => Town[],
     private rating: () => RatingState,
     private migrated: () => number = () => 0,
   ) {
+    super(modal, 1000);
     modal.querySelector('#statsClose')?.addEventListener('click', () => this.close());
     modal.addEventListener('click', (e) => e.target === modal && this.close());
   }
 
-  get isOpen(): boolean {
-    return !this.modal.hidden;
-  }
-
-  toggle(): void {
-    if (this.isOpen) this.close();
-    else this.open();
-  }
-
-  open(): void {
-    this.modal.hidden = false;
-    this.render();
-    this.timer = window.setInterval(() => this.render(), 1000);
-  }
-
-  close(): void {
-    this.modal.hidden = true;
-    clearInterval(this.timer);
-  }
-
-  private render(): void {
+  protected render(): void {
     const rs = routeStats(this.transit).sort((a, b) => b.carried - a.carried);
     const ts = townStats(this.transit, this.towns()).sort((a, b) => b.pop - a.pop);
     const totalPop = ts.reduce((s, t) => s + t.pop, 0);

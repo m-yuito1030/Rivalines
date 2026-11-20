@@ -1,3 +1,4 @@
+import { ModalPanel } from './modalPanel';
 import type { AuctionState, Lot } from '../../shared/sim/economy/auctions';
 import { yen } from '../../shared/sim/economy/economy';
 import { FACILITY_SPECS } from '../../shared/world/facilities';
@@ -8,14 +9,13 @@ import { net } from '../connection/net';
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 /** 入札: 街ごとの独占権の競り。落札した会社だけが、その街の範囲にその種類の施設を建てられる */
-export class AuctionPanel {
-  private timer = 0;
+export class AuctionPanel extends ModalPanel {
   private pressed = false;
   /** 入札額の入力(万円)。再描画しても保つ */
   private inputs = new Map<number, string>();
 
   constructor(
-    private modal: HTMLElement,
+    modal: HTMLElement,
     private body: HTMLElement,
     private state: () => AuctionState,
     private towns: () => Town[],
@@ -23,6 +23,7 @@ export class AuctionPanel {
     private onJump: (x: number, y: number) => void,
     private onMessage: (msg: string) => void,
   ) {
+    super(modal, 2000);
     modal.querySelector('#aucClose')?.addEventListener('click', () => this.close());
     modal.addEventListener('pointerdown', () => (this.pressed = true));
     window.addEventListener('pointerup', () => setTimeout(() => (this.pressed = false), 0));
@@ -49,27 +50,7 @@ export class AuctionPanel {
     });
   }
 
-  get isOpen(): boolean {
-    return !this.modal.hidden;
-  }
-
-  toggle(): void {
-    if (this.isOpen) this.close();
-    else this.open();
-  }
-
-  open(): void {
-    this.modal.hidden = false;
-    this.render();
-    this.timer = window.setInterval(() => this.render(), 2000);
-  }
-
-  close(): void {
-    this.modal.hidden = true;
-    clearInterval(this.timer);
-  }
-
-  private render(): void {
+  protected render(): void {
     if (this.pressed || (this.body.contains(document.activeElement) && document.activeElement?.tagName === 'INPUT')) return;
     const st = this.state();
     const towns = this.towns();

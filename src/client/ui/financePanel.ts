@@ -1,3 +1,4 @@
+import { ModalPanel } from './modalPanel';
 import {
   TRAINING,
   trainingCost,
@@ -26,15 +27,14 @@ import type { Transit } from '../../shared/sim/network/transit';
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 /** 経営画面: 資金・売上と費用・融資・自社施設と他社施設(買収) */
-export class FinancePanel {
-  private timer = 0;
+export class FinancePanel extends ModalPanel {
   /** ボタンを押している間は再描画しない(クリック直前に要素が入れ替わるのを防ぐ) */
   private pressed = false;
   /** 提携の申し込みフォームの選択(再描画しても保つ) */
   private pactTo = 0;
   private pactDisc = 0.5;
   constructor(
-    private modal: HTMLElement,
+    modal: HTMLElement,
     private body: HTMLElement,
     private company: () => Company,
     private map: GameMap,
@@ -46,6 +46,7 @@ export class FinancePanel {
     private pacts: () => PactState = () => ({ pacts: [], proposals: [], nextId: 1 }),
     private players: () => PlayerInfo[] = () => [],
   ) {
+    super(modal, 1000);
     modal.addEventListener('change', (e) => {
       const el = e.target as HTMLSelectElement;
       if (el.dataset.pf === 'to') this.pactTo = Number(el.value);
@@ -64,26 +65,6 @@ export class FinancePanel {
     });
   }
 
-  get isOpen(): boolean {
-    return !this.modal.hidden;
-  }
-
-  toggle(): void {
-    if (this.isOpen) this.close();
-    else this.open();
-  }
-
-  open(): void {
-    this.modal.hidden = false;
-    this.render();
-    this.timer = window.setInterval(() => this.render(), 1000);
-  }
-
-  close(): void {
-    this.modal.hidden = true;
-    clearInterval(this.timer);
-  }
-
   private pact(b: HTMLElement): void {
     const op = b.dataset.pact as 'propose' | 'accept' | 'reject' | 'cancel';
     const cmd = op === 'propose' ? { t: 'pact' as const, op, to: this.pactTo, discount: this.pactDisc } : { t: 'pact' as const, op, id: Number(b.dataset.id) };
@@ -95,7 +76,7 @@ export class FinancePanel {
     void net.cmd({ t: 'fin', op: a, amount: Number(b.dataset.amount), id: Number(b.dataset.id) }).then((r) => this.onMessage(r.msg ?? (r.ok ? '完了しました' : '失敗しました')));
   }
 
-  private render(): void {
+  protected render(): void {
     if (this.pressed) return;
     const c = this.company();
     const rivals = this.rivals();

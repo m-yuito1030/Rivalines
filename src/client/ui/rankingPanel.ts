@@ -1,3 +1,4 @@
+import { ModalPanel } from './modalPanel';
 import { type CompanyRow, routeRanking, stopRanking, townRanking } from '../../shared/sim/economy/ranking';
 import { yen } from '../../shared/sim/economy/economy';
 import type { GameMap } from '../../shared/world/gameMap';
@@ -18,12 +19,11 @@ const TABS = [
 type Tab = (typeof TABS)[number][0];
 
 /** ランキング画面: 会社(時価総額)・街(人口)・駅/停留所(乗降人数)・路線(利益) */
-export class RankingPanel {
+export class RankingPanel extends ModalPanel {
   private tab: Tab = 'company';
-  private timer = 0;
   private pressed = false;
   constructor(
-    private modal: HTMLElement,
+    modal: HTMLElement,
     private body: HTMLElement,
     private companyRows: () => CompanyRow[],
     private map: GameMap,
@@ -31,6 +31,7 @@ export class RankingPanel {
     private weekly: () => WeeklyState = () => ({ week: 1, base: [] }),
     private players: () => PlayerInfo[] = () => [],
   ) {
+    super(modal, 2000);
     modal.querySelector('#rankClose')?.addEventListener('click', () => this.close());
     modal.addEventListener('pointerdown', () => (this.pressed = true));
     window.addEventListener('pointerup', () => setTimeout(() => (this.pressed = false), 0));
@@ -46,31 +47,11 @@ export class RankingPanel {
     });
   }
 
-  get isOpen(): boolean {
-    return !this.modal.hidden;
-  }
-
-  toggle(): void {
-    if (this.isOpen) this.close();
-    else this.open();
-  }
-
-  open(): void {
-    this.modal.hidden = false;
-    this.render();
-    this.timer = window.setInterval(() => this.render(), 2000);
-  }
-
-  close(): void {
-    this.modal.hidden = true;
-    clearInterval(this.timer);
-  }
-
   private medal(i: number): string {
     return i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : String(i + 1);
   }
 
-  private render(): void {
+  protected render(): void {
     if (this.pressed) return;
     let h = `<div class="rtabs">${TABS.map(([k, l]) => `<button data-tab="${k}" class="${k === this.tab ? 'on' : ''}">${l}</button>`).join('')}</div>`;
     if (this.tab === 'company') {

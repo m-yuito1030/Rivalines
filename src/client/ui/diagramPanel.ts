@@ -1,3 +1,4 @@
+import { ModalPanel } from './modalPanel';
 import { DAY, MIN, type DiaRoute, type DiaStop, type Run, routeRuns, suggestPassing } from '../../shared/sim/network/diagram';
 import { RANKS, type Transit, todOf } from '../../shared/sim/network/transit';
 import { net } from '../connection/net';
@@ -14,7 +15,7 @@ const hm = (t: number) => {
  * 列車(線)をドラッグすると発車時刻のずれ、駅の点(●)をドラッグするとその駅の発車時刻を変える。
  * 追い越しが起きる箇所は「待避の提案」に出て、1クリックで適用できる。
  */
-export class DiagramPanel {
+export class DiagramPanel extends ModalPanel {
   private routeSel: HTMLSelectElement;
   private rangeSel: HTMLSelectElement;
   private startIn: HTMLInputElement;
@@ -22,7 +23,6 @@ export class DiagramPanel {
   private ctx: CanvasRenderingContext2D;
   private sugEl: HTMLElement;
   private infoEl: HTMLElement;
-  private timer = 0;
   private lastKey = '';
   private mode: 'run' | 'node' = 'run';
   private drag: { kind: 'run' | 'node'; id: number; order: number; startX: number; orig: number; delta: number } | null = null;
@@ -34,12 +34,13 @@ export class DiagramPanel {
   private view = { x0: 0, span: DAY / 4, left: 110, top: 24, w: 700, h: 300 };
 
   constructor(
-    private modal: HTMLElement,
+    modal: HTMLElement,
     body: HTMLElement,
     private transit: Transit,
     private getTick: () => number,
     private onMessage: (m: string) => void,
   ) {
+    super(modal, 1000);
     body.innerHTML = `
       <div class="drow">
         <label>路線 <select data-d="route"></select></label>
@@ -104,26 +105,10 @@ export class DiagramPanel {
     this.canvas.addEventListener('pointercancel', () => (this.drag = null));
   }
 
-  get isOpen(): boolean {
-    return !this.modal.hidden;
-  }
-
-  toggle(): void {
-    if (this.isOpen) this.close();
-    else this.open();
-  }
-
-  open(): void {
-    this.modal.hidden = false;
+  protected override onOpen(): void {
     this.lastKey = '';
     this.fillRoutes();
     this.draw();
-    this.timer = window.setInterval(() => this.tick(), 1000);
-  }
-
-  close(): void {
-    this.modal.hidden = true;
-    clearInterval(this.timer);
   }
 
   private select(id?: number): void {
@@ -148,7 +133,7 @@ export class DiagramPanel {
     }
   }
 
-  private tick(): void {
+  protected render(): void {
     if (this.drag) return;
     this.fillRoutes();
     this.draw();

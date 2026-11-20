@@ -1,3 +1,4 @@
+import { ModalPanel } from './modalPanel';
 import type { GameMap } from '../../shared/world/gameMap';
 import type { Transit } from '../../shared/sim/network/transit';
 import { FACILITY_SPECS } from '../../shared/world/facilities';
@@ -26,22 +27,22 @@ interface Group {
  * 一覧画面: 街(段階ごと)と、機器(駅・バス停・空港・経由点・車両基地・施設)をグループ別に並べる。
  * 項目をタップすると、その場所へ移動する。検索で名前を絞り込める。
  */
-export class ListPanel {
+export class ListPanel extends ModalPanel {
   private tab: 'town' | 'equip' | 'veh' = 'town';
-  private open = new Set<string>(['t4', 't3', 't2', 'e-rail', 'e-bus', 'e-air', 'e-way', 'd-rail', 'd-road', 'd-air']);
+  private openGroups = new Set<string>(['t4', 't3', 't2', 'e-rail', 'e-bus', 'e-air', 'e-way', 'd-rail', 'd-road', 'd-air']);
   private q = '';
   private mineOnly = true;
-  private timer = 0;
   private last = '';
 
   constructor(
-    private modal: HTMLElement,
+    modal: HTMLElement,
     private body: HTMLElement,
     private map: GameMap,
     private transit: Transit,
     private onJump: (x: number, y: number) => void,
     private myVehicles: () => MyVeh[] = () => [],
   ) {
+    super(modal, 2000);
     modal.querySelector('#listClose')?.addEventListener('click', () => this.close());
     modal.addEventListener('click', (e) => {
       const t = e.target as HTMLElement;
@@ -61,8 +62,8 @@ export class ListPanel {
       const head = t.closest<HTMLElement>('[data-gk]');
       if (head) {
         const k = head.dataset.gk!;
-        if (this.open.has(k)) this.open.delete(k);
-        else this.open.add(k);
+        if (this.openGroups.has(k)) this.openGroups.delete(k);
+        else this.openGroups.add(k);
         this.last = '';
         this.render();
       }
@@ -81,30 +82,18 @@ export class ListPanel {
     });
   }
 
-  get isOpen(): boolean {
-    return !this.modal.hidden;
-  }
-
-  toggle(): void {
-    if (this.isOpen) this.close();
-    else this.show();
-  }
-
-  show(): void {
-    this.modal.hidden = false;
+  protected override onOpen(): void {
     this.last = '';
     this.render();
-    this.timer = window.setInterval(() => this.render(), 2000);
   }
 
-  /** ウィンドウ管理(他の画面を開くと閉じる)用の別名 */
+  /** 以前の呼び名(ウィンドウ管理用) */
+  show(): void {
+    this.open();
+  }
+
   openWin(): void {
-    this.show();
-  }
-
-  close(): void {
-    this.modal.hidden = true;
-    clearInterval(this.timer);
+    this.open();
   }
 
   private match(s: string): boolean {
@@ -182,7 +171,7 @@ export class ListPanel {
     for (const gr of groups) {
       const shown = gr.items.filter((i) => this.match(i.name));
       if (!shown.length) continue; // 空のグループは出さない
-      const isOpen = this.open.has(gr.key) || (!!this.q && shown.length > 0);
+      const isOpen = this.openGroups.has(gr.key) || (!!this.q && shown.length > 0);
       html += `<div class="lgroup"><button class="lhead" data-gk="${gr.key}">${isOpen ? '▼' : '▶'} ${esc(gr.title)} <em>${shown.length}</em></button>`;
       if (isOpen) {
         html += '<div class="litems">';
