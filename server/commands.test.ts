@@ -5,7 +5,7 @@ import { Simulation } from '../src/shared/sim/simulation';
 import { SEA_LEVEL } from '../src/shared/world/constants';
 import { TOLL, TRAINING, trainingCost } from '../src/shared/sim/economy/economy';
 import { DEV, devCost, devIncome } from '../src/shared/sim/economy/development';
-import { execute } from './commands';
+import { execute } from './commands/index';
 import { Replicator } from './replicate';
 import { canConnectRail } from '../src/shared/world/rails';
 import { Accounts } from './accounts';

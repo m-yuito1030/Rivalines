@@ -6,7 +6,7 @@ import { calendarOf } from '../src/shared/sim/world/calendar';
 import { makeWorldMap } from '../src/shared/world/bigTerrain';
 import { applyLayers, decodeSave, encodeSave } from '../src/shared/save/serialize';
 import { Accounts } from './accounts';
-import { execute } from './commands';
+import { execute } from './commands/index';
 import { Replicator, type Client } from './replicate';
 import type { ClientMsg } from '../src/shared/protocol';
 
