@@ -1,10 +1,11 @@
 import { net } from '../multi/net';
 import { TIERS, townTier } from '../world/town';
+import { AD_COOLDOWN_DAYS, AD_TYPES, type AdKind, VISITOR_TYPES, adActive, adAvailable, adCost } from '../sim/facilityVisitors';
 import { DAY_TICKS, type Stop, type Transit, todOf } from '../sim/transit';
 import type { GameMap } from '../world/gameMap';
 import { designName } from '../world/stations';
 import { type Company, facilityValue, vehiclePrice, yen } from '../sim/economy';
-import { FACILITY_SPECS, facilityAt } from '../world/facilities';
+import { FACILITY_SPECS, facilityAt, facilityUpkeep } from '../world/facilities';
 import { type Mode, clampCars, kindsFor, modelOf, modelsFor } from '../data/models';
 import type { Town } from '../world/town';
 
@@ -67,6 +68,9 @@ export class InfoPanel {
   private splitCount = new Map<number, number>();
   private timer = 0;
 
+  /** 会社の一覧(他社への許可の選択肢)。main が設定する */
+  players: () => { id: number; company: string }[] = () => [];
+
   constructor(
     private el: HTMLElement,
     private map: GameMap,
@@ -88,6 +92,11 @@ export class InfoPanel {
       if (t.dataset.rename) {
         const n = (t as unknown as HTMLInputElement).value.trim();
         if (n) void net.cmd({ t: 'rename', kind: 'stop', id: Number(t.dataset.id), name: n }).then((r) => !r.ok && r.msg && this.onMessage(r.msg));
+        return;
+      }
+      if (t.dataset.allow) {
+        const cb = t as unknown as HTMLInputElement;
+        void net.cmd({ t: 'stopAllow', stopId: Number(t.dataset.id), who: Number(t.dataset.allow), allow: cb.checked }).then((r) => r.msg && this.onMessage(r.msg));
         return;
       }
       if (t.dataset.split) this.splitCount.set(Number(t.dataset.split), Number(t.value));
@@ -165,7 +174,8 @@ export class InfoPanel {
     const vid = Number(b.dataset.v);
     const say = (p: Promise<{ ok: boolean; msg?: string }>, okMsg?: string) => void p.then((r) => this.onMessage(r.msg ?? (r.ok ? okMsg ?? '' : '失敗しました')));
     const act = b.dataset.act;
-    if (act === 'buyfac' || act === 'sellfac') say(net.cmd({ t: 'fin', op: act === 'buyfac' ? 'acquire' : 'sell', id: Number(b.dataset.id) }));
+    if (act === 'ad') say(net.cmd({ t: 'ad', facilityId: Number(b.dataset.id), kind: b.dataset.kind as AdKind }));
+    else if (act === 'buyfac' || act === 'sellfac') say(net.cmd({ t: 'fin', op: act === 'buyfac' ? 'acquire' : 'sell', id: Number(b.dataset.id) }));
     else if (act === 'buy' && this.sel?.kind === 'depot') {
       const d = this.transit.depots.get(this.sel.id);
       const st = d && this.buyState(d.kind);
@@ -235,6 +245,14 @@ export class InfoPanel {
       if (r) h += `<div class="im">${esc(r.name)} 時刻表: ${x.etas.map((e) => hm(todOf(tick) + e)).join(' / ')}</div>`;
     }
     h += '</div>';
+    // 他社への使用許可(持ち主だけ。許可がない他社は、この停留所を路線に使えない)
+    if (s.owner === net.id) {
+      const others = this.players().filter((p) => p.id !== net.id);
+      if (others.length) {
+        const all = (c: number) => !!t.grants.get(net.id)?.has(c);
+        h += `<div class="ib"><div class="ibt">🔑 他社の利用を許可</div>${others.slice(0, 30).map((p) => `<label class="im"><input type="checkbox" data-allow="${p.id}" data-id="${id}" ${s.allow?.includes(p.id) || all(p.id) ? 'checked' : ''} ${all(p.id) ? 'disabled' : ''}> ${esc(p.company)}${all(p.id) ? ' <small class="muted">(全駅を許可中)</small>' : ''}</label>`).join('')}<div class="muted">許可すると、その会社の路線がこの停留所に停まれます。</div></div>`;
+      }
+    } else if (s.owner) h += `<div class="im muted">持ち主: 他社${t.mayUse(s, net.id) ? '(使用を許可されています)' : ''}</div>`;
     return s.kind === 'rail' ? [h, this.trainsHtml(id)] : [h];
   }
 
@@ -339,7 +357,32 @@ export class InfoPanel {
     const theirs = (f.owner ?? 'player') === 'player' && !mineF;
     const own = mineF;
     const v = facilityValue(f);
+    const spec = FACILITY_SPECS[f.type];
+    const stopsNear = [...this.transit.stops.values()].filter((st) => !st.waypoint && st.facs?.includes(f.id));
+    const perVisit = spec.conversion * spec.spend; // 来場者1人あたりの売上
+    const upkeep = facilityUpkeep(f);
+    const breakEven = perVisit > 0 ? Math.ceil(upkeep / perVisit) : 0;
+    let econ = '';
+    if (own) {
+      const profit = (f.income ?? 0) - upkeep;
+      econ = `<div class="im">売上/日 ${yen(f.income ?? 0)} − 維持費/日 ${yen(upkeep)} = <b class="${profit < 0 ? 'neg' : ''}">${profit < 0 ? '' : '+'}${yen(profit)}</b>/日</div>`;
+      if (perVisit > 0) econ += `<div class="im muted">来場1人あたり ${yen(perVisit)} の売上。黒字には1日に約 ${breakEven} 人の来場が必要です(いまの来場の目安: 売上/日 ÷ ${yen(perVisit)} ≒ ${Math.round((f.income ?? 0) / perVisit)} 人)</div>`;
+      if (VISITOR_TYPES.includes(f.type)) {
+        econ += `<div class="im muted">来場者: 周辺の人口の2割までのランダムな人数が毎日来ます。${stopsNear.length ? '集客圏に駅・停留所があるので増えています。' : '近くに駅・停留所を置くと増えます。'}近くに同じ種類の施設(自社・他社)があると分散して減ります。</div>`;
+        if (!(f.visits ?? 0)) econ += `<div class="im muted">⏳ 来場者は毎日 0:00 にまとめて集計されます。建てた日は 0 人のままで、日付が変わると反映されます。</div>`;
+        const day = Math.floor((this.getTick() + DAY_TICKS / 4) / DAY_TICKS);
+        const active = adActive(f, day);
+        const why = adAvailable(f, day);
+        if (active && f.ad) econ += `<div class="im">📣 ${AD_TYPES[f.ad.kind].name}広告 実施中(あと${f.ad.from + AD_TYPES[f.ad.kind].days - day}日): 来場者 ×${AD_TYPES[f.ad.kind].mul}、近くの他の施設 ×${AD_TYPES[f.ad.kind].rival}</div>`;
+        econ += `<div class="im">広告(1施設につき${AD_COOLDOWN_DAYS}日に1度): ${(Object.keys(AD_TYPES) as AdKind[])
+          .map((k) => `<button data-act="ad" data-id="${f.id}" data-kind="${k}" ${why ? 'disabled' : ''} title="${AD_TYPES[k].days}日間 自施設 ×${AD_TYPES[k].mul} / 近くの他の施設 ×${AD_TYPES[k].rival}">${AD_TYPES[k].name} ${yen(adCost(f, k))}</button>`)
+          .join(' ')}</div>`;
+        if (why && !active) econ += `<div class="im muted">${esc(why)}</div>`;
+      }
+      if (perVisit > 0 && (f.income ?? 0) < upkeep) econ += `<div class="im"><b>⚠ 来場が足りません。</b>近くの停留所(${stopsNear.slice(0, 3).map((st) => esc(st.name)).join('・')})へ向かう乗客を増やす(本数・路線・周辺の人口)と売上が増えます</div>`;
+    }
     return `<div class="im">持ち主: <b>${own ? '自社' : theirs ? '他のプレイヤー' : '他社(民間)'}</b> ・ 評価額 ${yen(v)} ・ 来場者 ${Math.floor(f.visits ?? 0)}人 ・ 売上/日 ${yen(f.income ?? 0)}</div>
+      ${econ}
       <div class="im">${own ? `<button data-act="sellfac" data-id="${f.id}">売却(評価額の60%)</button>` : theirs ? '' : `<button data-act="buyfac" data-id="${f.id}">買収(${yen(v)})</button>`}</div>`;
   }
 

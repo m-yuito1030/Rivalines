@@ -104,7 +104,27 @@
           </div>
         </div>
       </div>
+      <div id="bulldozeOpts" hidden>
+        <b>🧹 撤去する要素</b>(ドラッグした範囲の中だけ)
+        <label><input type="checkbox" data-bk="road" checked> 道路</label>
+        <label><input type="checkbox" data-bk="rail" checked> 線路</label>
+        <label><input type="checkbox" data-bk="signal" checked> 信号</label>
+        <label><input type="checkbox" data-bk="stop" checked> 駅・停留所</label>
+        <label><input type="checkbox" data-bk="depot" checked> 基地</label>
+        <label><input type="checkbox" data-bk="waypoint" checked> 経由点</label>
+        <label><input type="checkbox" data-bk="span" checked> 橋・トンネル</label>
+        <label><input type="checkbox" data-bk="building"> 街の建物</label>
+        <label><input type="checkbox" data-bk="airport"> 空港</label>
+        <span class="row"><button type="button" data-bkset="all">交通すべて</button><button type="button" data-bkset="road">道路だけ</button><button type="button" data-bkset="rail">線路だけ</button><button type="button" data-bkset="signal">信号だけ</button><button type="button" data-bkset="none">解除</button></span>
+      </div>
       <div id="signalOpts" hidden>🚦 信号の間隔 <input id="optSigInt" type="number" min="1" max="20" value="3" style="width:3.5em"> タイルおき(ドラッグの向きの一方向)</div>
+      <div id="facilityOpts" hidden>
+        <b id="facTitle">施設</b>
+        <div class="row" id="facSizes"><button type="button" data-fsize="S">小</button><button type="button" data-fsize="M">中</button><button type="button" data-fsize="L">大</button></div>
+        <label>デザイン <span class="row"><select id="facDesign"></select><button id="facRand" type="button" title="ランダム">🎲</button></span></label>
+        <canvas id="facPreview" width="220" height="240"></canvas>
+        <small id="facInfo"></small>
+      </div>
       <div id="stationOpts" hidden>
         <b>🚉 駅の設置</b>
         <label>番線数 <select id="optTracks"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
@@ -124,6 +144,13 @@
       <div class="box">
         <h2>プレイヤー</h2>
         <div id="menuPlayers"></div>
+        <details id="profileBox">
+          <summary>🏢 自社の会社名・プロフィール</summary>
+          <label>会社名 <input id="profCompany" maxlength="20" placeholder="例: 白見急行電鉄"></label>
+          <label>プロフィール <textarea id="profBio" maxlength="120" rows="3" placeholder="自己紹介(120文字まで)"></textarea></label>
+          <label>会社の色 <input id="profColor" type="color"></label>
+          <button type="button" id="profSave">保存</button>
+        </details>
         <div class="row">
           <button type="button" id="logoutBtn">ログアウト</button>
           <button type="button" id="menuClose">閉じる</button>

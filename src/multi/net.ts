@@ -86,6 +86,19 @@ export class Net {
     });
   }
 
+  /** 会社名・プロフィール・色を保存する */
+  profile(company: string, bio: string, color: number): Promise<CmdResult> {
+    return new Promise((resolve) => {
+      if (this.ws?.readyState !== 1) return resolve({ ok: false, msg: '接続が切れています' });
+      const req = ++this.req;
+      this.pending.set(req, resolve);
+      this.send({ type: 'profile', req, company, bio, color });
+      setTimeout(() => {
+        if (this.pending.delete(req)) resolve({ ok: false, msg: 'サーバーの応答がありません' });
+      }, 15000);
+    });
+  }
+
   sendView(x0: number, y0: number, x1: number, y1: number): void {
     this.send({ type: 'view', x0, y0, x1, y1 });
   }

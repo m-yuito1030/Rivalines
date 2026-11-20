@@ -6,6 +6,7 @@ import { type RatingState, newRating, stepRating } from './rating';
 import { migrateStep } from './migration';
 import { Company, FIRST_OWNER, RUNNING_RATE, TOLL, type CompanyState, vehiclePrice } from './economy';
 import { createRivals, stepRivals, type Rival } from './rivals';
+import { dailyVisitors } from './facilityVisitors';
 import { calendarOf, fiscalPeriodOf, quarterOf } from './calendar';
 import { assetValue, type FiscalReport } from './economy';
 import { modelOf } from '../data/models';
@@ -82,6 +83,12 @@ export class Simulation {
   private rivalRng: Rng;
   /** 公共施設(市役所・学校)の配置用の乱数(街の成長の乱数とは別系列) */
   private pubRng: Rng;
+  /** 施設の来場者の乱数 */
+  private facRng: Rng;
+  /** いまの日の通し番号(開始日=0) */
+  get day(): number {
+    return Math.floor((this.tick + TICKS_PER_DAY / 4) / TICKS_PER_DAY);
+  }
 
   constructor(
     readonly map: GameMap,
@@ -93,6 +100,7 @@ export class Simulation {
     this.transit = new Transit(map, this.rng);
     this.rivalRng = makeRng(map.seed ^ 0x2545f491);
     this.pubRng = makeRng(map.seed ^ 0x7f4a7c15);
+    this.facRng = makeRng(map.seed ^ 0x3c6ef372);
     this.transit.onFare = (mode, amount, routeId) => {
       const r = this.transit.routes.get(routeId);
       (this.multi && r?.owner ? this.playerCompany(r.owner) : this.company).fare(mode, amount);
@@ -206,6 +214,11 @@ export class Simulation {
     // 日の締めは暦の日付が変わる 0:00 に行う(開始は6:00なので、開始から 3/4 日後が最初)
     if ((this.tick + TICKS_PER_DAY / 4) % TICKS_PER_DAY === 0) {
       const ended = (this.tick + TICKS_PER_DAY / 4) / TICKS_PER_DAY - 1; // 今締める日(開始日=0)
+      // 施設の来場者(周辺の人口・停留所・競合・広告で決まる)。売上は今日の分として計上してから日を締める
+      dailyVisitors(this.map, this.transit, ended, this.facRng, (f, amount) => {
+        const c = this.multi ? (f.playerId ? this.playerCompany(f.playerId) : null) : this.company;
+        if (c && (!this.multi || this.online.has(f.playerId!))) c.earn('facility', amount);
+      });
       if (this.multi) {
         let first = true;
         for (const [id, c] of this.players) {

@@ -150,9 +150,12 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 #info .ir.tr { grid-template-columns: 10px auto 1fr auto; }
 #info select { background: #1c2c44; color: #eee; border: 1px solid #456; border-radius: 4px; margin: 0 2px; }
 
-#stationOpts { position: absolute; left: 8px; top: 110px; width: 230px; padding: 8px 10px; border-radius: 10px; font-size: 12px; pointer-events: auto; display: grid; gap: 6px; color: #eee;
+#stationOpts, #facilityOpts, #bulldozeOpts, #signalOpts { position: absolute; left: 8px; top: 110px; width: 230px; padding: 8px 10px; border-radius: 10px; font-size: 12px; pointer-events: auto; display: grid; gap: 6px; color: #eee;
   background: linear-gradient(180deg, rgba(24, 40, 62, 0.92), rgba(12, 22, 38, 0.92)); border: 1px solid rgba(140, 180, 230, 0.25); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4); z-index: 4; }
-#stationOpts[hidden] { display: none; }
+#stationOpts[hidden], #facilityOpts[hidden], #bulldozeOpts[hidden], #signalOpts[hidden] { display: none; }
+#bulldozeOpts label { justify-content: flex-start; }
+#bulldozeOpts .row { display: flex; flex-wrap: wrap; gap: 4px; }
+#bulldozeOpts button { background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
 #stationOpts label { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
 #stationOpts select, #stationOpts input { background: #1c2c44; color: #eee; border: 1px solid #456; border-radius: 4px; }
 #stationOpts input[type=range] { flex: 1; }
@@ -259,3 +262,20 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 #list-modal .litem { display: flex; justify-content: space-between; text-align: left; background: #1b3350; }
 #list-modal .litem em { font-style: normal; color: #9ab; font-size: 12px; }
 #list-modal .muted { color: #9ab; }
+#facilityOpts .row { display: flex; gap: 6px; }
+#facilityOpts .row button { flex: 1; background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; padding: 5px 8px; cursor: pointer; }
+#facilityOpts .row button.on { background: #3a6ea5; border-color: #7bd; }
+#facilityOpts select { flex: 1; min-width: 0; }
+#facPreview { width: 100%; background: rgba(0,0,0,.25); border-radius: 8px; image-rendering: pixelated; }
+#profileBox { margin: 8px 0; font-size: 12px; }
+#profileBox label { display: grid; gap: 2px; margin: 6px 0; }
+#profileBox input[type=text], #profileBox input:not([type]), #profileBox textarea { width: 100%; box-sizing: border-box; background: #1a2638; color: #eee; border: 1px solid #456; border-radius: 6px; padding: 5px; }
+/* 施設ピッカーは画面が狭いとき小さくする(地図を隠しすぎない) */
+#facPreview { max-height: 150px; object-fit: contain; }
+#facilityOpts select { background: #1a2638; color: #eee; border: 1px solid #456; border-radius: 6px; padding: 4px; }
+@media (max-width: 600px) { #facilityOpts { width: 190px; } #facPreview { max-height: 110px; } }
+#facilityOpts { grid-template-columns: minmax(0, 1fr); box-sizing: border-box; }
+#facilityOpts > * { min-width: 0; box-sizing: border-box; }
+#facPreview { width: 100%; height: auto; }
+#profSave { background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; padding: 6px 14px; cursor: pointer; }
+#profileBox input[type=color] { width: 60px; height: 30px; padding: 0; }

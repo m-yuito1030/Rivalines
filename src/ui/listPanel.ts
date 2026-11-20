@@ -142,7 +142,7 @@ export class ListPanel {
     for (const f of this.map.facilities) {
       const spec = FACILITY_SPECS[f.type];
       const own = (f.owner ?? 'player') === 'player' ? (f.playerId === net.id ? '自社' : '他のプレイヤー') : f.owner === 'public' ? '公共' : '民間';
-      if (this.mineOnly && (f.owner ?? 'player') === 'player' && f.playerId !== net.id) continue;
+      if (this.mineOnly && !((f.owner ?? 'player') === 'player' && f.playerId === net.id)) continue; // 自社のみ: 民間・公共・他のプレイヤーの施設は出さない
       let grp = facG.get(f.type);
       if (!grp) facG.set(f.type, (grp = g(`f-${f.type}`, `${spec.icon} ${spec.name}`)));
       grp.items.push({ name: f.name, sub: own, x: f.x0, y: f.y0 });
@@ -176,7 +176,7 @@ export class ListPanel {
       const shown = gr.items.filter((i) => this.match(i.name));
       if (!shown.length) continue; // 空のグループは出さない
       const isOpen = this.open.has(gr.key) || (!!this.q && shown.length > 0);
-      html += `<div class="lgroup"><button class="lhead" data-gk="${gr.key}">${isOpen ? '▼' : '▶'} ${gr.title} <em>${shown.length}</em></button>`;
+      html += `<div class="lgroup"><button class="lhead" data-gk="${gr.key}">${isOpen ? '▼' : '▶'} ${esc(gr.title)} <em>${shown.length}</em></button>`;
       if (isOpen) {
         html += '<div class="litems">';
         for (const it of shown.slice(0, MAX_ITEMS)) html += `<button class="litem" data-jx="${it.x}" data-jy="${it.y}"><span>${esc(it.name)}</span><em>${esc(it.sub)}</em></button>`;

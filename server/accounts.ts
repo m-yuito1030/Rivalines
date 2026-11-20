@@ -10,6 +10,9 @@ export interface Account {
   createdAt: number;
   /** 会社の色 */
   color: number;
+  /** 会社名(表示名。なければアカウント名)とプロフィール(自己紹介) */
+  company?: string;
+  bio?: string;
   /** 最後に見ていた場所(タイル)。次のログインでここから始まる */
   last?: { x: number; y: number };
 }
@@ -33,6 +36,27 @@ export class Accounts {
     mkdirSync(dirname(this.file), { recursive: true });
     writeFileSync(this.file + '.tmp', JSON.stringify(this.list));
     renameSync(this.file + '.tmp', this.file);
+  }
+
+  /** 会社名・プロフィール・色の設定。不正なら理由を返す */
+  setProfile(id: number, p: { company?: unknown; bio?: unknown; color?: unknown }): string | null {
+    const a = this.byId(id);
+    if (!a) return 'アカウントがありません';
+    const clean = (s: unknown, max: number): string | null => {
+      if (typeof s !== 'string') return null;
+      const v = s.replace(/[\u0000-\u001f\u007f<>]/g, '').trim(); // 制御文字・タグは除く
+      return [...v].length > max ? null : v;
+    };
+    const company = clean(p.company, 20);
+    const bio = clean(p.bio, 120);
+    if (company === null) return '会社名は20文字までです';
+    if (bio === null) return 'プロフィールは120文字までです';
+    if (!Number.isInteger(p.color) || (p.color as number) < 0 || (p.color as number) > 0xffffff) return '色が正しくありません';
+    a.company = company || undefined;
+    a.bio = bio || undefined;
+    a.color = p.color as number;
+    this.save();
+    return null;
   }
 
   setLast(id: number, x: number, y: number): void {

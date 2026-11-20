@@ -43,6 +43,8 @@ export interface Stop {
   traffic?: number;
   /** マルチプレイ: 設置した会社(アカウントID)。なければ共用 */
   owner?: number;
+  /** この停留所を路線に使ってよい他社(アカウントID)。持ち主が駅ごとに許可する */
+  allow?: number[];
 }
 
 /** dwell=一定時間停車 / full=満載まで待つ(最大maxWait) / timed=時刻表(周期 route.period) */
@@ -96,8 +98,6 @@ export interface Route {
   owner?: number;
   /** 種別(0普通 1準急 2快速 3急行 4特急)。通過駅の自動設定と表示に使う */
   rank?: number;
-  /** 経路を最後に計算し直した tick(初回の設定駅から出発したとき) */
-  replanAt?: number;
   /** 配信用(ダイヤ画面): 車両(id, 発車時刻のずれ)と、オーダーごとの次の停車駅までの走行時間。サーバーが付けて送る */
   vs?: [number, number][];
   legs?: number[];
@@ -143,6 +143,8 @@ export interface Vehicle {
   dir: number;
   /** 渋滞・待機で動けない連続tick数 */
   stuck: number;
+  /** 走行中の経路が、変更されたタイルを通る(次のタイルに入ったところで探し直す)。保存しない一時的な印 */
+  replan?: boolean;
   /** 鉄道: 現在の速度の割合(0〜1)。発車でゆっくり上がり、停車駅の手前で下がる(加減速) */
   sf?: number;
   /** 時刻表の発車時刻をずらす量(tick)。同じ時刻表で走る車両の時間差に使う */
@@ -190,16 +192,49 @@ export interface TransitSave {
   routes: Route[];
   /** 信号: [タイルindex, 方向ビット] */
   signals?: [number, number][];
+  /** 会社単位の停留所の使用許可: [持ち主, 許可した会社の一覧] */
+  grants?: [number, number[]][];
   depots?: Depot[];
   vehicles: (Omit<Vehicle, 'path' | 'cargo'> & { path: number[]; cargo: [number, number][] })[];
 }
 
 /** 時刻表の周期の選択肢 */
+/** 停車駅で折り返す判断: 前進の経路がこの長さ(タイル)を超え、折り返しの経路が前進の 1/REVERSE_RATIO 以下のとき折り返す */
+export const REVERSE_MIN_TILES = 16;
+export const REVERSE_RATIO = 1.6;
+
 /** 鉄道の減速を始める、停車駅までの距離(タイル) */
 export const DECEL_TILES = 3;
 
-/** 路線の経路を計算し直す最小間隔(tick)。約8分(ゲーム内) */
-export const REPLAN_GAP = 100;
+/** 経路キャッシュの最大件数(超えたら古い1割を捨てる)、変更の履歴の最大件数、変更が経路に影響しうる範囲の余白(タイル) */
+export const PATH_CACHE_MAX = 60000;
+
+/** クライアントの補間用: ある時点のサーバー状態 */
+interface MirrorState {
+  pi: number;
+  t: number;
+  trail: number[];
+  done: number;
+}
+interface MirrorSnap {
+  path: Uint32Array;
+  prev: MirrorState | null;
+  cur: MirrorState;
+  prevAt: number;
+  curAt: number;
+}
+export const NET_LOG_MAX = 4000;
+export const PATH_MARGIN = 24;
+
+interface PathEntry {
+  p: Uint32Array | null;
+  gen: number;
+  /** 始点・終点・経路の外接矩形 */
+  bx0: number;
+  by0: number;
+  bx1: number;
+  by1: number;
+}
 
 /** 種別: 名前と、途中駅のうち停車を残す割合(残りは通過) */
 export const RANKS = [
@@ -285,12 +320,94 @@ export class Transit {
   /** 停留所の配列(毎tickの走査でアロケーションしないためのキャッシュ) */
   private stopList: Stop[] = [];
   private stopListVer = -1;
-  /** 経路キャッシュ: from*2^24+to → 経路(使用時に辺の有効性を検査する) */
-  private pathCache = new Map<number, { p: Uint32Array; t: number }>();
-  /** いまの tick と、経路の計算で「この時刻より古いキャッシュは使わない」境(路線の再計算 replanAt) */
-  private nowTick = 0;
-  private since = -1;
+  /**
+   * 経路キャッシュ。キーは `始点:終点`(巨大マップでは index が 2^32 に迫り、数値の積では 2^53 を超えて別の経路と衝突するため文字列)。
+   * 使うたびに各辺・信号の向きを検査する。さらに、ネットワークが変わったとき(netLog)に、変更が「この経路の探索範囲(始点・終点・経路の外接矩形+余白)」に
+   * かかっていれば、次に使うときに探し直す。離れた場所の変更では探し直さないので、多数の路線・多数のプレイヤーでも負荷が集中しない。
+   */
+  private pathCache = new Map<string, PathEntry>();
+  /** ネットワーク(線路・道路・信号・駅)の世代。利用者の操作で変わるたびに touchNetwork が進める */
+  netGen = 0;
+  /** 変更の履歴(世代と矩形)。キャッシュの各件が、自分の世代以降の変更が範囲にかかるかを調べるのに使う */
+  private netLog: { gen: number; x0: number; y0: number; x1: number; y1: number }[] = [];
+  private netLogFloor = 0;
+  /** 経路キャッシュの上限(テストで小さくできる) */
+  pathCacheMax = PATH_CACHE_MAX;
+  /** 変更した個々のタイルを知らせる(線路・道路・信号の操作のあと)。そのタイルを通る走行中の編成は、次のタイルに入ったところで経路を探し直す */
+  touchNetworkTiles(tiles: [number, number][]): void {
+    if (!tiles.length) return;
+    const rects = tiles.length > 1500 ? [this.boundsOf(tiles)] : tiles.map(([x, y]) => ({ x0: x, y0: y, x1: x, y1: y }));
+    this.applyChange(rects);
+  }
+  private boundsOf(tiles: [number, number][]) {
+    let x0 = Infinity;
+    let y0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (const [x, y] of tiles) {
+      if (x < x0) x0 = x;
+      if (y < y0) y0 = y;
+      if (x > x1) x1 = x;
+      if (y > y1) y1 = y;
+    }
+    return { x0, y0, x1, y1 };
+  }
 
+  /** 変更の記録(世代・履歴)と、その変更を通る走行中の編成への「経路の探し直し」の印 */
+  private applyChange(rects: { x0: number; y0: number; x1: number; y1: number }[]): void {
+    this.netGen++;
+    for (const r of rects) this.netLog.push({ gen: this.netGen, x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 });
+    if (this.netLog.length > NET_LOG_MAX) {
+      const drop = Math.floor(NET_LOG_MAX / 2);
+      this.netLogFloor = this.netLog[drop - 1].gen;
+      this.netLog.splice(0, drop);
+    }
+    if (rects.some((r) => r.x0 < 0)) return; // 全体(範囲不明)は編成には印を付けない(キャッシュだけ)
+    const s = this.map.size;
+    const points = new Set<number>();
+    const wide: typeof rects = [];
+    for (const r of rects) {
+      if (r.x0 === r.x1 && r.y0 === r.y1) points.add(r.y0 * s + r.x0);
+      else wide.push(r);
+    }
+    for (const v of this.vehicles) {
+      if (v.mode === 'air' || v.state !== 'move') continue;
+      for (let i = v.pi; i < v.path.length; i++) {
+        const idx = v.path[i];
+        let hit = points.has(idx);
+        if (!hit && wide.length) {
+          const x = idx % s;
+          const y = (idx - x) / s;
+          hit = wide.some((r) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1);
+        }
+        if (hit) {
+          v.replan = true;
+          break;
+        }
+      }
+    }
+  }
+
+  /**
+   * ネットワークが変わったことを知らせる(建設・撤去・信号・駅の操作のあとに呼ぶ)。変更した範囲の矩形を渡す
+   * (省略すると全体に影響する扱い)。これで、近道を敷く・信号を変えるといった小さな変更でも、関係する経路は次の出発時に探し直される。
+   */
+  touchNetwork(x0 = -1, y0 = -1, x1 = x0, y1 = y0): void {
+    this.applyChange([{ x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1) }]);
+  }
+
+  /** この記録(世代 ce.gen)以降の変更が、記録の探索範囲にかかっているか */
+  private pathAffected(ce: PathEntry): boolean {
+    if (ce.gen >= this.netGen) return false;
+    if (ce.gen < this.netLogFloor) return true; // 古い履歴は捨てたので、念のため探し直す
+    for (let i = this.netLog.length - 1; i >= 0; i--) {
+      const c = this.netLog[i];
+      if (c.gen <= ce.gen) break;
+      if (c.x0 < 0) return true;
+      if (c.x1 >= ce.bx0 - PATH_MARGIN && c.x0 <= ce.bx1 + PATH_MARGIN && c.y1 >= ce.by0 - PATH_MARGIN && c.y0 <= ce.by1 + PATH_MARGIN) return true;
+    }
+    return false;
+  }
   constructor(
     private map: GameMap,
     private rng: () => number = makeRng(1),
@@ -304,6 +421,7 @@ export class Transit {
       stops: [...this.stops.values()].map((s) => ({ ...s, wait: [...s.wait] })),
       routes: [...this.routes.values()],
       signals: [...this.signals],
+      grants: [...this.grants].map(([o, l]) => [o, [...l]] as [number, number[]]),
       depots: [...this.depots.values()],
       vehicles: this.vehicles.map((v) => ({ ...v, path: Array.from(v.path), cargo: [...v.cargo] })),
     };
@@ -315,10 +433,13 @@ export class Transit {
   }
 
   private mirrorVeh = new Map<number, Vehicle>();
+  /** クライアント: 車両ごとの直近2回のサーバー状態(なめらかに動かすための補間用) */
+  private snaps = new Map<number, MirrorSnap>();
 
   /** クライアント(閲覧側): サーバーから受け取った構造(停留所・路線・基地・信号)で置き換える。待ち人数の内訳は持たない */
-  mirrorStruct(d: { nextId: number; routes: Route[]; stops: Stop[]; depots: Depot[]; signals: [number, number][] }): void {
+  mirrorStruct(d: { nextId: number; routes: Route[]; stops: Stop[]; depots: Depot[]; signals: [number, number][]; grants?: [number, number[]][] }): void {
     this.nextId = d.nextId;
+    this.grants = new Map((d.grants ?? []).map(([o, l]) => [o, new Set(l)]));
     const old = this.stops;
     this.stops = new Map(d.stops.map((s) => [s.id, { ...s, wait: new Map(), waiting: old.get(s.id)?.waiting ?? 0 }]));
     this.stopAt = new Map(d.stops.flatMap((s) => this.stopTiles(s).map((i) => [i * 3 + KIND_INDEX[s.kind], s.id] as [number, number])));
@@ -340,7 +461,11 @@ export class Transit {
 
   /** クライアント: 視界内の車両の最新状態を反映する(経路は変わったときだけ届くので前回のものを保つ) */
   mirrorVehicles(list: (Omit<Vehicle, 'path' | 'cargo'> & { path?: number[] })[], gone: number[]): void {
-    for (const id of gone) this.mirrorVeh.delete(id);
+    for (const id of gone) {
+      this.mirrorVeh.delete(id);
+      this.snaps.delete(id);
+    }
+    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
     let changed = false;
     for (const m of list) {
       const prev = this.mirrorVeh.get(m.id);
@@ -348,9 +473,55 @@ export class Transit {
       if (!path) continue; // 経路が未着(通常は起こらない)
       this.mirrorVeh.set(m.id, { ...(prev ?? ({ arrived: 0, until: 0, retryAt: 0, offset: 0 } as Vehicle)), ...m, path, cargo: prev?.cargo ?? new Map() } as Vehicle);
       if (!prev) changed = true;
+      // 補間用に今回の状態を記録する(経路が同じときだけ、前回の状態との間を補間できる)
+      const old = this.snaps.get(m.id);
+      const same = old !== undefined && old.path === path;
+      const flight = m.flight as Flight | null;
+      this.snaps.set(m.id, { path, prev: same ? old.cur : null, prevAt: same ? old.curAt : now, curAt: now, cur: { pi: m.pi, t: m.t, trail: m.trail, done: flight ? flight.done : 0 } });
     }
     this.vehicles = [...this.mirrorVeh.values()];
     if (changed || gone.length) this.version++;
+  }
+
+  /**
+   * クライアント: 描画のたびに呼ぶ。サーバーの状態は約10Hzでしか届かないので、直近2回の状態の間を、1区間ぶん遅らせて
+   * 線形に補間し(経路上の進み pi+t、鉄道は編成の軌跡、飛行機は飛行距離)、60fpsでもなめらかに動かす。
+   * 届くのが遅れたときは少しだけ先まで進め(外挿)、それ以上は止める。経路が変わったときは補間せず、そのまま出す。
+   */
+  smoothMirror(now: number = typeof performance !== 'undefined' ? performance.now() : Date.now()): void {
+    for (const [id, v] of this.mirrorVeh) {
+      const sn = this.snaps.get(id);
+      if (!sn || !sn.prev) continue;
+      const dt = sn.curAt - sn.prevAt;
+      if (dt <= 0 || dt > 600) continue;
+      const delay = Math.min(250, Math.max(60, dt));
+      const a = Math.max(0, Math.min(1.25, (now - delay - sn.prevAt) / dt));
+      const { prev, cur, path } = sn;
+      if (v.flight) {
+        const f = v.flight as Flight;
+        f.done = Math.min(f.dist, prev.done + (cur.done - prev.done) * a);
+        continue;
+      }
+      const last = path.length - 1;
+      const p = Math.max(0, Math.min(last, prev.pi + prev.t + (cur.pi + cur.t - (prev.pi + prev.t)) * a));
+      const pi = Math.min(last, Math.floor(p));
+      v.pi = pi;
+      v.t = pi >= last ? 0 : p - pi;
+      if (v.mode === 'rail' && cur.trail.length) {
+        // 先頭が pi にあるときの編成の軌跡(頭からの順): 現在のサーバーの軌跡と経路から組み立てる
+        const diff = cur.pi - pi; // 表示の頭は、サーバーの頭より diff タイル後ろ
+        const tr: number[] = [];
+        for (let j = 0; j < cur.trail.length; j++) {
+          const n = j + diff; // サーバーの頭から n タイル後ろ
+          let tile: number;
+          if (n < 0) tile = path[Math.min(last, cur.pi - n)];
+          else if (n < cur.trail.length) tile = cur.trail[n];
+          else tile = cur.pi - n >= 0 ? path[cur.pi - n] : cur.trail[cur.trail.length - 1];
+          tr.push(tile);
+        }
+        v.trail = tr;
+      }
+    }
   }
 
   restore(d: TransitSave): void {
@@ -361,6 +532,7 @@ export class Transit {
     this.stopAt = new Map(d.stops.flatMap((s) => this.stopTiles(s as unknown as Stop).map((i) => [i * 3 + KIND_INDEX[s.kind], s.id] as [number, number])));
     this.routes = new Map(d.routes.map((r) => [r.id, r]));
     this.signals = new Map(d.signals ?? []);
+    this.grants = new Map((d.grants ?? []).map(([o, l]) => [o, new Set(l)]));
     this.depots = new Map((d.depots ?? []).map((x) => [x.id, x]));
     this.depotAt = new Map((d.depots ?? []).map((x) => [x.idx, x.id]));
     this.vehicles = d.vehicles.map((v) => ({
@@ -570,7 +742,7 @@ export class Transit {
     const next = cur === 0 ? a : cur === a ? b : 0;
     if (next) this.signals.set(i, next);
     else this.signals.delete(i);
-    this.pathCache.clear();
+    this.touchNetwork(x, y);
     this.version++;
     return next;
   }
@@ -584,7 +756,7 @@ export class Transit {
     if (!pair || m.span.get(i) || this.stopAtTile(x, y, 'rail')) return false;
     if (mask !== pair[0] && mask !== pair[1]) return false;
     this.signals.set(i, mask);
-    this.pathCache.clear();
+    this.touchNetwork(x, y);
     this.version++;
     return true;
   }
@@ -661,13 +833,17 @@ export class Transit {
   }
 
   /** 駅の「停車位置」候補: 番線ごとの両端タイル。1タイルの駅は自分自身 */
-  private docks(s: Stop): { a: number; b: number }[] {
+  private docks(s: Stop, trainTiles = 1): { a: number; b: number }[] {
     if (!s.station) return [{ a: s.idx, b: s.idx }];
     const st = s.station;
+    // 編成の中央がホームの中央にくる位置で停まる(編成がホームより長ければ端まで)。
+    // b: 添字が増える向きに進んで停まるときの先頭位置、a: 減る向きに進んで停まるときの先頭位置(対称)
+    const hi = Math.min(st.len - 1, Math.max(0, Math.round((st.len - 1) / 2 + (trainTiles - 1) / 2)));
+    const lo = st.len - 1 - hi;
     const out: { a: number; b: number }[] = [];
     for (let t = 0; t < st.tracks; t++) {
-      const [ax, ay] = stationTile(st, t, 0);
-      const [bx, by] = stationTile(st, t, st.len - 1);
+      const [ax, ay] = stationTile(st, t, lo);
+      const [bx, by] = stationTile(st, t, hi);
       out.push({ a: this.map.idx(ax, ay), b: this.map.idx(bx, by) });
     }
     return out;
@@ -705,7 +881,7 @@ export class Transit {
     stop.name = `${town ? town.name : '郊外'}駅${id}`;
     this.stops.set(id, stop);
     for (const i of this.stopTiles(stop)) this.stopAt.set(i * 3 + KIND_INDEX.rail, id);
-    this.pathCache.clear();
+    this.touchNetwork(info.x0, info.y0, info.x0 + (info.axis === 1 ? info.len : info.tracks) - 1, info.y0 + (info.axis === 1 ? info.tracks : info.len) - 1);
     this.version++;
     return { stop };
   }
@@ -774,8 +950,17 @@ export class Transit {
     this.version++;
   }
 
+  /** 会社単位の許可: 持ち主 → 停留所を使ってよい会社 */
+  grants = new Map<number, Set<number>>();
+
+  /** この会社が停留所を路線に使えるか(共用・自社・駅ごとの許可・会社単位の許可のどれか) */
+  mayUse(s: Stop, who: number): boolean {
+    return !s.owner || !who || s.owner === who || !!s.allow?.includes(who) || !!this.grants.get(s.owner)?.has(who);
+  }
+
   addRoute(stopIds: number[]): Route | null {
     if (stopIds.length < 2) return null;
+    if (this.actor && stopIds.some((id) => { const s = this.stops.get(id); return !s || !this.mayUse(s, this.actor); })) return null;
     const first = this.stops.get(stopIds[0]);
     if (!first || stopIds.some((id) => this.stops.get(id)?.kind !== first.kind)) return null;
     if (stopIds.filter((id) => !this.stops.get(id)?.waypoint).length < 2) return null;
@@ -1291,7 +1476,6 @@ export class Transit {
 
   step(tick: number): void {
     const m = this.map;
-    this.nowTick = tick;
 
     if (this.stopListVer !== this.version) {
       this.stopList = [...this.stops.values()];
@@ -1440,6 +1624,7 @@ export class Transit {
     const s = this.stops.get(stopId);
     if (!r || !s) return { ok: false, reason: '路線または停留所がありません' };
     if (s.kind !== r.mode) return { ok: false, reason: '種別の違う停留所は追加できません' };
+    if (this.actor && !this.mayUse(s, this.actor)) return { ok: false, reason: '他社の停留所は、持ち主の許可がないと使えません' };
     index = Math.max(0, Math.min(r.orders.length, index));
     for (const g of this.groupOf(r)) {
       g.orders.splice(index, 0, { stopId, kind: 'dwell', dwell: DEFAULT_DWELL[g.mode], maxWait: 300, departTod: 0 });
@@ -1531,19 +1716,7 @@ export class Transit {
 
   /** 次のオーダーへ向けて出発(経路がなければ noroute) */
   private depart(v: Vehicle, route: Route, tick: number, advance: boolean): void {
-    const n = route.orders.length;
-    // 初回の設定駅(路線の最初の停車駅)から出発するたびに、この路線の経路を計算し直す(あとから敷いた近道・信号の変更を反映)。
-    // 同じ路線の編成が続けて戻っても重ねて計算しないよう、一定間隔(REPLAN_GAP)に1回だけ
-    if (advance && v.mode !== 'air') {
-      const first = this.isWay(route, 0) ? this.realAfter(route, 0) : 0;
-      if (v.order === first && tick - (route.replanAt ?? -Infinity) >= REPLAN_GAP) route.replanAt = tick;
-    }
-    this.since = route.replanAt ?? -1;
-    try {
-      this.departInner(v, route, tick, advance, n);
-    } finally {
-      this.since = -1;
-    }
+    this.departInner(v, route, tick, advance, route.orders.length);
   }
 
   private departInner(v: Vehicle, route: Route, tick: number, advance: boolean, n: number): void {
@@ -1577,10 +1750,14 @@ export class Transit {
   private route(from: number, to: number, rail: boolean): Uint32Array | null {
     const m = this.map;
     const s = m.size;
-    const key = from * 16777216 + to;
+    const key = `${from}:${to}`;
     const ce = this.pathCache.get(key);
-    const c = ce && ce.t >= this.since ? ce.p : undefined; // 路線の再計算より前に作った経路は使わない
-    if (c) {
+    if (ce && !this.pathAffected(ce)) {
+      if (ce.p === null) {
+        ce.gen = this.netGen; // 到達できない結果も、関係する変更がなければ使い回す(同じ探索を繰り返さない)
+        return null;
+      }
+      const c = ce.p;
       let ok = true;
       const layer = rail ? m.rail : m.road;
       for (let i = 0; i + 1 < c.length && ok; i++) {
@@ -1591,12 +1768,46 @@ export class Transit {
           if (mk && !(mk & (1 << d))) ok = false; // 一方向の信号を逆走する経路は不可
         }
       }
-      if (ok) return c;
+      if (ok) {
+        ce.gen = this.netGen;
+        this.pathCache.delete(key);
+        this.pathCache.set(key, ce); // 最近使った印(LRU)
+        return c;
+      }
     }
     const p = findPath(m, from, to, rail, 300000, rail && this.signals.size ? (i) => this.signalMask(i) : undefined);
+    const fx = from % s;
+    const fy = Math.floor(from / s);
+    const tx = to % s;
+    const ty = Math.floor(to / s);
+    let bx0 = Math.min(fx, tx);
+    let by0 = Math.min(fy, ty);
+    let bx1 = Math.max(fx, tx);
+    let by1 = Math.max(fy, ty);
     if (p) {
-      if (this.pathCache.size > 4000) this.pathCache.clear();
-      this.pathCache.set(key, { p, t: this.nowTick });
+      for (let i = 0; i < p.length; i++) {
+        const x = p[i] % s;
+        const y = Math.floor(p[i] / s);
+        if (x < bx0) bx0 = x;
+        if (x > bx1) bx1 = x;
+        if (y < by0) by0 = y;
+        if (y > by1) by1 = y;
+      }
+    } else {
+      // 到達できなかった記録は、始点・終点の周囲(探索が広がった範囲)の変更で探し直す
+      bx0 -= 60;
+      by0 -= 60;
+      bx1 += 60;
+      by1 += 60;
+    }
+    this.pathCache.delete(key);
+    this.pathCache.set(key, { p, gen: this.netGen, bx0, by0, bx1, by1 });
+    if (this.pathCache.size > this.pathCacheMax) {
+      let n = Math.max(1, Math.floor(this.pathCacheMax / 10));
+      for (const k of this.pathCache.keys()) {
+        if (n-- <= 0) break;
+        this.pathCache.delete(k);
+      }
     }
     return p;
   }
@@ -1636,7 +1847,7 @@ export class Transit {
       cur = w;
     }
     const out: number[][] = [];
-    for (const { a, b } of this.docks(dest)) {
+    for (const { a, b } of this.docks(dest, v.len)) {
       const toward = (to: number): Uint32Array | null => {
         const p = to === cur ? Uint32Array.of(cur) : this.route(cur, to, true);
         return p && !(p.length > 1 && p[1] === prev) ? p : null;
@@ -1658,10 +1869,16 @@ export class Transit {
       return c;
     };
     let cands = build();
-    if (!cands.length && v.trail.length > 1) {
-      // 進行方向が逆: 編成を折り返す(尾が頭になる)
-      v.trail.reverse();
-      cands = build();
+    if (v.trail.length > 1) {
+      // 進行方向が逆: 編成を折り返す(尾が頭になる)。前進する経路がない場合に加え、前進が大回り(ループ線など)で
+      // 折り返したほうがずっと近いときも、停車駅で折り返す(運転士が反対の先頭へ移る)
+      const fwd = cands.length ? cands[0].length : Infinity;
+      if (fwd > REVERSE_MIN_TILES) {
+        v.trail.reverse();
+        const rev = build();
+        if (rev.length && rev[0].length * REVERSE_RATIO < fwd) cands = rev;
+        else v.trail.reverse();
+      }
     }
     if (!cands.length) return this.blocked(v, tick, 30);
     // 前方の閉塞を予約する(信号がなければ経路全体。他の編成と衝突・正面衝突しない)。番線は空いている候補を順に試す
@@ -1713,6 +1930,18 @@ export class Transit {
   }
 
   /** @returns 車両が生存していれば true */
+  /**
+   * 通る線路が変更されたので、いまのタイルから目的地までの経路を探し直すか。印を消して true を返す。
+   * 目的地の手前に経由点がある区間は、経由点を保つため探し直さない(次の出発で反映)。
+   */
+  private takeReplan(v: Vehicle, route: Route): boolean {
+    if (!v.replan) return false;
+    v.replan = false;
+    const n = route.orders.length;
+    if (this.isWay(route, (v.order - 1 + n) % n)) return false;
+    return true;
+  }
+
   private stepRoad(v: Vehicle, route: Route, tick: number): boolean {
     const m = this.map;
     const s = m.size;
@@ -1744,7 +1973,7 @@ export class Transit {
       if (v.pi < v.path.length - 1) {
         const nxt = v.path[v.pi + 1];
         const d = dirBetween(cur, nxt, s);
-        if (d < 0 || !(m.road.get(cur) & OUT(d)) || !(m.road.get(nxt) & CONN((d + 2) & 3))) {
+        if (d < 0 || !(m.road.get(cur) & OUT(d)) || !(m.road.get(nxt) & CONN((d + 2) & 3)) || this.takeReplan(v, route)) {
           v.path = Uint32Array.of(cur);
           v.pi = 0;
           v.t = 0;
@@ -1804,8 +2033,8 @@ export class Transit {
       if (v.pi < v.path.length - 1) {
         const nxt = v.path[v.pi + 1];
         const d = dirBetween(cur, nxt, s);
-        if (d < 0 || !(m.rail.get(cur) & CONN(d)) || !(m.rail.get(nxt) & CONN(opposite8(d)))) {
-          // 前方の線路が壊れた: 予約を解放して再探索
+        if (d < 0 || !(m.rail.get(cur) & CONN(d)) || !(m.rail.get(nxt) & CONN(opposite8(d))) || this.takeReplan(v, route)) {
+          // 前方の線路が壊れた/通る線路が変更された: 予約を解放して再探索
           for (let i = v.pi + 1; i < v.path.length; i++) if (this.reserved.get(v.path[i]) === v.id && !v.trail.includes(v.path[i])) this.reserved.delete(v.path[i]);
           v.path = Uint32Array.of(cur);
           v.pi = 0;

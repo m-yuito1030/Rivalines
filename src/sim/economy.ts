@@ -1,5 +1,5 @@
 import { type VehicleModel, modelOf } from '../data/models';
-import { FACILITY_SPECS, type Facility, type FacilityType, facilityAttract, hourFactor } from '../world/facilities';
+import { FACILITY_SPECS, type Facility, facilityAttract, facilityBuildCost, facilityUpkeep, hourFactor } from '../world/facilities';
 import type { GameMap } from '../world/gameMap';
 import type { Mode } from '../data/models';
 import { DAY_TICKS, type Stop, type Transit, todOf } from './transit';
@@ -61,7 +61,7 @@ export const LOAN_MAX_CAP = 500_000_000;
 
 /** 経営の分類(売上・費用のラベル) */
 export const REVENUE_CATS = ['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'sale', 'toll-in', 'gift-in'] as const;
-export const COST_CATS = ['build', 'vehicle', 'running', 'upkeep', 'interest', 'acquire', 'tax', 'dividend', 'toll-out', 'gift-out'] as const;
+export const COST_CATS = ['build', 'vehicle', 'running', 'upkeep', 'interest', 'acquire', 'tax', 'dividend', 'toll-out', 'gift-out', 'ad'] as const;
 export const CAT_LABEL: Record<string, string> = {
   'fare-road': '運賃(バス)',
   'fare-rail': '運賃(鉄道)',
@@ -81,6 +81,7 @@ export const CAT_LABEL: Record<string, string> = {
   'toll-out': '通行料(支払)',
   'gift-in': '資金支援(受取)',
   'gift-out': '資金支援(送金)',
+  ad: '広告費',
 };
 
 export interface DayRecord {
@@ -242,7 +243,7 @@ export class Company {
     let upkeep = 0;
     for (const s of transit.stops.values()) if (ownerId === undefined || s.owner === ownerId) upkeep += stopUpkeep(s);
     for (const d of transit.depots.values()) if (ownerId === undefined || d.owner === ownerId) upkeep += 500;
-    for (const f of map.facilities) if ((f.owner ?? 'player') === 'player' && (ownerId === undefined || f.playerId === ownerId)) upkeep += FACILITY_SPECS[f.type].upkeep;
+    for (const f of map.facilities) if ((f.owner ?? 'player') === 'player' && (ownerId === undefined || f.playerId === ownerId)) upkeep += facilityUpkeep(f);
     this.pay('upkeep', Math.round(upkeep));
     // 利払い(日割り)
     this.pay('interest', Math.round((this.loan * this.interestRate(this.credit)) / 360));
@@ -299,7 +300,7 @@ export class Company {
     const sum = (cats: readonly string[]) => cats.reduce((a, k) => a + (f[k] ?? 0), 0);
     const revenue = sum(['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'toll-in']);
     const running = f.running ?? 0;
-    const upkeep = (f.upkeep ?? 0) + (f['toll-out'] ?? 0);
+    const upkeep = (f.upkeep ?? 0) + (f['toll-out'] ?? 0) + (f.ad ?? 0);
     const depreciation = Math.round(this.infra * DEPRECIATION_RATE);
     this.infra -= depreciation;
     const opProfit = revenue - running - upkeep - depreciation;
@@ -414,8 +415,7 @@ export function stopUpkeep(s: Stop): number {
 
 /** 施設の評価額(買収・売却の目安): 建設費の90% + 直近の1日の収益の60日分 */
 export function facilityValue(f: Facility): number {
-  const spec = FACILITY_SPECS[f.type as FacilityType];
-  return Math.round((spec.cost * 0.9 + (f.income ?? 0) * 60) / 1000) * 1000;
+  return Math.round((facilityBuildCost(f) * 0.9 + (f.income ?? 0) * 60) / 1000) * 1000;
 }
 
 /** 資産(施設・車両・基地)の評価額の合計。純資産と融資の上限に使う */

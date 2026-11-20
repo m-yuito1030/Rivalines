@@ -1,5 +1,5 @@
 import { DX, DY } from '../world/directions';
-import { type FacilityType, SPRITE_TYPES, placeFacility, planFacility, spriteDims } from '../world/facilities';
+import { type FacilityType, SPRITE_TYPES, DESIGN_COUNT, facilityDims, placeFacility, planFacility } from '../world/facilities';
 import type { GameMap } from '../world/gameMap';
 import type { Transit } from './transit';
 import type { Rival } from './rivals';
@@ -28,7 +28,7 @@ export function spawnCityBusiness(map: GameMap, transit: Transit, rng: () => num
         // 百貨店・モールはスプライト。街の規模で大きさ(S/M/L)を決める(Lが置けなければ小さく)
         const sprite = SPRITE_TYPES.includes(rule.type);
         const size = town.pop < 400 ? 'S' : town.pop < 1000 ? 'M' : 'L';
-        const plan = planFacility(map, cx, cy, rule.type, (i) => !!transit.stopAtTile(i % map.size, Math.floor(i / map.size)) || !!transit.depotAtTile(i % map.size, Math.floor(i / map.size)), sprite ? spriteDims(size) : undefined);
+        const plan = planFacility(map, cx, cy, rule.type, (i) => !!transit.stopAtTile(i % map.size, Math.floor(i / map.size)) || !!transit.depotAtTile(i % map.size, Math.floor(i / map.size)), sprite ? facilityDims(rule.type, size) : undefined);
         if (!plan.ok) continue;
         // 道路に面している(敷地の外周のすぐ外に道路がある)
         const onStreet = plan.tiles.some(([x, y]) => [0, 1, 2, 3].some((d) => map.inBounds(x + DX[d], y + DY[d]) && map.road.get(map.idx(x + DX[d], y + DY[d])) !== 0));
@@ -39,7 +39,7 @@ export function spawnCityBusiness(map: GameMap, transit: Transit, rng: () => num
         if (owner && !owner.acquired) f.ownerId = owner.id;
         if (sprite) {
           f.size = size;
-          f.design = Math.floor(rng() * 20);
+          f.design = Math.floor(rng() * (DESIGN_COUNT[rule.type] ?? 20));
         }
         built++;
         break;

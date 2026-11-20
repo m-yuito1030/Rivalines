@@ -361,7 +361,7 @@ describe('駅の設置・経由点', () => {
     expect(tr.addStation(68, 70, { axis: 1, len: 4, tracks: 1, design: 0 }).reason).toBeTruthy();
     expect(tr.addStation(125, 5, { axis: 1, len: 6, tracks: 1, design: 0 }).reason).toBeTruthy(); // 範囲外
   });
-  it('長い駅では進行方向の奥側(先頭が駅の端)に停車し、往復できる', () => {
+  it('長い駅では編成の中央がホームの中央にくる位置に停車し、往復できる', () => {
     const m = mainLine();
     const tr = new Transit(m);
     const a = tr.addStop(7, 20, 'rail')!;
@@ -376,7 +376,7 @@ describe('駅の設置・経由点', () => {
     let back = false;
     for (let t = 0; t < 6000; t++) {
       tr.step(t);
-      if (v.state === 'load' && v.order === 1 && v.trail[0] === m.idx(27, 20)) docked = true;
+      if (v.state === 'load' && v.order === 1 && v.trail[0] === m.idx(25, 20)) docked = true; // ホーム x=20..27 の中央に、4タイルの編成(22..25)
       if (docked && v.state === 'load' && v.order === 0) back = true;
     }
     expect(docked).toBe(true);

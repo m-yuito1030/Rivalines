@@ -428,13 +428,17 @@ export class TransitLayer {
     }
 
     // 大型施設
+    // 奥のものから順に描く(手前の施設の広場・庭が、奥の施設の建物の上に重ならないように。前の角の x+y が小さい順)
+    const visFacs: Facility[] = [];
     for (const f of m.facilities) {
       if (isSpriteFacility(f)) continue; // スプライト(チャンク側)で描く
       const cx = f.x0 + f.w / 2;
       const cy = f.y0 + f.h / 2;
       if (!inView(this.wx(cx, cy), this.wy(cx, cy, 0))) continue;
-      this.drawFacility(f, m.levelAt(f.x0, f.y0), highlight.has(-100000 - f.id));
+      visFacs.push(f);
     }
+    visFacs.sort((a, b) => a.x0 + a.w + a.y0 + a.h - (b.x0 + b.w + b.y0 + b.h));
+    for (const f of visFacs) this.drawFacility(f, m.levelAt(f.x0, f.y0), highlight.has(-100000 - f.id));
 
     // 車両基地: 道路/線路/空港のタイルの脇に車庫を描く
     for (const d of this.transit.depots.values()) {

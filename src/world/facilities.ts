@@ -42,16 +42,41 @@ export const FACILITY_SPECS: Record<FacilityType, FacilitySpec> = {
  * スプライトで描く施設(学校・市役所・百貨店・ショッピングモール)。design が決まっているものだけ。
  * design が無い古いセーブの百貨店・モール(4×3)は従来の手続き描画のまま。
  */
-export const SPRITE_TYPES: FacilityType[] = ['school', 'cityhall', 'department', 'mall', 'sight'];
-export const isSpriteFacility = (f: Facility): boolean => SPRITE_TYPES.includes(f.type) && f.design !== undefined;
+export const SPRITE_TYPES: FacilityType[] = ['school', 'cityhall', 'department', 'mall', 'sight', 'hotel', 'park'];
+
+export type FacilitySize = 'S' | 'M' | 'L';
+/** デザインを選べる施設(プレイヤーが好きなデザインと大きさで建てられる)と、デザインの数 */
+export const DESIGN_COUNT: Partial<Record<FacilityType, number>> = { department: 20, mall: 20, hotel: 30, park: 20 };
+export const CHOOSABLE: FacilityType[] = ['hotel', 'park', 'department', 'mall'];
+/** 大きさによる倍率(建設費・維持費・来場者の上限)。ホテル・公園は S=1x1 M=2x2 L=3x3、百貨店・モールは S/M=1x1 L=2x2 */
+const SIZE_MUL: Partial<Record<FacilityType, Record<FacilitySize, number>>> = {
+  hotel: { S: 0.4, M: 0.7, L: 1 },
+  park: { S: 0.4, M: 0.7, L: 1 },
+  department: { S: 0.5, M: 0.75, L: 1 },
+  mall: { S: 0.5, M: 0.75, L: 1 },
+  sight: { S: 0.5, M: 0.75, L: 1 },
+};
+export const sizeMul = (type: FacilityType, size: FacilitySize | undefined): number => (size ? (SIZE_MUL[type]?.[size] ?? 1) : 1);
+
+/** 施設の敷地(タイル)。大きさ S/M/L: ホテル・公園は 1x1 / 2x2 / 3x3、ほかのスプライト施設は 1x1 / 1x1 / 2x2 */
+export function facilityDims(type: FacilityType, size: FacilitySize): { w: number; h: number } {
+  if (type === 'hotel' || type === 'park') return size === 'L' ? { w: 3, h: 3 } : size === 'M' ? { w: 2, h: 2 } : { w: 1, h: 1 };
+  return size === 'L' ? { w: 2, h: 2 } : { w: 1, h: 1 };
+}
+/** 大きさ・デザインを持つ(スプライトの)施設の建設費と維持費(1日)。古い手続き描画の施設は大きさがなく、従来どおり */
+export const facilityCost = (type: FacilityType, size?: FacilitySize): number => Math.round((FACILITY_SPECS[type].cost * sizeMul(type, size)) / 1000) * 1000;
+export const facilityUpkeep = (f: Pick<Facility, 'type' | 'size' | 'design'>): number => Math.round(FACILITY_SPECS[f.type].upkeep * (f.design !== undefined && CHOOSABLE.includes(f.type) ? sizeMul(f.type, f.size) : 1));
+export const isSpriteFacility = (f: Facility): boolean => SPRITE_TYPES.includes(f.type) && f.design !== undefined && f.size !== undefined;
 
 /** 大きさ S/M は1タイル、L は 2x2 タイル */
 export const spriteDims = (size: 'S' | 'M' | 'L'): { w: number; h: number } => (size === 'L' ? { w: 2, h: 2 } : { w: 1, h: 1 });
+/** 施設の建設費(大きさ・デザインがあれば大きさで変わる) */
+export const facilityBuildCost = (f: Pick<Facility, 'type' | 'size' | 'design'>): number => (f.design !== undefined && CHOOSABLE.includes(f.type) ? facilityCost(f.type, f.size) : FACILITY_SPECS[f.type].cost);
 
 /** 百貨店・モールは大きさで需要が変わる(S=0.5 M=0.75 L=1)。ほかの施設は一定 */
 export function facilityAttract(f: Facility): number {
   const a = FACILITY_SPECS[f.type].attract;
-  if ((f.type === 'department' || f.type === 'mall' || f.type === 'sight') && f.design !== undefined) return a * (f.size === 'S' ? 0.5 : f.size === 'M' ? 0.75 : 1);
+  if ((f.type === 'department' || f.type === 'mall' || f.type === 'sight' || f.type === 'hotel' || f.type === 'park') && f.design !== undefined) return a * sizeMul(f.type, f.size);
   return a;
 }
 
@@ -77,6 +102,8 @@ export interface Facility {
   ownerId?: number;
   /** マルチプレイ: 自社(player)施設の持ち主の会社(アカウントID) */
   playerId?: number;
+  /** 広告: 種類と、打った日(日の通し番号)。効く日数と次に打てるまでの日数は種類・定数で決まる */
+  ad?: { kind: 'news' | 'sns' | 'tv'; from: number };
   /** 来場者の累計(人) */
   visits?: number;
   /** 今日の売上(円)と、直近の1日あたりの売上(指数移動平均) */

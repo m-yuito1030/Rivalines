@@ -81,6 +81,12 @@ const readBody = (req: IncomingMessage) =>
 // 総当たり対策: 同じIPからの認証は1分に10回まで
 const attempts = new Map<string, number[]>();
 const AUTH_RATE = Number(process.env.AUTH_RATE ?? 10);
+/** 接続元のIP。nginx(プロキシ)の後ろでは接続元が全員プロキシになるので、プロキシが付ける X-Real-IP を使う(サーバーは直接公開しない) */
+const clientIp = (req: IncomingMessage): string => {
+  const h = req.headers['x-real-ip'];
+  const v = Array.isArray(h) ? h[0] : h;
+  return v && v.length <= 64 ? v : (req.socket.remoteAddress ?? '');
+};
 const throttled = (ip: string) => {
   const now = Date.now();
   const l = (attempts.get(ip) ?? []).filter((t) => now - t < 60000);
@@ -95,7 +101,7 @@ const server = createServer(async (req, res) => {
   try {
     if (req.method === 'GET' && url === '/api/status') return json(res, 200, status());
     if (req.method === 'POST' && (url === '/api/register' || url === '/api/login')) {
-      if (throttled(req.socket.remoteAddress ?? '')) return json(res, 429, { ok: false, reason: '試行回数が多すぎます。少し待ってください' });
+      if (throttled(clientIp(req))) return json(res, 429, { ok: false, reason: '試行回数が多すぎます。少し待ってください' });
       const b = await readBody(req);
       const name = String(b.name ?? '');
       const password = String(b.password ?? '');
@@ -146,6 +152,11 @@ server.on('upgrade', (req, socket, head) => {
           repl.setView(c, m.x0, m.y0, m.x1, m.y1);
           accounts.setLast(c.id, Math.round((m.x0 + m.x1) / 2), Math.round((m.y0 + m.y1) / 2));
         }
+      } else if (m.type === 'profile') {
+        if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: '操作が多すぎます。少し待ってください' } }));
+        tokens -= 5; // 保存はディスクに書くので重めに数える
+        const why = accounts.setProfile(c.id, m);
+        ws.send(JSON.stringify({ type: 'res', req: m.req, res: why ? { ok: false, msg: why } : { ok: true, msg: '会社の情報を保存しました' } }));
       } else if (m.type === 'cmd') {
         if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: '操作が多すぎます。少し待ってください' } }));
         tokens--;

@@ -5,6 +5,9 @@ import cityhallUrl from '../assets/cityhall.png';
 import departmentUrl from '../assets/department.png';
 import mallUrl from '../assets/mall.png';
 import sightsUrl from '../assets/sights.png';
+import hotelUrl from '../assets/hotel.png';
+import parkUrl from '../assets/park.png';
+import sheetInfo from '../data/facilitySprites.json';
 import type { Facility } from '../world/facilities';
 import { buildingLevel, buildingVariant, isOffice } from '../world/buildings';
 
@@ -30,6 +33,8 @@ let atlasCityhall: HTMLImageElement | null = null;
 let atlasDepartment: HTMLImageElement | null = null;
 let atlasMall: HTMLImageElement | null = null;
 let atlasSights: HTMLImageElement | null = null;
+let atlasHotel: HTMLImageElement | null = null;
+let atlasPark: HTMLImageElement | null = null;
 
 const loadImage = (url: string): Promise<HTMLImageElement | null> =>
   new Promise((resolve) => {
@@ -41,7 +46,7 @@ const loadImage = (url: string): Promise<HTMLImageElement | null> =>
 
 export async function loadBuildingSprites(): Promise<void> {
   if (atlas) return;
-  [atlas, atlas2, atlasSchool, atlasCityhall, atlasDepartment, atlasMall, atlasSights] = await Promise.all([loadImage(atlasUrl), loadImage(offices2Url), loadImage(schoolUrl), loadImage(cityhallUrl), loadImage(departmentUrl), loadImage(mallUrl), loadImage(sightsUrl)]);
+  [atlas, atlas2, atlasSchool, atlasCityhall, atlasDepartment, atlasMall, atlasSights, atlasHotel, atlasPark] = await Promise.all([loadImage(atlasUrl), loadImage(offices2Url), loadImage(schoolUrl), loadImage(cityhallUrl), loadImage(departmentUrl), loadImage(mallUrl), loadImage(sightsUrl), loadImage(hotelUrl), loadImage(parkUrl)]);
 }
 
 export const spritesReady = () => atlas !== null;
@@ -82,6 +87,7 @@ export function drawBuildingSprite(ctx: CanvasRenderingContext2D, px: number, py
  * @returns 描いたら true
  */
 export function drawFacilitySprite(ctx: CanvasRenderingContext2D, px: number, py: number, f: Facility): boolean {
+  if (f.type === 'hotel' || f.type === 'park') return drawSizedSprite(ctx, px, py, f);
   const img = f.type === 'school' ? atlasSchool : f.type === 'cityhall' ? atlasCityhall : f.type === 'department' ? atlasDepartment : f.type === 'mall' ? atlasMall : f.type === 'sight' ? atlasSights : null;
   if (!img) return false;
   const si = f.size === 'L' ? 2 : f.size === 'M' ? 1 : 0;
@@ -94,4 +100,35 @@ export function drawFacilitySprite(ctx: CanvasRenderingContext2D, px: number, py
   ctx.drawImage(img, col * SPRITE_W, row * SPRITE_H, SPRITE_W, SPRITE_H, Math.round(px - CX), Math.round(cy - CY), SPRITE_W, SPRITE_H);
   ctx.imageSmoothingEnabled = true;
   return true;
+}
+
+type Band = { w: number; h: number; y0: number; cx: number; cy: number };
+/** ホテル・公園: 大きさごとにセルの大きさが違う(S=1x1 M=2x2 L=3x3)。敷地の中心にスプライトの足元の中心を合わせる */
+function drawSizedSprite(ctx: CanvasRenderingContext2D, px: number, py: number, f: Facility): boolean {
+  const img = f.type === 'hotel' ? atlasHotel : atlasPark;
+  if (!img) return false;
+  const band = (sheetInfo as Record<string, { sizes: Record<string, Band> }>)[f.type]?.sizes[f.size ?? 'S'];
+  if (!band) return false;
+  const d = f.design ?? 0;
+  // 敷地が n×n のとき、中心は手前タイルの上頂点から (n-2)*16 だけ上
+  const cy = py - (f.w - 2) * 16;
+  const scale = ctx.getTransform().a;
+  ctx.imageSmoothingEnabled = scale < 1;
+  ctx.drawImage(img, (d % 5) * band.w, band.y0 + Math.floor(d / 5) * band.h, band.w, band.h, Math.round(px - band.cx), Math.round(cy - band.cy), band.w, band.h);
+  ctx.imageSmoothingEnabled = true;
+  return true;
+}
+
+/** 施設ピッカーの見本: キャンバスの中央に1棟を描く(読み込み前は何も描かない) */
+export function drawFacilityPreview(canvas: HTMLCanvasElement, type: Facility['type'], design: number, size: 'S' | 'M' | 'L'): void {
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const n = type === 'hotel' || type === 'park' ? (size === 'L' ? 3 : size === 'M' ? 2 : 1) : size === 'L' ? 2 : 1;
+  const f = { type, design, size, w: n, h: n } as Facility;
+  // 足元の中心をキャンバスの下寄りに置く(drawFacilitySprite の (px,py) は手前タイルの上頂点)
+  const centreY = canvas.height - 40;
+  const py = type === 'hotel' || type === 'park' ? centreY + (n - 2) * 16 : size === 'L' ? centreY : centreY - 16;
+  drawFacilitySprite(ctx, canvas.width / 2, py, f);
 }

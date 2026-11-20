@@ -2,27 +2,44 @@ import type { Simulation } from '../src/sim/simulation';
 import type { Cmd, CmdResult } from '../src/multi/protocol';
 import { TX_METHODS } from '../src/multi/protocol';
 import { DRAG_TOOLS, applyBuild } from '../src/world/buildApply';
-import { railLineTiles } from '../src/world/rails';
+import { disconnectRail, railLineTiles } from '../src/world/rails';
+import { disconnect, removeBuilding } from '../src/world/roads';
+import { removeSpansAround } from '../src/world/spans';
+import { removeAirport } from '../src/world/airports';
 import { PRICES, acquirePrice, assetValueFor, facilityValue, vehiclePrice, yen } from './economyApi';
-import { FACILITY_SPECS, FACILITY_TYPES, type FacilityType, SPRITE_TYPES, planFacility, placeFacility, spriteDims } from '../src/world/facilities';
+import { FACILITY_SPECS, FACILITY_TYPES, type FacilityType, SPRITE_TYPES, DESIGN_COUNT, type FacilitySize, facilityCost, facilityDims, planFacility, placeFacility } from '../src/world/facilities';
 import { placeAirport } from '../src/world/airports';
 import { modelOf, clampCars } from '../src/data/models';
 import { DAY_TICKS, RANKS } from '../src/sim/transit';
 const MINT = DAY_TICKS / 1440;
 import { acquireRival, divestRival } from '../src/sim/rivals';
+import { AD_TYPES, adAvailable, adCost } from '../src/sim/facilityVisitors';
 import type { Route } from '../src/sim/transit';
 
 const fail = (msg: string): CmdResult => ({ ok: false, msg });
-const clampName = (n: unknown) => String(n ?? '').trim().slice(0, 24);
+const clampName = (n: unknown) => (typeof n === 'string' ? [...n.replace(/[\u0000-\u001f\u007f]/g, '').trim()].slice(0, 24).join('') : '');
+/** 1ステップごとの上限(1人あたりの路線数。無料の複製・作成で世界を肥大化させない) */
+const MAX_ROUTES_PER_PLAYER = 1000;
 
 /** プレイヤーの操作を検証して実行する(サーバーだけが世界を書き換える) */
 export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
   const map = sim.map;
   const t = sim.transit;
   const co = sim.playerCompany(who);
+  // run() はすぐ実行されるので、run が使う const はその前に定義する(後ろに書くと初期化前アクセスのエラーになる)
+  const facOcc = (i: number) => !!t.stopAtTile(i % map.size, Math.floor(i / map.size)) || !!t.depotAtTile(i % map.size, Math.floor(i / map.size));
+  const charge = (cost: number, cat: string, what: string): CmdResult | null => (co.spend(cat, cost) ? null : fail(`資金が足りません(${what} ${yen(cost)} / 現金 ${yen(co.cash)})。経営画面(F)で融資を受けられます`));
   t.actor = who;
   try {
-    return run();
+    const res = run();
+    // 線路・道路・信号・駅が変わったら、ネットワークの世代を進める(経路は路線ごとに遅延して計算し直される)
+    if (res.ok) {
+      // 線路・道路・信号・駅が変わったら、変更した範囲を知らせる(その範囲に関わる経路が、次の出発時に探し直される)
+      if (cmd.t === 'signalLine') t.touchNetwork(Math.min(cmd.a.x, cmd.b.x), Math.min(cmd.a.y, cmd.b.y), Math.max(cmd.a.x, cmd.b.x), Math.max(cmd.a.y, cmd.b.y));
+      else if (cmd.t === 'place' && cmd.tool === 'signal') t.touchNetworkTiles([[cmd.x, cmd.y]]);
+      else if (cmd.t === 'place' && ['station', 'airport', 'waypoint'].includes(cmd.tool)) t.touchNetwork(cmd.x - 12, cmd.y - 12, cmd.x + 12, cmd.y + 12);
+    }
+    return res;
   } finally {
     t.actor = 0;
   }
@@ -30,8 +47,6 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
   function mine(r: Route | undefined): r is Route {
     return !!r && r.owner === who;
   }
-  const facOcc = (i: number) => !!t.stopAtTile(i % map.size, Math.floor(i / map.size)) || !!t.depotAtTile(i % map.size, Math.floor(i / map.size));
-  const charge = (cost: number, cat: string, what: string): CmdResult | null => (co.spend(cat, cost) ? null : fail(`資金が足りません(${what} ${yen(cost)} / 現金 ${yen(co.cash)})。経営画面(F)で融資を受けられます`));
 
   function run(): CmdResult {
     switch (cmd.t) {
@@ -40,10 +55,13 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
         if (![cmd.a.x, cmd.a.y, cmd.b.x, cmd.b.y].every(Number.isInteger)) return fail('不正な操作です');
         if (Math.max(Math.abs(cmd.a.x - cmd.b.x), Math.abs(cmd.a.y - cmd.b.y)) > 512) return fail('一度に敷設できるのは512タイルまでです');
         const msgs: string[] = [];
-        applyBuild(map, cmd.tool, cmd.a, cmd.b, { afford: (c) => co.afford(c), pay: (c) => co.spend('build', c), msg: (m) => msgs.push(m), owner: who });
+        const changed: [number, number][] = [];
+        applyBuild(map, cmd.tool, cmd.a, cmd.b, { afford: (c) => co.afford(c), pay: (c) => co.spend('build', c), msg: (m) => msgs.push(m), owner: who, touched: (x, y) => changed.push([x, y]) });
+        t.touchNetworkTiles(changed); // 変更したタイルを通る経路は、次の出発/次のタイルで探し直される
         return { ok: true, msg: msgs.join(' ') || undefined };
       }
       case 'ensureStop': {
+        { const ex = t.stopAtTile(cmd.x, cmd.y, cmd.kind); if (ex && !t.mayUse(ex, who)) return fail(`「${ex.name}」は他社の停留所です。持ち主の許可がないと使えません`); }
         if (t.stopAtTile(cmd.x, cmd.y, cmd.kind)) {
           const st = t.addStop(cmd.x, cmd.y, cmd.kind);
           return st ? { ok: true, id: st.id } : fail('停留所を置けません');
@@ -79,17 +97,23 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
           const type = tool as FacilityType;
           const spec = FACILITY_SPECS[type];
           const sprite = SPRITE_TYPES.includes(type);
-          const plan = planFacility(map, x, y, type, facOcc, sprite ? spriteDims('L') : undefined);
+          // 好きなデザイン・大きさを選べる(指定がなければ最大の大きさ・場所で決まるデザイン)
+          const nDesign = DESIGN_COUNT[type] ?? 20;
+          const size: FacilitySize = cmd.fac?.size ?? 'L';
+          if (!['S', 'M', 'L'].includes(size)) return fail('大きさが正しくありません');
+          if (cmd.fac && !(Number.isInteger(cmd.fac.design) && cmd.fac.design >= 0 && cmd.fac.design < nDesign)) return fail('デザインが正しくありません');
+          const plan = planFacility(map, x, y, type, facOcc, sprite ? facilityDims(type, size) : undefined);
           if (!plan.ok) return fail(`${spec.name}を建てられません: ${plan.reason}`);
-          const bad = charge(spec.cost, 'build', spec.name);
+          const cost = sprite ? facilityCost(type, size) : spec.cost;
+          const bad = charge(cost, 'build', spec.name);
           if (bad) return bad;
           const f = placeFacility(map, plan, type);
           f.playerId = who;
           if (sprite) {
-            f.size = 'L';
-            f.design = (plan.x0 * 31 + plan.y0 * 17 + f.id * 7) % 20;
+            f.size = size;
+            f.design = cmd.fac?.design ?? (plan.x0 * 31 + plan.y0 * 17 + f.id * 7) % nDesign;
           }
-          return { ok: true, msg: `${f.name}を建設しました(${yen(spec.cost)})。${spec.desc}` };
+          return { ok: true, msg: `${f.name}を建設しました(${yen(cost)})。${spec.desc}` };
         }
         if (tool === 'depot') {
           const r = t.addDepot(x, y);
@@ -127,13 +151,42 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
         }
         return fail('不正な操作です');
       }
+      case 'stopAllow': {
+        const s = t.stops.get(cmd.stopId);
+        if (!s || s.owner !== who) return fail('自社の停留所ではありません');
+        if (!Number.isInteger(cmd.who) || cmd.who === who || !sim.players.has(cmd.who)) return fail('許可する会社が正しくありません');
+        const set = new Set(s.allow ?? []);
+        if (cmd.allow) set.add(cmd.who);
+        else set.delete(cmd.who);
+        s.allow = set.size ? [...set] : undefined;
+        t.version++;
+        return { ok: true, msg: cmd.allow ? `${s.name}を他社が使えるようにしました` : `${s.name}の使用許可を取り消しました` };
+      }
+      case 'companyAllow': {
+        if (!Number.isInteger(cmd.who) || cmd.who === who || !sim.players.has(cmd.who)) return fail('許可する会社が正しくありません');
+        const set = new Set(t.grants.get(who) ?? []);
+        if (cmd.allow) set.add(cmd.who);
+        else set.delete(cmd.who);
+        if (set.size) t.grants.set(who, set);
+        else t.grants.delete(who);
+        t.version++;
+        return { ok: true, msg: cmd.allow ? '自社の全停留所をその会社に開放しました' : 'その会社への全体の許可を取り消しました' };
+      }
       case 'routeCreate': {
+        if (!Array.isArray(cmd.stops) || cmd.stops.length > 200 || !cmd.stops.every((s) => Number.isInteger(s))) return fail('停留所の指定が正しくありません');
+        if ([...t.routes.values()].filter((r) => r.owner === who).length >= MAX_ROUTES_PER_PLAYER) return fail(`路線は1社${MAX_ROUTES_PER_PLAYER}本までです`);
+        if (new Set(cmd.stops).size < 2) return fail('路線には異なる停留所を2つ以上選んでください');
+        const foreign = cmd.stops.map((id) => t.stops.get(id)).find((s) => s && !t.mayUse(s, who));
+        if (foreign) return fail(`「${foreign.name}」は他社の停留所です。持ち主の許可がないと路線に使えません`);
         const r = t.addRoute(cmd.stops);
         return r ? { ok: true, id: r.id } : fail('路線を作れません(同じ種別の停留所を2つ以上選んでください)');
       }
       case 'tx': {
         if (!TX_METHODS.includes(cmd.m)) return fail('不正な操作です');
         const a = cmd.a;
+        if (!Array.isArray(a) || a.length > 4) return fail('不正な操作です');
+        // 添え字・IDは整数だけ(小数・NaN・文字列で順序や車両の番号がずれるのを防ぐ)
+        if ((cmd.m === 'insertOrder' || cmd.m === 'removeOrder' || cmd.m === 'moveOrder') && !a.slice(0, cmd.m === 'insertOrder' ? 3 : 2).every(Number.isInteger)) return fail('不正な操作です');
         const vehOwner = (vid: number) => t.routes.get(t.vehicles.find((v) => v.id === vid)?.routeId ?? -1)?.owner;
         switch (cmd.m) {
           case 'removeDepot': {
@@ -182,8 +235,9 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
           r.cars = m.defaultCars;
         }
         if (p.cars !== undefined) r.cars = clampCars(modelOf(r.modelId), Number(p.cars));
-        if (p.period !== undefined && p.period > 0) {
-          r.period = Number(p.period);
+        if (p.period !== undefined && Number(p.period) > 0) {
+          // 運行の周期は 15分〜7日(tick)の範囲だけ。極端な値でダイヤが壊れないように
+          r.period = Math.max(DAY_TICKS / 96, Math.min(DAY_TICKS * 7, Number(p.period)));
           t.syncOrders(r.id);
         }
         t.version++;
@@ -192,7 +246,7 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
       case 'orderSet': {
         const r = t.routes.get(cmd.routeId);
         if (!mine(r)) return fail('自社の路線ではありません');
-        const o = r.orders[cmd.index];
+        const o = Number.isInteger(cmd.index) ? r.orders[cmd.index] : undefined;
         if (!o) return fail('オーダーがありません');
         const p = cmd.patch;
         if (p.kind === 'dwell' || p.kind === 'full' || p.kind === 'timed') o.kind = p.kind;
@@ -204,7 +258,7 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
         }
         if (typeof p.dwell === 'number') o.dwell = Math.max(10, Math.min(6000, p.dwell));
         if (typeof p.maxWait === 'number') o.maxWait = Math.max(10, Math.min(36000, p.maxWait));
-        if (typeof p.departTod === 'number') o.departTod = Math.max(0, p.departTod);
+        if (typeof p.departTod === 'number' && Number.isFinite(p.departTod)) o.departTod = Math.max(0, Math.min(DAY_TICKS - 1, p.departTod));
         if ('cond' in p) {
           const c = p.cond as { kind?: string; op?: string; value?: number; to?: number } | null;
           o.cond = c && (c.kind === 'load' || c.kind === 'wait' || c.kind === 'tod') && (c.op === 'ge' || c.op === 'lt') ? { kind: c.kind, op: c.op, value: Number(c.value) || 0, to: Math.max(0, Math.min(r.orders.length - 1, Number(c.to) || 0)) } : undefined;
@@ -237,6 +291,75 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
         if (!res.vehicle) return fail(`購入できません: ${res.reason}`);
         co.spend('vehicle', price);
         return { ok: true, id: res.vehicle.id, msg: `${m.name}を購入しました(${yen(price)})。路線のオーダーで運行します` };
+      }
+      case 'ad': {
+        const f = map.facilities.find((x) => x.id === cmd.facilityId);
+        if (!f || (f.owner ?? 'player') !== 'player' || f.playerId !== who) return fail('自社の施設ではありません');
+        if (!(cmd.kind in AD_TYPES)) return fail('広告の種類が不正です');
+        const why = adAvailable(f, sim.day);
+        if (why) return fail(why);
+        const cost = adCost(f, cmd.kind);
+        if (!co.spend('ad', cost)) return fail(`資金が足りません(広告費 ${yen(cost)} / 現金 ${yen(co.cash)})`);
+        f.ad = { kind: cmd.kind, from: sim.day };
+        map.facilityVer++;
+        const a = AD_TYPES[cmd.kind];
+        return { ok: true, msg: `${FACILITY_SPECS[f.type].name}に${a.name}広告を出しました(${yen(cost)})。${a.days}日間、来場者が約${Math.round((a.mul - 1) * 100)}%増え、近くの他の施設は約${Math.round((1 - a.rival) * 100)}%減ります` };
+      }
+      case 'bulldoze': {
+        const k = cmd.kinds;
+        if (!k || ![cmd.a.x, cmd.a.y, cmd.b.x, cmd.b.y].every(Number.isInteger)) return fail('不正な操作です');
+        const x0 = Math.max(0, Math.min(cmd.a.x, cmd.b.x));
+        const x1 = Math.min(map.size - 1, Math.max(cmd.a.x, cmd.b.x));
+        const y0 = Math.max(0, Math.min(cmd.a.y, cmd.b.y));
+        const y1 = Math.min(map.size - 1, Math.max(cmd.a.y, cmd.b.y));
+        if ((x1 - x0 + 1) * (y1 - y0 + 1) > 16384) return fail('範囲が広すぎます(128×128タイルまで)');
+        const count = { road: 0, rail: 0, signal: 0, stop: 0, depot: 0, waypoint: 0, span: 0, building: 0, airport: 0 };
+        const changed: [number, number][] = [];
+        for (let y = y0; y <= y1; y++) {
+          for (let x = x0; x <= x1; x++) {
+            const i = map.idx(x, y);
+            const own = map.infraOwner.get(i);
+            const mineInfra = !own || own === who; // 他社の線路・道路は撤去できない
+            let hit = false;
+            if (k.span && mineInfra && map.span.get(i) && removeSpansAround(map, x, y)) (count.span++, (hit = true));
+            if (k.road && mineInfra && map.road.get(i)) {
+              for (let d = 0; d < 4; d++) disconnect(map, x, y, d);
+              count.road++;
+              hit = true;
+            }
+            if (k.rail && mineInfra && map.rail.get(i)) {
+              for (let d = 0; d < 8; d++) disconnectRail(map, x, y, d);
+              count.rail++;
+              hit = true;
+            }
+            if (k.signal && mineInfra && t.signals.has(i)) (t.signals.delete(i), t.version++, count.signal++, (hit = true));
+            if (k.stop) {
+              for (const kind of ['road', 'rail', 'air'] as const) {
+                const s = t.stopAtTile(x, y, kind);
+                if (s && !s.waypoint && (!s.owner || s.owner === who)) (t.removeStop(s.id), count.stop++, (hit = true));
+              }
+            }
+            if (k.waypoint) {
+              const w = t.stopAtTile(x, y, 'rail');
+              if (w?.waypoint && (!w.owner || w.owner === who)) (t.removeStop(w.id), count.waypoint++, (hit = true));
+            }
+            if (k.depot) {
+              const d = t.depotAtTile(x, y);
+              if (d && (!d.owner || d.owner === who)) (t.removeDepot(d.id), count.depot++, (hit = true));
+            }
+            if (k.building && map.building.get(i) && removeBuilding(map, x, y)) (count.building++, (hit = true));
+            if (k.airport && map.air.get(i)) (removeAirport(map, x, y), count.airport++, (hit = true));
+            if (hit) {
+              changed.push([x, y]);
+              if (!map.road.get(i) && !map.rail.get(i) && !map.span.get(i)) map.infraOwner.set(i, 0);
+              map.touch(x, y);
+            }
+          }
+        }
+        t.touchNetworkTiles(changed);
+        const names: [keyof typeof count, string][] = [['road', '道路'], ['rail', '線路'], ['signal', '信号'], ['stop', '停留所・駅'], ['depot', '基地'], ['waypoint', '経由点'], ['span', '橋・トンネル'], ['building', '建物'], ['airport', '空港']];
+        const parts = names.filter(([key]) => count[key] > 0).map(([key, label]) => `${label}${count[key]}`);
+        return { ok: true, msg: parts.length ? `撤去しました: ${parts.join('・')}` : '選んだ種類の要素はありませんでした' };
       }
       case 'signalLine': {
         if (![cmd.a.x, cmd.a.y, cmd.b.x, cmd.b.y].every(Number.isInteger) || Math.max(Math.abs(cmd.a.x - cmd.b.x), Math.abs(cmd.a.y - cmd.b.y)) > 400) return fail('範囲が不正です(400タイルまで)');
@@ -428,6 +551,8 @@ export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
         }
         return fail('不正な操作です');
       }
+      default:
+        return fail('不正な操作です');
     }
   }
 }

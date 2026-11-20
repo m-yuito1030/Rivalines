@@ -7,8 +7,11 @@ import { Camera } from './render/camera';
 import { ChunkRenderer, lodForZoom } from './render/chunkRenderer';
 import { Minimap } from './ui/minimap';
 import { ToolController, type Tool } from './ui/tools';
-import type { Cmd, CmdResult, PlaceTool } from './multi/protocol';
-import { type FacilityType, SPRITE_TYPES, planFacility, placeFacility, spriteDims } from './world/facilities';
+import type { BulldozeKinds, Cmd, CmdResult, PlaceTool } from './multi/protocol';
+import { type FacilityType, type FacilitySize, CHOOSABLE, DESIGN_COUNT, facilityCost, facilityDims, planFacility, placeFacility } from './world/facilities';
+import { FACILITY_SPECS } from './world/facilities';
+import { drawFacilityPreview } from './render/buildingSprites';
+import sheetInfo from './data/facilitySprites.json';
 import { BUILDING_STYLES, STATION_DESIGN_COUNT, designName, planStation, type StationOptions } from './world/stations';
 import { RoutePanel } from './ui/routePanel';
 import { loadBuildingSprites } from './render/buildingSprites';
@@ -63,6 +66,18 @@ async function enterWorld(token: string): Promise<void> {
 }
 
 const authBusy = (b: boolean) => document.querySelectorAll<HTMLButtonElement>('#startForm button').forEach((x) => (x.disabled = b));
+/** 再ビルド後に古い画面が残っていて、消えた配信物を読めなかった場合は、画面を読み直す(1回だけ) */
+const reloadOnStale = () => {
+  if (sessionStorage.getItem('stale-reload')) return;
+  sessionStorage.setItem('stale-reload', '1');
+  location.reload();
+};
+window.addEventListener('vite:preloadError', (e) => {
+  e.preventDefault();
+  reloadOnStale();
+});
+window.addEventListener('load', () => setTimeout(() => sessionStorage.removeItem('stale-reload'), 5000));
+
 async function doAuth(kind: 'login' | 'register'): Promise<void> {
   errEl.textContent = '';
   authBusy(true);
@@ -74,7 +89,9 @@ async function doAuth(kind: 'login' | 'register'): Promise<void> {
     }
     await enterWorld(r.token!);
   } catch (e) {
-    errEl.textContent = (e as Error).message;
+    const msg = (e as Error).message;
+    if (/module script|dynamically imported module|Failed to fetch dynamically/i.test(msg)) return reloadOnStale();
+    errEl.textContent = msg;
     authBusy(false);
   }
 }
@@ -228,6 +245,18 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     $('optDesignInfo').textContent = `デザイン ${v + 1} / ${STATION_DESIGN_COUNT}: ${designName(v)}`;
   });
   bindOpt('optAxis', (v) => (stationOpts.axis = v as 0 | 1));
+  /** 撤去する要素(チェックボックスの状態) */
+  const readBulldozeKinds = (): BulldozeKinds => {
+    const k = {} as Record<string, boolean>;
+    document.querySelectorAll<HTMLInputElement>('#bulldozeOpts [data-bk]').forEach((el) => (k[el.dataset.bk!] = el.checked));
+    return k as unknown as BulldozeKinds;
+  };
+  document.querySelectorAll<HTMLButtonElement>('#bulldozeOpts [data-bkset]').forEach((b) =>
+    b.addEventListener('click', () => {
+      const only = b.dataset.bkset!; // all / none / 要素名(その要素だけ)
+      document.querySelectorAll<HTMLInputElement>('#bulldozeOpts [data-bk]').forEach((el) => (el.checked = only === 'all' ? ['road', 'rail', 'signal', 'stop', 'depot', 'waypoint', 'span'].includes(el.dataset.bk!) : only === 'none' ? false : el.dataset.bk === only));
+    }),
+  );
   /** 操作をサーバーへ送り、結果のメッセージを表示する */
   const run = async (cmd: Cmd): Promise<CmdResult> => {
     const r = await net.cmd(cmd);
@@ -247,10 +276,11 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
         if (r.ok && r.id !== undefined && b.stops[b.stops.length - 1] !== r.id) panel.addToBuild(r.id);
       });
     } else if (tool === 'station') void run({ t: 'place', tool, x: tile.x, y: tile.y, opts: { ...stationOpts } });
-    else if (tool !== 'route' && tool !== 'pan') void run({ t: 'place', tool: tool as PlaceTool, x: tile.x, y: tile.y });
+    else if (tool !== 'route' && tool !== 'pan') void run({ t: 'place', tool: tool as PlaceTool, x: tile.x, y: tile.y, ...((CHOOSABLE as string[]).includes(tool) ? { fac: { design: facSel.design, size: facSel.size } } : {}) });
   });
   tools.remoteBuild = (tool, a, b) => {
-    if ((tool as string) === 'signalline') void run({ t: 'signalLine', a, b, interval: Number($<HTMLInputElement>('optSigInt').value) || 3 });
+    if ((tool as string) === 'bulldoze') void run({ t: 'bulldoze', a, b, kinds: readBulldozeKinds() });
+    else if ((tool as string) === 'signalline') void run({ t: 'signalLine', a, b, interval: Number($<HTMLInputElement>('optSigInt').value) || 3 });
     else void run({ t: 'build', tool, a, b });
   };
   // 操作結果のトースト(橋・トンネルの可否など)
@@ -264,7 +294,45 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     clearTimeout(toastTimer);
     toastTimer = window.setTimeout(() => toast.classList.remove('show'), 2500);
   };
-  tools.facilityPlanner = (x, y, type) => planFacility(map, x, y, type, facOcc, SPRITE_TYPES.includes(type) ? spriteDims('L') : undefined);
+  // 施設(ホテル・公園・百貨店・モール)のデザインと大きさを選ぶ
+  const facSel = { design: 0, size: 'L' as FacilitySize };
+  const facDesignEl = $<HTMLSelectElement>('facDesign');
+  let facType: FacilityType | null = null;
+  const facNames = (t: FacilityType): string[] => ((sheetInfo as Record<string, { names: string[] }>)[t]?.names) ?? [];
+  const refreshFac = () => {
+    if (!facType) return;
+    facSel.design = Math.min(Number(facDesignEl.value) || 0, (DESIGN_COUNT[facType] ?? 1) - 1);
+    document.querySelectorAll<HTMLButtonElement>('#facSizes [data-fsize]').forEach((b) => b.classList.toggle('on', b.dataset.fsize === facSel.size));
+    const d = facilityDims(facType, facSel.size);
+    $('facInfo').textContent = `${FACILITY_SPECS[facType].name} ${d.w}×${d.h} タイル・建設費 ${facilityCost(facType, facSel.size).toLocaleString()}円 ・ クリックした位置が中心`;
+    drawFacilityPreview($<HTMLCanvasElement>('facPreview'), facType, facSel.design, facSel.size);
+  };
+  const setupFacility = (t: string) => {
+    const on = (CHOOSABLE as string[]).includes(t);
+    $('facilityOpts').hidden = !on;
+    if (!on) { facType = null; return; }
+    if (facType !== t) {
+      facType = t as FacilityType;
+      $('facTitle').textContent = `${FACILITY_SPECS[facType].icon} ${FACILITY_SPECS[facType].name}を建てる`;
+      facDesignEl.innerHTML = '';
+      const names = facNames(facType);
+      for (let i = 0; i < (DESIGN_COUNT[facType] ?? 1); i++) {
+        const op = document.createElement('option');
+        op.value = String(i);
+        op.textContent = `${String(i + 1).padStart(2, '0')} ${names[i] ?? ''}`;
+        facDesignEl.appendChild(op);
+      }
+      facDesignEl.value = '0';
+    }
+    refreshFac();
+  };
+  facDesignEl.addEventListener('input', refreshFac);
+  $('facRand').addEventListener('click', () => {
+    facDesignEl.value = String(Math.floor(Math.random() * (DESIGN_COUNT[facType ?? 'hotel'] ?? 1)));
+    refreshFac();
+  });
+  document.querySelectorAll<HTMLButtonElement>('#facSizes [data-fsize]').forEach((b) => b.addEventListener('click', () => { facSel.size = b.dataset.fsize as FacilitySize; refreshFac(); }));
+  tools.facilityPlanner = (x, y, type) => planFacility(map, x, y, type, facOcc, (CHOOSABLE as string[]).includes(type) ? facilityDims(type, facSel.size) : undefined);
   tools.stationPlanner = (x, y) => planStation(map, x, y, stationOpts, (i) => !!transit.stopAtTile(i % map.size, Math.floor(i / map.size)));
   worldRoot.addChild(tools.overlay);
 
@@ -361,7 +429,9 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   const setTool = (t: Tool) => {
     tools.setTool(t);
     optsEl.hidden = t !== 'station';
+    setupFacility(t);
     $('signalOpts').hidden = t !== 'signalline';
+    $('bulldozeOpts').hidden = t !== 'bulldoze';
     syncMenus(t);
     document.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === t));
     if (t !== 'route' && (panel.building || panel.inserting)) panel.cancelBuild();
@@ -406,6 +476,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
 
   // 停留所/街のタップ情報(移動ツールで、ほぼ動かさずに離したとき)
   const info = new InfoPanel($('info'), map, transit, () => sim.tick, (x, y) => camera.centerOnTile(x, y), (msg) => tools.onMessage?.(msg), () => sim.company);
+  info.players = () => mirror.players;
   const infoPanel = info; // 毎フレームの処理内では info が別の変数名に隠れるため
   // 車両の追跡: カメラが車両を追いかける。カメラを手で動かす/情報パネルを閉じると解除
   let followId = -1;
@@ -448,7 +519,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     tools.onMessage?.(`第${r.period}期決算(${r.from}〜${r.to}): 当期純利益 ${yen(r.netIncome)}、法人税 ${yen(r.tax)}、配当 ${yen(r.dividend)}。経営画面(F)で決算書を確認できます`);
   };
   const companyRows = (): CompanyRow[] => {
-    const rows: CompanyRow[] = mirror.players.map((p) => ({ name: p.id === net.id ? `自社(${p.name})` : p.name, marketCap: p.marketCap, price: p.price, netWorth: p.netWorth, profit: p.profit, passengers: p.passengers, isPlayer: p.id === net.id, subsidiary: false }));
+    const rows: CompanyRow[] = mirror.players.map((p) => ({ name: p.id === net.id ? `自社(${p.company})` : p.company, marketCap: p.marketCap, price: p.price, netWorth: p.netWorth, profit: p.profit, passengers: p.passengers, isPlayer: p.id === net.id, subsidiary: false }));
     for (const r of sim.rivals) if (!r.acquired) rows.push({ name: r.name, marketCap: r.value, price: r.value / 100000, netWorth: r.value * 0.8, profit: r.profit, passengers: r.passengers, isPlayer: false, subsidiary: false });
     return rows.sort((a, b) => b.marketCap - a.marketCap);
   };
@@ -490,18 +561,38 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     else if (e.key === 'Escape' && info.isOpen) info.close();
   });
 
+  const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
   // メニュー: プレイヤー一覧とログアウト
   const menu = $('menu');
   const menuList = $('menuPlayers');
   const openMenu = () => {
     closeWindows('menu');
     menuList.innerHTML = mirror.players
-      .map((p) => `<div class="im"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#${p.color.toString(16).padStart(6, '0')}"></i> ${p.online ? '🟢' : '⚪'} ${p.name.replace(/[<>&"]/g, '')} ・ 時価総額 ${yen(p.marketCap)}${p.id === net.id ? ' (あなた)' : ` <button data-gift="${p.id}">送金</button>`}</div>`)
+      .map((p) => `<div class="im"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#${p.color.toString(16).padStart(6, '0')}"></i> ${p.online ? '🟢' : '⚪'} ${esc(p.company)}<small class="muted"> (${esc(p.name)})</small> ・ 時価総額 ${yen(p.marketCap)}${p.bio ? `<div class="muted">${esc(p.bio)}</div>` : ''}${p.id === net.id ? ' (あなた)' : ` <button data-gift="${p.id}">送金</button> <label class="muted" title="自社の全停留所をこの会社の路線が使えるようにします"><input type="checkbox" data-cgrant="${p.id}" ${transit.grants.get(net.id)?.has(p.id) ? 'checked' : ''}> 全駅を許可</label>`}</div>`)
       .join('');
     menu.hidden = false;
   };
-  $('menuBtn').addEventListener('click', openMenu);
+  // 会社名・プロフィール・色の設定
+  const profColor = $<HTMLInputElement>('profColor');
+  const fillProfile = () => {
+    const me = mirror.players.find((p) => p.id === net.id);
+    if (!me) return;
+    $<HTMLInputElement>('profCompany').value = me.company === me.name ? '' : me.company;
+    $<HTMLTextAreaElement>('profBio').value = me.bio;
+    profColor.value = `#${me.color.toString(16).padStart(6, '0')}`;
+  };
+  $('profSave').addEventListener('click', () => {
+    void net.profile($<HTMLInputElement>('profCompany').value, $<HTMLTextAreaElement>('profBio').value, parseInt(profColor.value.slice(1), 16)).then((r) => tools.onMessage?.(r.msg ?? (r.ok ? '保存しました' : '失敗しました')));
+  });
+  $('menuBtn').addEventListener('click', () => {
+    openMenu();
+    fillProfile();
+  });
   $('menuClose').addEventListener('click', () => (menu.hidden = true));
+  menuList.addEventListener('change', (e) => {
+    const cb = e.target as HTMLInputElement;
+    if (cb.dataset.cgrant) void net.cmd({ t: 'companyAllow', who: Number(cb.dataset.cgrant), allow: cb.checked }).then((r) => r.msg && tools.onMessage?.(r.msg));
+  });
   menuList.addEventListener('click', (e) => {
     const b = (e.target as HTMLElement).closest<HTMLElement>('[data-gift]');
     if (!b) return;
@@ -530,6 +621,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     const dt = Math.min(0.1, t.deltaMS / 1000);
     const tA = performance.now();
     const tB = performance.now();
+    transit.smoothMirror(); // サーバーの10Hzの状態を、60fpsになめらかに補間する
     const view = camera.update(dt);
     chunks.update(view);
     const tC = performance.now();

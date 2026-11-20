@@ -1,7 +1,7 @@
 import { CAT_LABEL, COST_CATS, type Company, LOAN_STEP, PAYOUT_OPTIONS, REVENUE_CATS, SHARES, TAX_RATE, assetValue, facilityValue, gradeOf, yen } from '../sim/economy';
 import { type Rival, acquirePrice, divestPrice } from '../sim/rivals';
 import { net } from '../multi/net';
-import { FACILITY_SPECS } from '../world/facilities';
+import { FACILITY_SPECS, facilityUpkeep } from '../world/facilities';
 import type { GameMap } from '../world/gameMap';
 import { type RatingState, ratingName } from '../sim/rating';
 import type { Transit } from '../sim/transit';
@@ -129,7 +129,7 @@ export class FinancePanel {
     h += '<h3>自社の施設(経営資源)</h3>';
     h += own.length
       ? `<table><tr><th>施設</th><th>売上/日</th><th>維持費/日</th><th>来場者</th><th>評価額</th><th></th></tr>${own
-          .map((f) => `<tr><td>${FACILITY_SPECS[f.type].icon} ${esc(f.name)}</td><td>${yen(f.income ?? 0)}</td><td>${yen(FACILITY_SPECS[f.type].upkeep)}</td><td>${Math.floor(f.visits ?? 0)}</td><td>${yen(facilityValue(f))}</td><td><button data-fa="sell" data-id="${f.id}" title="評価額の60%で売却(他社のものになる)">売却</button></td></tr>`)
+          .map((f) => `<tr><td>${FACILITY_SPECS[f.type].icon} ${esc(f.name)}</td><td>${yen(f.income ?? 0)}</td><td>${yen(facilityUpkeep(f))}</td><td>${Math.floor(f.visits ?? 0)}</td><td>${yen(facilityValue(f))}</td><td><button data-fa="sell" data-id="${f.id}" title="評価額の60%で売却(他社のものになる)">売却</button></td></tr>`)
           .join('')}</table>`
       : '<div class="muted">施設(百貨店・モール・スタジアムなど)を建てると、近くの駅・バス停に来た人が売上になります。</div>';
     h += '<h3>他社の施設(買収できます)</h3>';

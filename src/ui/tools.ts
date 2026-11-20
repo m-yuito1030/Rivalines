@@ -12,7 +12,7 @@ import type { StationPlan } from '../world/stations';
 import type { FacilityPlan, FacilityType } from '../world/facilities';
 
 export type Tool = 'pan' | 'road' | 'oneway' | 'twoway' | 'bulldoze' | 'stop' | 'route' | 'rail' | 'railauto' | 'signalline' | 'station' | 'airport' | 'raise' | 'lower' | 'level' | 'roadspan' | 'railspan' | 'signal' | 'waypoint' | 'depot' | 'stadium' | 'amusement' | 'mall' | 'park' | 'department' | 'hotel';
-const RECT: Tool[] = ['raise', 'lower', 'level'];
+const RECT: Tool[] = ['raise', 'lower', 'level', 'bulldoze'];
 /** 新規の開発(建設)を伴うツール。会社の評価が最悪のときは使えない(撤去・移動・路線作成は可) */
 const BUILD: Tool[] = ['road', 'oneway', 'rail', 'railauto', 'signalline', 'station', 'airport', 'raise', 'lower', 'level', 'roadspan', 'railspan', 'signal', 'waypoint', 'stop', 'depot', 'stadium', 'amusement', 'mall', 'park', 'department', 'hotel'];
 const SINGLE: Tool[] = ['stop', 'route', 'station', 'airport', 'signal', 'waypoint', 'depot', 'stadium', 'amusement', 'mall', 'park', 'department', 'hotel'];
@@ -102,7 +102,7 @@ export class ToolController {
     const w = 2.5 / this.camera.zoom;
     if (RECT.includes(this.tool)) {
       const tl = this.start ? this.rect(this.start, this.hover) : [this.hover];
-      const col = this.tool === 'raise' ? 0xffd24a : this.tool === 'lower' ? 0x9a7cff : 0x66ddff;
+      const col = this.tool === 'raise' ? 0xffd24a : this.tool === 'lower' ? 0x9a7cff : this.tool === 'bulldoze' ? 0xff8844 : 0x66ddff;
       const draw = tl.length <= 1500;
       for (const t of tl) {
         const lvl = this.map.inBounds(t.x, t.y) ? this.map.levelAt(t.x, t.y) : 0;
@@ -137,7 +137,7 @@ export class ToolController {
     }
     const single = SINGLE.includes(this.tool);
     if (this.tool === 'airport') return this.drawAirportPreview(g);
-    const tiles = this.start && !single ? (this.tool === 'rail' || this.tool === 'signalline' ? railLineTiles : lineTiles)(this.start.x, this.start.y, this.hover.x, this.hover.y) : [{ ...this.hover, d: 0 }];
+    const tiles = this.start && !single ? (this.tool === 'rail' || this.tool === 'signalline' || this.tool === 'bulldoze' ? railLineTiles : lineTiles)(this.start.x, this.start.y, this.hover.x, this.hover.y) : [{ ...this.hover, d: 0 }];
     for (let i = 0; i < tiles.length; i++) {
       const t = tiles[i];
       let ok = true;

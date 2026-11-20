@@ -180,6 +180,7 @@ export class Replicator {
               stops: [...t.stops.values()].map((s) => ({ ...s, wait: [] })),
               depots: [...t.depots.values()],
               signals: [...t.signals],
+              grants: [...t.grants].map(([o, l]) => [o, [...l]]),
             }),
           };
         }
@@ -246,7 +247,7 @@ export class Replicator {
       const assets = assetValue(sim.map, sim.transit, sim.rivals, id);
       let passengers = 0;
       for (const r of sim.transit.routes.values()) if (r.owner === id) passengers += r.carried ?? 0;
-      out.push({ id, name: a.name, color: a.color, online: sim.online.has(id), marketCap: co.marketCap, price: co.stock, netWorth: co.netWorth(assets), profit: co.profitStats().avg, passengers: Math.floor(passengers) });
+      out.push({ id, name: a.name, company: a.company || a.name, bio: a.bio ?? '', color: a.color, online: sim.online.has(id), marketCap: co.marketCap, price: co.stock, netWorth: co.netWorth(assets), profit: co.profitStats().avg, passengers: Math.floor(passengers) });
     }
     return out;
   }

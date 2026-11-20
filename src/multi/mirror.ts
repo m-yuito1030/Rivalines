@@ -58,7 +58,7 @@ export class Mirror {
         sim.transit.mirrorVehicles(msg.veh as unknown as (Omit<Vehicle, 'path' | 'cargo'> & { path?: number[] })[], msg.gone);
         break;
       case 'struct':
-        sim.transit.mirrorStruct({ nextId: msg.nextId, routes: msg.routes as Route[], stops: msg.stops as Stop[], depots: msg.depots as Depot[], signals: msg.signals });
+        sim.transit.mirrorStruct({ nextId: msg.nextId, routes: msg.routes as Route[], stops: msg.stops as Stop[], depots: msg.depots as Depot[], signals: msg.signals, grants: msg.grants });
         this.ready.struct = true;
         break;
       case 'misc':

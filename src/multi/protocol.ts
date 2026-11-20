@@ -5,6 +5,22 @@ import type { Mode } from '../data/models';
 
 export type Pt = { x: number; y: number };
 
+/** 撤去する要素の種類 */
+export interface BulldozeKinds {
+  road: boolean;
+  rail: boolean;
+  signal: boolean;
+  /** 駅・バス停・空港の停留所(駅は全体が消える) */
+  stop: boolean;
+  depot: boolean;
+  waypoint: boolean;
+  /** 橋・トンネル */
+  span: boolean;
+  /** 街の建物 */
+  building: boolean;
+  airport: boolean;
+}
+
 /** 1タイルずつ置くツール */
 export type PlaceTool = 'stop' | 'station' | 'depot' | 'waypoint' | 'signal' | 'airport' | 'stadium' | 'amusement' | 'mall' | 'park' | 'department' | 'hotel';
 
@@ -14,7 +30,7 @@ export type TxMethod = (typeof TX_METHODS)[number];
 
 export type Cmd =
   | { t: 'build'; tool: DragTool; a: Pt; b: Pt }
-  | { t: 'place'; tool: PlaceTool; x: number; y: number; opts?: StationOptions }
+  | { t: 'place'; tool: PlaceTool; x: number; y: number; opts?: StationOptions; fac?: { design: number; size: 'S' | 'M' | 'L' } }
   | { t: 'ensureStop'; x: number; y: number; kind: Mode }
   | { t: 'routeCreate'; stops: number[] }
   | { t: 'tx'; m: TxMethod; a: number[] }
@@ -23,6 +39,13 @@ export type Cmd =
   | { t: 'rename'; kind: 'stop' | 'depot'; id: number; name: string }
   | { t: 'buyVehicle'; depotId?: number; routeId: number; modelId: string; cars: number }
   | { t: 'gift'; to: number; amount: number }
+  /** 停留所の使用許可: 駅ごと(stopAllow)/会社単位(companyAllow)。持ち主だけが設定できる */
+  | { t: 'stopAllow'; stopId: number; who: number; allow: boolean }
+  | { t: 'companyAllow'; who: number; allow: boolean }
+  /** 広告: 自社の施設に打つ(施設ごとに一定期間に1度) */
+  | { t: 'ad'; facilityId: number; kind: 'news' | 'sns' | 'tv' }
+  /** 要素ごとの撤去: 矩形(ドラッグした範囲)の中の、選んだ種類の要素だけを撤去する */
+  | { t: 'bulldoze'; a: Pt; b: Pt; kinds: BulldozeKinds }
   /** 信号を並べる: 始点→終点の直線の線路に、ドラッグの向きの一方向信号を interval タイルおきに置く */
   | { t: 'signalLine'; a: Pt; b: Pt; interval: number }
   /** 路線の全車両を、路線の既定の車種・両数に置き換える(旧車両は評価額の50%で下取り) */
@@ -48,7 +71,7 @@ export interface CmdResult {
 }
 
 /** クライアント → サーバー */
-export type ClientMsg = { type: 'cmd'; req: number; cmd: Cmd } | { type: 'view'; x0: number; y0: number; x1: number; y1: number };
+export type ClientMsg = { type: 'cmd'; req: number; cmd: Cmd } | { type: 'profile'; req: number; company: string; bio: string; color: number } | { type: 'view'; x0: number; y0: number; x1: number; y1: number };
 
 /** 描画に必要な車両の軽量データ(経路 path は変わったときだけ別送) */
 export interface VehMsg {
@@ -86,6 +109,9 @@ export type MyVeh = [number, number, string, Mode, number, number, number, numbe
 export interface PlayerInfo {
   id: number;
   name: string;
+  /** 会社名(未設定ならアカウント名)とプロフィール */
+  company: string;
+  bio: string;
   color: number;
   online: boolean;
   marketCap: number;
@@ -99,7 +125,7 @@ export type ServerMsg =
   | { type: 'init'; you: string; id: number; world: { size: number; seed: number }; tick: number; start: Pt | null }
   | { type: 'frame'; tick: number; veh: VehMsg[]; gone: number[]; tiles: TileRec[] }
   | { type: 'chunk'; cx: number; cy: number; tiles: number[][]; edits: [number, number][] }
-  | { type: 'struct'; nextId: number; routes: unknown[]; stops: unknown[]; depots: unknown[]; signals: [number, number][] }
+  | { type: 'struct'; nextId: number; routes: unknown[]; stops: unknown[]; depots: unknown[]; signals: [number, number][]; grants?: [number, number[]][] }
   | { type: 'misc'; myVehicles: MyVeh[]; tick: number; company: unknown; rivals: unknown[]; rating: unknown; delivered: number; transfers: number; waiting: [number, number][]; players: PlayerInfo[]; online: string[] }
   | { type: 'towns'; towns: unknown[] }
   | { type: 'fac'; facilities: unknown[] }

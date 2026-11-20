@@ -9,7 +9,7 @@ import { drawTerrainTile, hash2, lodCellColor } from './terrainDraw';
 /** 1チャンク = CELLS x CELLS セル。LODが上がるとセル1つが step x step タイルになる */
 export const CELLS = 16;
 export const LOD_STEPS = [1, 4, 16] as const;
-const MARGIN_TOP = MAX_LEVEL * LEVEL_PX + 56; // 標高+建物の高さぶんの上余白(px)
+const MARGIN_TOP = MAX_LEVEL * LEVEL_PX + 128; // 標高+建物の高さぶんの上余白(px)
 const CANVAS_W = CELLS * TILE_W + 128; // 左右に 2x2 建物(幅128px)のはみ出しぶんの余白
 const CANVAS_H = CELLS * TILE_H + MARGIN_TOP + MAX_LEVEL * LEVEL_PX; // 下は崖の壁ぶん
 const BUILD_BUDGET_MS = 8;

@@ -1,9 +1,11 @@
+import type { Cmd } from '../src/multi/protocol';
 import { describe, expect, it } from 'vitest';
 import { GameMap } from '../src/world/gameMap';
 import { Simulation } from '../src/sim/simulation';
 import { SEA_LEVEL } from '../src/world/constants';
 import { execute } from './commands';
 import { Replicator } from './replicate';
+import { canConnectRail } from '../src/world/rails';
 import { Accounts } from './accounts';
 
 const flatMap = (size = 128) => new GameMap(size, 1, new Uint8Array(size * size).fill(SEA_LEVEL + 20));
@@ -343,7 +345,6 @@ describe('初回の設定駅に戻ったら経路を計算し直す', () => {
       if (v.state === 'move' && v.order === 1 && v.path.length > 1) shortLeg = Math.min(shortLeg, v.path.length);
     }
     expect(shortLeg).toBeLessThan(longLeg - 10); // 次の周回(初回の駅から出発)で近道に切り替わった
-    expect(sim.transit.routes.get(rt.id!)!.replanAt).toBeGreaterThan(0);
   });
 });
 
@@ -406,5 +407,393 @@ describe('JGRPP風の線路・信号・車両操作', () => {
     expect(execute(sim, 1, { t: 'routeReplace', routeId: rt.id! }).ok).toBe(false); // もう置き換えるものがない
     sim.setOnline([1, 2]);
     expect(execute(sim, 2, { t: 'routeReplace', routeId: rt.id! }).ok).toBe(false);
+  });
+});
+
+describe('巨大マップの経路キャッシュ', () => {
+  it('終点が1タイル違うだけの経路は別々に計算される(index が大きい場所でキーが衝突しない)', async () => {
+    const { makeWorldMap } = await import('../src/world/bigTerrain');
+    const { Simulation: Sim } = await import('../src/sim/simulation');
+    const map = makeWorldMap(65535, 3);
+    const sim = new Sim(map, undefined, { multi: true });
+    const x = 65535 - 80;
+    const y = 65535 - 40;
+    for (let i = 0; i < 40; i++) {
+      sim.map.rail.set(map.idx(x + i, y), 0);
+    }
+    // 東西の線路を2本(y と y+1)敷く
+    for (const dy of [0, 1]) execute(sim, 1, { t: 'build', tool: 'rail', a: { x, y: y + dy }, b: { x: x + 30, y: y + dy } });
+    const t = sim.transit as unknown as { route: (a: number, b: number, rail: boolean) => Uint32Array | null };
+    const a = t.route(map.idx(x, y), map.idx(x + 20, y), true);
+    const b = t.route(map.idx(x, y), map.idx(x + 20, y + 1), true);
+    const c = t.route(map.idx(x, y), map.idx(x + 21, y), true);
+    expect(a && a[a.length - 1]).toBe(map.idx(x + 20, y));
+    // 2本の線路が接続されていなくても、少なくとも終点の違う経路が別のタイルに着く(キャッシュで取り違えない)
+    expect(c && c[c.length - 1]).toBe(map.idx(x + 21, y));
+    if (b) expect(b[b.length - 1]).toBe(map.idx(x + 20, y + 1));
+  });
+});
+
+describe('斜めの線路の撤去', () => {
+  it('斜めにドラッグすると斜めの線路に沿って撤去できる(信号も一緒に消える)。横のドラッグでは斜めは消えない', () => {
+    const sim = world();
+    sim.setOnline([1]);
+    execute(sim, 1, { t: 'build', tool: 'rail', a: { x: 100, y: 100 }, b: { x: 112, y: 112 } });
+    execute(sim, 1, { t: 'place', tool: 'signal', x: 106, y: 106 });
+    const count = () => {
+      let n = 0;
+      for (let y = 98; y < 116; y++) for (let x = 98; x < 116; x++) if (sim.map.rail.get(sim.map.idx(x, y))) n++;
+      return n;
+    };
+    expect(count()).toBe(13);
+    execute(sim, 1, { t: 'build', tool: 'bulldoze', a: { x: 90, y: 90 }, b: { x: 99, y: 90 } }); // 関係ない所の横ドラッグ
+    expect(count()).toBe(13);
+    const r = execute(sim, 1, { t: 'build', tool: 'bulldoze', a: { x: 101, y: 101 }, b: { x: 111, y: 111 } });
+    expect(r.ok).toBe(true);
+    expect(count()).toBeLessThanOrEqual(2); // 両端の1タイルずつだけ残る
+    expect(sim.transit.signalMask(sim.map.idx(106, 106))).toBe(0);
+    // 他社の線路は撤去できない
+    sim.setOnline([1, 2]);
+    execute(sim, 1, { t: 'build', tool: 'rail', a: { x: 100, y: 120 }, b: { x: 110, y: 110 } });
+    const before = count();
+    execute(sim, 2, { t: 'build', tool: 'bulldoze', a: { x: 100, y: 120 }, b: { x: 110, y: 110 } });
+    expect(count()).toBe(before);
+  });
+});
+
+describe('通っている線路を変えたら、その上の経路が変わる', () => {
+  it('走行中のバスの経路上に近道をつなぐと、次のタイルに入ったところで近道へ切り替わる(関係のない車両は変わらない)', () => {
+    const sim = world();
+    sim.setOnline([1]);
+    // 遠回り: (100,100)→(100,112)→(118,112)→(118,100)
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 90, y: 100 }, b: { x: 100, y: 100 } });
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 100, y: 100 }, b: { x: 100, y: 112 } });
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 100, y: 112 }, b: { x: 118, y: 112 } });
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 118, y: 112 }, b: { x: 118, y: 100 } });
+    // 無関係な独立の道路(別の場所)
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 20, y: 20 }, b: { x: 50, y: 20 } });
+    const a = execute(sim, 1, { t: 'ensureStop', x: 92, y: 100, kind: 'road' });
+    const b = execute(sim, 1, { t: 'ensureStop', x: 118, y: 102, kind: 'road' });
+    const rt = execute(sim, 1, { t: 'routeCreate', stops: [a.id!, b.id!] });
+    const c = execute(sim, 1, { t: 'ensureStop', x: 22, y: 20, kind: 'road' });
+    const d = execute(sim, 1, { t: 'ensureStop', x: 48, y: 20, kind: 'road' });
+    const rt2 = execute(sim, 1, { t: 'routeCreate', stops: [c.id!, d.id!] });
+    execute(sim, 1, { t: 'place', tool: 'depot', x: 94, y: 100 });
+    execute(sim, 1, { t: 'place', tool: 'depot', x: 30, y: 20 });
+    const m = sim.transit.routes.get(rt.id!)!.modelId;
+    execute(sim, 1, { t: 'buyVehicle', routeId: rt.id!, modelId: m, cars: 1 });
+    execute(sim, 1, { t: 'buyVehicle', routeId: rt2.id!, modelId: m, cars: 1 });
+    const v = sim.transit.vehicles.find((x) => x.routeId === rt.id)!;
+    const v2 = sim.transit.vehicles.find((x) => x.routeId === rt2.id)!;
+    // A→B の遠回りの区間の序盤まで進める
+    let ok = false;
+    for (let i = 0; i < 6000 && !ok; i++) {
+      sim.step();
+      if (v.state === 'move' && v.order === 1 && v.path.length - v.pi > 30) ok = true;
+    }
+    expect(ok).toBe(true);
+    const remaining = v.path.length - v.pi;
+    const path2 = Array.from(v2.path);
+    // 経路上の(100,100)と(118,100)の間に近道を敷く(分岐点は経路上のタイル)
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 100, y: 100 }, b: { x: 118, y: 100 } });
+    let after = remaining;
+    for (let i = 0; i < 40 && after >= remaining - 5; i++) {
+      sim.step();
+      if (v.state === 'move') after = v.path.length - v.pi;
+    }
+    expect(after).toBeLessThan(remaining - 10); // 近道に切り替わった(残りが大きく短くなった)
+    // 関係ない場所の車両の経路は触られていない
+    expect(v2.replan).toBeFalsy();
+    if (v2.path.length === path2.length) expect(Array.from(v2.path)).toEqual(path2);
+  });
+  it('走行中の編成が通る線路に一方向の信号を置くと(ちょっとした変更でも)、次のタイルで探し直す', () => {
+    const sim = world();
+    sim.setOnline([1]);
+    // 複線(y=100 と y=104)をはしごでつなぐ
+    execute(sim, 1, { t: 'build', tool: 'rail', a: { x: 90, y: 100 }, b: { x: 124, y: 100 } });
+    execute(sim, 1, { t: 'build', tool: 'rail', a: { x: 90, y: 104 }, b: { x: 124, y: 104 } });
+    for (const x of [90, 124]) execute(sim, 1, { t: 'build', tool: 'rail', a: { x, y: 100 }, b: { x, y: 104 } });
+    const A = execute(sim, 1, { t: 'place', tool: 'station', x: 92, y: 100, opts: { axis: 1, len: 3, tracks: 1, design: 1 } });
+    const B = execute(sim, 1, { t: 'place', tool: 'station', x: 118, y: 100, opts: { axis: 1, len: 3, tracks: 1, design: 1 } });
+    expect(A.ok && B.ok).toBe(true);
+    const rt = execute(sim, 1, { t: 'routeCreate', stops: [A.id!, B.id!] });
+    execute(sim, 1, { t: 'place', tool: 'depot', x: 100, y: 100 });
+    const r = sim.transit.routes.get(rt.id!)!;
+    expect(execute(sim, 1, { t: 'buyVehicle', routeId: rt.id!, modelId: r.modelId, cars: 4 }).ok).toBe(true);
+    const v = sim.transit.vehicles[0];
+    let ok = false;
+    for (let i = 0; i < 6000 && !ok; i++) {
+      sim.step();
+      if (v.state === 'move' && v.order === 1 && v.path.length - v.pi > 12 && v.pi > 1) ok = true;
+    }
+    expect(ok).toBe(true);
+    const ahead = v.path[Math.min(v.path.length - 1, v.pi + 6)];
+    const ax = ahead % sim.map.size;
+    const ay = Math.floor(ahead / sim.map.size);
+    const pathBefore = Array.from(v.path);
+    // 進行方向と逆向きの一方向信号を、前方のタイルに置く(いまの経路が通れなくなる)
+    const dirBits = sim.map.rail.get(ahead) & 15;
+    const mask = dirBits === 10 ? 1 << 3 : 1 << 0; // 東西なら西向き / 南北なら北向き(進行と逆)
+    const pair = sim.transit.setSignal(ax, ay, mask);
+    expect(pair).toBe(true);
+    expect(v.replan).toBe(true); // 通る線路が変更されたので印が付く
+    for (let i = 0; i < 60; i++) sim.step();
+    expect(v.replan).toBeFalsy();
+    expect(Array.from(v.path).join()).not.toBe(pathBefore.join()); // 経路が変わった(別の線を通る/探し直された)
+  });
+});
+
+describe('要素ごとの範囲撤去', () => {
+  const kinds = (o: Partial<Record<string, boolean>>) => ({ road: false, rail: false, signal: false, stop: false, depot: false, waypoint: false, span: false, building: false, airport: false, ...o }) as never;
+  const setup = () => {
+    const sim = world();
+    sim.setOnline([1]);
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 90, y: 100 }, b: { x: 110, y: 100 } });
+    execute(sim, 1, { t: 'build', tool: 'rail', a: { x: 90, y: 104 }, b: { x: 110, y: 104 } });
+    execute(sim, 1, { t: 'place', tool: 'signal', x: 100, y: 104 });
+    execute(sim, 1, { t: 'ensureStop', x: 95, y: 100, kind: 'road' });
+    execute(sim, 1, { t: 'place', tool: 'depot', x: 105, y: 100 });
+    execute(sim, 1, { t: 'place', tool: 'waypoint', x: 96, y: 104 });
+    return sim;
+  };
+  const count = (sim: ReturnType<typeof world>, layer: 'road' | 'rail') => {
+    let n = 0;
+    for (let y = 95; y < 110; y++) for (let x = 85; x < 115; x++) if (sim.map[layer].get(sim.map.idx(x, y))) n++;
+    return n;
+  };
+  it('ドラッグした範囲の中の、選んだ種類だけが消える(道路だけ・線路だけ・信号だけ)', () => {
+    const sim = setup();
+    const roads = count(sim, 'road');
+    const rails = count(sim, 'rail');
+    expect(roads).toBeGreaterThan(10);
+    expect(rails).toBeGreaterThan(10);
+    // 信号だけ
+    const r1 = execute(sim, 1, { t: 'bulldoze', a: { x: 85, y: 95 }, b: { x: 115, y: 110 }, kinds: kinds({ signal: true }) });
+    expect(r1.ok).toBe(true);
+    expect(sim.transit.signalMask(sim.map.idx(100, 104))).toBe(0);
+    expect(count(sim, 'road')).toBe(roads);
+    expect(count(sim, 'rail')).toBe(rails);
+    // 道路だけ(範囲の半分 x<100)
+    execute(sim, 1, { t: 'bulldoze', a: { x: 85, y: 95 }, b: { x: 99, y: 110 }, kinds: kinds({ road: true }) });
+    expect(count(sim, 'road')).toBeLessThan(roads);
+    expect(sim.map.road.get(sim.map.idx(105, 100))).not.toBe(0); // 範囲の外は残る
+    expect(count(sim, 'rail')).toBe(rails); // 線路は触らない
+    // 線路だけ
+    execute(sim, 1, { t: 'bulldoze', a: { x: 85, y: 95 }, b: { x: 115, y: 110 }, kinds: kinds({ rail: true }) });
+    expect(count(sim, 'rail')).toBe(0);
+  });
+  it('停留所・基地・経由点をそれぞれ選んで撤去できる。道路は残る', () => {
+    const sim = setup();
+    const roads = count(sim, 'road');
+    expect(sim.transit.stops.size).toBeGreaterThanOrEqual(2); // バス停と経由点
+    execute(sim, 1, { t: 'bulldoze', a: { x: 85, y: 95 }, b: { x: 115, y: 110 }, kinds: kinds({ waypoint: true }) });
+    expect([...sim.transit.stops.values()].some((s) => s.waypoint)).toBe(false);
+    expect([...sim.transit.stops.values()].some((s) => !s.waypoint)).toBe(true); // バス停は残る
+    execute(sim, 1, { t: 'bulldoze', a: { x: 85, y: 95 }, b: { x: 115, y: 110 }, kinds: kinds({ stop: true }) });
+    expect(sim.transit.stops.size).toBe(0);
+    expect(sim.transit.depots.size).toBe(1);
+    execute(sim, 1, { t: 'bulldoze', a: { x: 85, y: 95 }, b: { x: 115, y: 110 }, kinds: kinds({ depot: true }) });
+    expect(sim.transit.depots.size).toBe(0);
+    expect(count(sim, 'road')).toBe(roads);
+  });
+  it('斜めの線路も範囲の中なら消える。他社のものは消えず、広すぎる範囲は断られる', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    execute(sim, 1, { t: 'build', tool: 'rail', a: { x: 100, y: 100 }, b: { x: 112, y: 112 } });
+    execute(sim, 2, { t: 'bulldoze', a: { x: 95, y: 95 }, b: { x: 115, y: 115 }, kinds: kinds({ rail: true }) });
+    expect(count(sim, 'rail')).toBeGreaterThan(5); // 他社(2)は消せない
+    const r = execute(sim, 1, { t: 'bulldoze', a: { x: 95, y: 95 }, b: { x: 115, y: 115 }, kinds: kinds({ rail: true }) });
+    expect(r.ok).toBe(true);
+    let left = 0;
+    for (let y = 95; y <= 115; y++) for (let x = 95; x <= 115; x++) if (sim.map.rail.get(sim.map.idx(x, y))) left++;
+    expect(left).toBe(0);
+    expect(execute(sim, 1, { t: 'bulldoze', a: { x: 0, y: 0 }, b: { x: 127, y: 127 }, kinds: kinds({ rail: true }) }).ok).toBe(true); // 128x128 = 16384 は許可
+    const big = new Simulation(flatBig(), undefined, { multi: true });
+    big.setOnline([1]);
+    expect(execute(big, 1, { t: 'bulldoze', a: { x: 0, y: 0 }, b: { x: 200, y: 200 }, kinds: kinds({ rail: true }) }).ok).toBe(false);
+  });
+  it('斜めの線路は、1段の高低差をまたいでは敷けない(直線のスロープだけ可)', () => {
+    const size = 64;
+    const h = new Uint8Array(size * size).fill(SEA_LEVEL + 20);
+    for (let y = 0; y < size; y++) for (let x = 30; x < size; x++) h[y * size + x] = SEA_LEVEL + 20 + 16; // x>=30 は1段高い
+    const map = new GameMap(size, 1, h);
+    expect(canConnectRail(map, 29, 10, 1, true)).toBe(true); // 直線(東)は1段差でもスロープで可
+    expect(canConnectRail(map, 29, 10, 5, true)).toBe(false); // 斜め(南東)は1段差をまたげない
+    expect(canConnectRail(map, 40, 10, 5, true)).toBe(true); // 同じ高さなら斜めも可
+  });
+});
+
+function flatBig() {
+  return new GameMap(256, 1, () => new Uint8Array(4096).fill(SEA_LEVEL + 20));
+}
+
+describe('施設(ホテル・百貨店)の建設と売上', () => {
+  it('建てられ(資金を払い)、近くの停留所に乗客が着くと自社の売上になる。停留所がなければ売上は入らず維持費だけ', () => {
+    const sim = world();
+    sim.setOnline([1]);
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 60, y: 80 }, b: { x: 120, y: 80 } });
+    for (let x = 62; x < 80; x += 2) sim.map.building.set(sim.map.idx(x, 81), 5); // 乗客のもと
+    const a = execute(sim, 1, { t: 'ensureStop', x: 70, y: 80, kind: 'road' });
+    const b = execute(sim, 1, { t: 'ensureStop', x: 110, y: 80, kind: 'road' });
+    const rt = execute(sim, 1, { t: 'routeCreate', stops: [a.id!, b.id!] });
+    execute(sim, 1, { t: 'place', tool: 'depot', x: 90, y: 80 });
+    const model = sim.transit.routes.get(rt.id!)!.modelId;
+    execute(sim, 1, { t: 'buyVehicle', routeId: rt.id!, modelId: model, cars: 1 });
+    execute(sim, 1, { t: 'buyVehicle', routeId: rt.id!, modelId: model, cars: 1 });
+    const co = sim.playerCompany(1);
+    const cash = co.cash;
+    const near = execute(sim, 1, { t: 'place', tool: 'hotel', x: 112, y: 83 }); // 終点のバス停の集客圏
+    const far = execute(sim, 1, { t: 'place', tool: 'department', x: 20, y: 20 }); // 停留所のない場所
+    expect(near.ok).toBe(true);
+    expect(far.ok).toBe(true);
+    expect(co.cash).toBeLessThan(cash - 8_000_000); // 建設費(ホテル400万+百貨店500万)を払った
+    const hotel = sim.map.facilities.find((f) => f.type === 'hotel')!;
+    const dept = sim.map.facilities.find((f) => f.type === 'department')!;
+    expect(hotel.playerId).toBe(1);
+    for (let i = 0; i < 20000; i++) sim.step();
+    expect(hotel.visits ?? 0).toBeGreaterThan(0);
+    expect(co.total.facility ?? 0).toBeGreaterThan(0); // 近くの停留所の来場が売上になった
+    expect(dept.visits ?? 0).toBe(0); // 停留所のない百貨店には誰も来ない
+    expect(dept.dayIncome ?? 0).toBe(0);
+    expect(co.total.upkeep ?? 0).toBeGreaterThan(0); // 維持費はかかる
+  });
+});
+
+describe('広告(コマンド)', () => {
+  it('自社の施設にだけ打てて、費用を払い、同じ施設は一定期間に1度だけ。他社の施設・資金不足は拒否', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    const hotel = execute(sim, 1, { t: 'place', tool: 'hotel', x: 60, y: 60 });
+    expect(hotel.ok).toBe(true);
+    const f = sim.map.facilities.find((x) => x.type === 'hotel')!;
+    const co = sim.playerCompany(1);
+    const cash = co.cash;
+    expect(execute(sim, 2, { t: 'ad', facilityId: f.id, kind: 'news' }).ok).toBe(false); // 他社の施設
+    const r = execute(sim, 1, { t: 'ad', facilityId: f.id, kind: 'sns' });
+    expect(r.ok).toBe(true);
+    expect(co.cash).toBeLessThan(cash);
+    expect(co.today.ad ?? 0).toBeGreaterThan(0);
+    expect(f.ad?.kind).toBe('sns');
+    expect(execute(sim, 1, { t: 'ad', facilityId: f.id, kind: 'tv' }).ok).toBe(false); // クールダウン中
+    expect(execute(sim, 1, { t: 'ad', facilityId: 999, kind: 'tv' }).ok).toBe(false);
+    for (let i = 0; i < 15 * 18000; i++) sim.step();
+    co.cash = 1000;
+    expect(execute(sim, 1, { t: 'ad', facilityId: f.id, kind: 'tv' }).ok).toBe(false); // 資金不足
+    co.cash = 50_000_000;
+    expect(execute(sim, 1, { t: 'ad', facilityId: f.id, kind: 'tv' }).ok).toBe(true); // 期間が過ぎたので打てる
+  });
+});
+
+describe('施設のデザイン・大きさを選んで建てる', () => {
+  it('ホテル・公園は S/M/L で敷地(1/2/3四方)と費用が変わり、選んだデザインで建つ。範囲外のデザイン・大きさは拒否', () => {
+    const sim = world();
+    sim.setOnline([1]);
+    const co = sim.playerCompany(1);
+    const dims: Record<string, number> = { S: 1, M: 2, L: 3 };
+    const costs: number[] = [];
+    let x = 30;
+    for (const size of ['S', 'M', 'L'] as const) {
+      const c0 = co.cash;
+      const r = execute(sim, 1, { t: 'place', tool: 'hotel', x, y: 40, fac: { design: 29, size } });
+      expect(r.ok).toBe(true);
+      const f = sim.map.facilities[sim.map.facilities.length - 1];
+      expect([f.w, f.h, f.size, f.design]).toEqual([dims[size], dims[size], size, 29]);
+      costs.push(c0 - co.cash);
+      x += 6;
+    }
+    expect(costs[0]).toBeLessThan(costs[1]);
+    expect(costs[1]).toBeLessThan(costs[2]);
+    expect(execute(sim, 1, { t: 'place', tool: 'park', x: 30, y: 60, fac: { design: 20, size: 'S' } }).ok).toBe(false); // 公園は0〜19
+    expect(execute(sim, 1, { t: 'place', tool: 'park', x: 30, y: 60, fac: { design: 19, size: 'S' } }).ok).toBe(true);
+    expect(execute(sim, 1, { t: 'place', tool: 'park', x: 40, y: 60, fac: { design: 0, size: 'XL' as 'S' } }).ok).toBe(false);
+  });
+});
+
+describe('不正な値への耐性(脆弱性の確認)', () => {
+  const setup = () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 90, y: 100 }, b: { x: 120, y: 100 } });
+    const a = execute(sim, 1, { t: 'ensureStop', x: 95, y: 100, kind: 'road' });
+    const b = execute(sim, 1, { t: 'ensureStop', x: 115, y: 100, kind: 'road' });
+    const rt = execute(sim, 1, { t: 'routeCreate', stops: [a.id!, b.id!] });
+    return { sim, a: a.id!, b: b.id!, R: rt.id! };
+  };
+  it('同じ停留所だけ・配列でない・非整数の路線は作れない', () => {
+    const { sim, a } = setup();
+    expect(execute(sim, 1, { t: 'routeCreate', stops: [a, a] }).ok).toBe(false);
+    expect(execute(sim, 1, { t: 'routeCreate', stops: 'ab' as unknown as number[] }).ok).toBe(false);
+    expect(execute(sim, 1, { t: 'routeCreate', stops: [a, 1.5] }).ok).toBe(false);
+  });
+  it('オーダーの添え字は整数だけ。小数・NaN・文字列は拒否(順序がずれない)', () => {
+    const { sim, a, R } = setup();
+    const n = sim.transit.routes.get(R)!.orders.length;
+    for (const idx of [0.5, NaN, null, 'x', -1.5]) {
+      expect(execute(sim, 1, { t: 'tx', m: 'insertOrder', a: [R, idx as number, a] }).ok).toBe(false);
+      expect(execute(sim, 1, { t: 'tx', m: 'removeOrder', a: [R, idx as number] }).ok).toBe(false);
+    }
+    expect(sim.transit.routes.get(R)!.orders).toHaveLength(n);
+    expect(execute(sim, 1, { t: 'tx', m: 'insertOrder', a: [R, 1, a] }).ok).toBe(true);
+    expect(execute(sim, 1, { t: 'orderSet', routeId: R, index: 0.5, patch: { dwell: 50 } }).ok).toBe(false);
+  });
+  it('路線の周期・発車時刻は範囲内に収まり、名前は文字列だけ受け付ける', () => {
+    const { sim, R } = setup();
+    const r = sim.transit.routes.get(R)!;
+    const name0 = r.name;
+    for (const period of [1e300, 1e-300, 0.0001]) {
+      execute(sim, 1, { t: 'routeSet', routeId: R, patch: { period } });
+      expect(r.period).toBeGreaterThanOrEqual(18000 / 96);
+      expect(r.period).toBeLessThanOrEqual(18000 * 7);
+    }
+    execute(sim, 1, { t: 'routeSet', routeId: R, patch: { name: { a: 1 } as unknown as string } });
+    expect(r.name).toBe(name0); // [object Object] にならない
+    execute(sim, 1, { t: 'orderSet', routeId: R, index: 0, patch: { departTod: 1e300 } });
+    expect(r.orders[0].departTod).toBeLessThan(18000);
+  });
+  it('未知のコマンドは「不正な操作」で、例外にならない', () => {
+    const { sim } = setup();
+    expect(execute(sim, 1, { t: 'zzz' } as unknown as Cmd)).toEqual({ ok: false, msg: '不正な操作です' });
+  });
+});
+
+describe('他社の停留所の使用許可', () => {
+  const setup = () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 90, y: 100 }, b: { x: 120, y: 100 } });
+    execute(sim, 2, { t: 'build', tool: 'road', a: { x: 90, y: 104 }, b: { x: 120, y: 104 } });
+    const a = execute(sim, 1, { t: 'ensureStop', x: 95, y: 100, kind: 'road' }).id!;
+    const b = execute(sim, 1, { t: 'ensureStop', x: 115, y: 100, kind: 'road' }).id!;
+    const mine2 = execute(sim, 2, { t: 'ensureStop', x: 95, y: 104, kind: 'road' }).id!;
+    return { sim, a, b, mine2 };
+  };
+  it('許可がなければ他社の停留所は、路線・オーダー・停留所の再設置に使えない', () => {
+    const { sim, a, b, mine2 } = setup();
+    expect(execute(sim, 2, { t: 'routeCreate', stops: [a, b] }).ok).toBe(false);
+    expect(execute(sim, 2, { t: 'routeCreate', stops: [mine2, a] }).ok).toBe(false);
+    expect(execute(sim, 2, { t: 'ensureStop', x: 95, y: 100, kind: 'road' }).ok).toBe(false);
+    const rt = execute(sim, 2, { t: 'routeCreate', stops: [mine2, execute(sim, 2, { t: 'ensureStop', x: 115, y: 104, kind: 'road' }).id!] });
+    expect(execute(sim, 2, { t: 'tx', m: 'insertOrder', a: [rt.id!, 1, a] }).ok).toBe(false);
+  });
+  it('駅ごとの許可: その駅だけ使える。取り消すと再び使えない。持ち主以外は許可を出せない', () => {
+    const { sim, a, b } = setup();
+    expect(execute(sim, 2, { t: 'stopAllow', stopId: a, who: 2, allow: true }).ok).toBe(false);
+    expect(execute(sim, 1, { t: 'stopAllow', stopId: a, who: 1, allow: true }).ok).toBe(false); // 自社には不要
+    expect(execute(sim, 1, { t: 'stopAllow', stopId: a, who: 99, allow: true }).ok).toBe(false);
+    expect(execute(sim, 1, { t: 'stopAllow', stopId: a, who: 2, allow: true }).ok).toBe(true);
+    const own = execute(sim, 2, { t: 'ensureStop', x: 115, y: 104, kind: 'road' }).id!;
+    expect(execute(sim, 2, { t: 'routeCreate', stops: [a, own] }).ok).toBe(true);
+    expect(execute(sim, 2, { t: 'routeCreate', stops: [b, own] }).ok).toBe(false); // 別の駅は許可されていない
+    expect(execute(sim, 1, { t: 'stopAllow', stopId: a, who: 2, allow: false }).ok).toBe(true);
+    expect(execute(sim, 2, { t: 'routeCreate', stops: [a, own] }).ok).toBe(false);
+  });
+  it('会社単位の許可: 自社の全駅が使える。取り消せる。許可はセーブに残る', () => {
+    const { sim, a, b } = setup();
+    expect(execute(sim, 1, { t: 'companyAllow', who: 2, allow: true }).ok).toBe(true);
+    expect(execute(sim, 2, { t: 'routeCreate', stops: [a, b] }).ok).toBe(true);
+    const saved = sim.transit.save();
+    expect(saved.grants).toEqual([[1, [2]]]);
+    expect(execute(sim, 1, { t: 'companyAllow', who: 2, allow: false }).ok).toBe(true);
+    expect(execute(sim, 2, { t: 'routeCreate', stops: [a, b] }).ok).toBe(false);
   });
 });

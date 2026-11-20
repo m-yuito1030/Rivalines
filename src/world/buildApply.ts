@@ -1,7 +1,7 @@
 import type { GameMap } from './gameMap';
 import { bulldoze, canConnect, connect, lineTiles, makeTwoWay } from './roads';
 import { autoRailPath, canConnectRail, connectRail, railLineTiles } from './rails';
-import { CONN } from './directions';
+import { CONN, DX8, DY8 } from './directions';
 import { PRICES, yen } from '../sim/economy';
 import { buildSpan, planSpan } from './spans';
 import { MAX_TERRAFORM_AREA, lower, raise, setLevel } from './terraform';
@@ -18,6 +18,8 @@ export interface BuildIO {
   msg: (m: string) => void;
   /** マルチプレイ: 敷設したタイルの所有者(会社)。撤去は自社(または無所有)のタイルだけ */
   owner?: number;
+  /** 線路・道路を変更したタイルを知らせる(経路の探し直しの対象を絞るため) */
+  touched?: (x: number, y: number) => void;
 }
 
 /** 矩形ドラッグ範囲(上限あり) */
@@ -57,7 +59,10 @@ export function applyBuild(map: GameMap, tool: DragTool, a: Tile, b: Tile, io: B
     const plan = buildSpan(map, a.x, a.y, b.x, b.y, mode);
     if (plan.ok) {
       io.pay(cost);
-      for (const k of plan.tiles) claim(map, k % map.size, Math.floor(k / map.size), io.owner);
+      for (const k of plan.tiles) {
+        claim(map, k % map.size, Math.floor(k / map.size), io.owner);
+        io.touched?.(k % map.size, Math.floor(k / map.size));
+      }
     }
     io.msg(plan.ok ? `${plan.kind === 'bridge' ? '橋を架けました' : 'トンネルを掘りました'}(${yen(cost)})` : `架設できません: ${plan.reason}`);
     return;
@@ -68,13 +73,14 @@ export function applyBuild(map: GameMap, tool: DragTool, a: Tile, b: Tile, io: B
     const path = autoRailPath(map, a, b);
     if (!path) return void io.msg('自動で敷設できる経路が見つかりません(水域・建物・高低差などで遮られています。橋・整地を使うか、途中に目印を置いてください)');
     tiles = path;
-  } else tiles = tool === 'rail' ? railLineTiles(a.x, a.y, b.x, b.y) : lineTiles(a.x, a.y, b.x, b.y);
+  } else tiles = tool === 'rail' || tool === 'bulldoze' ? railLineTiles(a.x, a.y, b.x, b.y) : lineTiles(a.x, a.y, b.x, b.y); // 撤去も斜めのドラッグは斜めの線に沿う
   if (tool === 'bulldoze') {
     for (const t of tiles) {
       const i = map.idx(t.x, t.y);
       const own = map.infraOwner.get(i);
       if (io.owner && own && own !== io.owner) continue; // 他社の施設は撤去できない
       bulldoze(map, t.x, t.y);
+      io.touched?.(t.x, t.y);
       if (map.road.get(i) === 0 && map.rail.get(i) === 0) map.infraOwner.set(i, 0);
     }
     return;
@@ -84,6 +90,7 @@ export function applyBuild(map: GameMap, tool: DragTool, a: Tile, b: Tile, io: B
     const t = tiles[i];
     if (tool === 'twoway') {
       makeTwoWay(map, t.x, t.y, t.d);
+      io.touched?.(t.x, t.y);
       continue;
     }
     // 新しく敷く辺だけ費用がかかる(既存の辺の上書きは無料)
@@ -98,13 +105,13 @@ export function applyBuild(map: GameMap, tool: DragTool, a: Tile, b: Tile, io: B
     }
     if (isRail) connectRail(map, t.x, t.y, t.d, true);
     else connect(map, t.x, t.y, t.d, tool === 'oneway', true);
+    io.touched?.(t.x, t.y);
+    io.touched?.(t.x + DX8[t.d], t.y + DY8[t.d]);
     if (isNew) {
       io.pay(price);
       spent += price;
       claim(map, t.x, t.y, io.owner);
-      const nx = t.x + (t.d === 1 ? 1 : t.d === 3 ? -1 : 0);
-      const ny = t.y + (t.d === 2 ? 1 : t.d === 0 ? -1 : 0);
-      if (t.d < 4) claim(map, nx, ny, io.owner);
+      claim(map, t.x + DX8[t.d], t.y + DY8[t.d], io.owner); // 斜めの線の終端のタイルも自社のものにする
     }
   }
   if (spent > 0) io.msg(`建設費 ${yen(spent)}`);
