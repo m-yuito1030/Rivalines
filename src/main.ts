@@ -778,7 +778,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       if (rankEl.textContent !== rtxt) rankEl.textContent = rtxt;
     }
     const cashEl = $('cash');
-    const cashText = `💴 ${yen(sim.company.cash)}${sim.company.loan > 0 ? ` (借入 ${yen(sim.company.loan)})` : ''}`;
+    const narrow = window.matchMedia('(max-width: 820px)').matches; // 狭い画面では借入を短く表示(長いとバッジが縦に積み上がって地図の上を塞ぐ)
+    const cashText = `💴 ${yen(sim.company.cash)}${sim.company.loan > 0 ? (narrow ? ` 借${Math.round(sim.company.loan / 10000).toLocaleString()}万` : ` (借入 ${yen(sim.company.loan)})`) : ''}`;
     if (cashEl.textContent !== cashText) {
       cashEl.textContent = cashText;
       cashEl.className = sim.company.cash < 0 ? 'neg' : '';
