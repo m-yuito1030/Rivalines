@@ -1,10 +1,13 @@
-import { Container, Graphics, Sprite, type Renderer, type Texture } from 'pixi.js';
+import { Container, Graphics, Rectangle, Sprite, Texture, type Renderer } from 'pixi.js';
 import { AIR_ALT, CAR_LEN, type Transit, WAIT_CAP } from '../sim/transit';
 import { modelOf } from '../data/models';
 import { LEVEL_PX } from '../world/constants';
 import type { GameMap } from '../world/gameMap';
 import { CONN, DX8, DY8 } from '../world/directions';
-import { designParts } from '../world/stations';
+import { designParts, stationTiles } from '../world/stations';
+import { FACILITY_TILE } from '../world/facilities';
+import { SPRITE_H, SPRITE_W, buildingSpriteRect } from './buildingSprites';
+import { hash2 } from './terrainDraw';
 import type { View } from './chunkRenderer';
 import { AIR_SCALE, BUS_SCALE, setVehicleSmoothing, trainFrame, vehicleFrame } from './vehicleSprites';
 import { type Facility, isSpriteFacility } from '../world/facilities';
@@ -40,6 +43,10 @@ export class TransitLayer {
   private gfx: Graphics = this.infra;
   private sprites: Sprite[] = [];
   private spritesUsed = 0;
+  /** 駅・車両基地より手前にある街の建物(駅の上に描き直して、重なりの前後を正しくする) */
+  private front = new Container();
+  private frontSprites: Sprite[] = [];
+  private frameTex = new Map<string, Texture>();
   private texCache = new Map<string, { tex: Texture; ax: number; ay: number }>();
   private infraView: View | null = null;
   private infraAt = 0;
@@ -57,7 +64,7 @@ export class TransitLayer {
     private renderer: Renderer | null = null,
   ) {
     this.veh.sortableChildren = true;
-    this.g.addChild(this.infra, this.shad, this.veh, this.air, this.routeG);
+    this.g.addChild(this.infra, this.shad, this.veh, this.front, this.air, this.routeG);
   }
 
   /**
@@ -370,6 +377,7 @@ export class TransitLayer {
       this.infra.clear();
       this.infraView = null;
       this.hideSprites(0);
+      this.hideFront(0);
       return;
     }
     // 静的な部分は、視点が描画済み範囲から出た・構造が変わった・選択が変わった・0.25秒経過のときだけ描き直す
@@ -386,6 +394,7 @@ export class TransitLayer {
       this.infra.clear();
       this.gfx = this.infra;
       this.drawInfra(wide, highlight);
+      this.drawFront(wide);
       this.infraView = wide;
       this.infraAt = now;
       this.infraVer = this.transit.version;
@@ -485,6 +494,77 @@ export class TransitLayer {
       }
     }
 
+  }
+
+  /**
+   * 駅・車両基地は街の建物とは別の層で描くため、そのままだと手前の建物にも常に上から被さる。
+   * 駅・基地の手前(x+y が大きい側)にある建物だけ、ここで駅の上に描き直す。
+   */
+  private drawFront(view: View): void {
+    const m = this.map;
+    const inView = (wx: number, wy: number) => wx > view.left - 160 && wx < view.right + 160 && wy > view.top - 320 && wy < view.bottom + 160;
+    const seen = new Set<number>();
+    let n = 0;
+    const R = 7; // 建物の高さぶん、手前〜周囲の何タイルまで調べるか
+    const put = (tx: number, ty: number) => {
+      const k = m.idx(tx, ty);
+      if (seen.has(k)) return;
+      const b = m.building.get(k);
+      if (!b || b === FACILITY_TILE) return;
+      const r = buildingSpriteRect(b, hash2(tx, ty, m.seed + 17));
+      if (!r) return;
+      seen.add(k);
+      const lvl = m.levelAt(tx, ty);
+      const px = (tx - ty) * 32;
+      const py = (tx + ty) * 16 - lvl * LEVEL_PX;
+      const cy = r.level === 3 ? py : py + 16;
+      const fk = `${r.img.src}|${r.sx}|${r.sy}`;
+      let tex = this.frameTex.get(fk);
+      if (!tex) {
+        tex = new Texture({ source: Texture.from(r.img).source, frame: new Rectangle(r.sx, r.sy, SPRITE_W, SPRITE_H) });
+        this.frameTex.set(fk, tex);
+      }
+      let sp = this.frontSprites[n];
+      if (!sp) {
+        sp = new Sprite();
+        this.front.addChild(sp);
+        this.frontSprites.push(sp);
+      }
+      n++;
+      sp.visible = true;
+      sp.texture = tex;
+      sp.position.set(Math.round(px - 64), Math.round(cy - 150));
+      sp.zIndex = tx + ty;
+    };
+    this.front.sortableChildren = true;
+    const scan = (tiles: [number, number][]) => {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const [x, y] of tiles) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+      if (!inView((x0 - y0) * 32, (x0 + y0) * 16)) return;
+      for (let ty = Math.max(0, y0 - 2); ty <= Math.min(m.size - 1, y1 + R); ty++) {
+        for (let tx = Math.max(0, x0 - 2); tx <= Math.min(m.size - 1, x1 + R); tx++) {
+          if (!m.building.get(m.idx(tx, ty))) continue;
+          // 最も近い駅のタイルより手前(x+y が大きい)にある建物だけ
+          let best = Infinity;
+          let bsum = 0;
+          for (const [x, y] of tiles) {
+            const d = Math.abs(tx - x) + Math.abs(ty - y);
+            if (d < best) { best = d; bsum = x + y; }
+          }
+          if (tx + ty > bsum) put(tx, ty);
+        }
+      }
+    };
+    for (const s of this.transit.stops.values()) {
+      if (s.waypoint || s.kind !== 'rail') continue;
+      scan(s.station ? stationTiles(s.station) : [[s.x, s.y]]);
+    }
+    for (const d of this.transit.depots.values()) scan([[d.x, d.y]]);
+    this.hideFront(n);
+  }
+
+  private hideFront(from: number): void {
+    for (let i = from; i < this.frontSprites.length; i++) this.frontSprites[i].visible = false;
   }
 
   private hideSprites(from: number): void {

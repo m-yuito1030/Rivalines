@@ -55,10 +55,11 @@ export const spritesReady = () => atlas !== null;
  * 建物スプライトを描く。(px,py) は建物のアンカータイル(L は 2x2 の最前面タイル)の上頂点。
  * @returns 描いたら true
  */
-export function drawBuildingSprite(ctx: CanvasRenderingContext2D, px: number, py: number, b: number, hv = 0): boolean {
-  if (!atlas) return false;
+/** 建物 b(個体差 hv)のスプライトの、アトラスの画像と切り出し位置。描かないタイル(付属)は null */
+export function buildingSpriteRect(b: number, hv = 0): { img: HTMLImageElement; sx: number; sy: number; level: number } | null {
+  if (!atlas) return null;
   const level = buildingLevel(b);
-  if (level < 1) return true; // 付属タイルは何も描かない
+  if (level < 1) return null;
   let img = atlas;
   let col = (isOffice(b) ? 3 : 0) + (level - 1);
   let row = buildingVariant(b);
@@ -72,11 +73,18 @@ export function drawBuildingSprite(ctx: CanvasRenderingContext2D, px: number, py
       row = Math.floor(i / 5);
     }
   }
+  return { img, sx: col * SPRITE_W, sy: row * SPRITE_H, level };
+}
+
+export function drawBuildingSprite(ctx: CanvasRenderingContext2D, px: number, py: number, b: number, hv = 0): boolean {
+  if (!atlas) return false;
+  const r = buildingSpriteRect(b, hv);
+  if (!r) return true; // 付属タイルは何も描かない
   // 足元の中心: 1x1 はタイル中心(py+16)、2x2 は4タイルの共有点(py)
-  const cy = level === 3 ? py : py + 16;
+  const cy = r.level === 3 ? py : py + 16;
   const scale = ctx.getTransform().a;
   ctx.imageSmoothingEnabled = scale < 1; // 拡大時はドットを保つ
-  ctx.drawImage(img, col * SPRITE_W, row * SPRITE_H, SPRITE_W, SPRITE_H, Math.round(px - CX), Math.round(cy - CY), SPRITE_W, SPRITE_H);
+  ctx.drawImage(r.img, r.sx, r.sy, SPRITE_W, SPRITE_H, Math.round(px - CX), Math.round(cy - CY), SPRITE_W, SPRITE_H);
   ctx.imageSmoothingEnabled = true;
   return true;
 }
