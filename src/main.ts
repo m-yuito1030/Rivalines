@@ -461,7 +461,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     for (const r of sim.rivals) if (!r.acquired) rows.push({ name: r.name, marketCap: r.value, price: r.value / 100000, netWorth: r.value * 0.8, profit: r.profit, passengers: r.passengers, isPlayer: false, subsidiary: false });
     return rows.sort((a, b) => b.marketCap - a.marketCap);
   };
-  const rankPanel = new RankingPanel($('rank-modal'), $('rankBody'), companyRows, map, transit);
+  const rankPanel = new RankingPanel($('rank-modal'), $('rankBody'), companyRows, map, transit, () => mirror.weekly, () => mirror.players);
   $('rankBtn').addEventListener('click', () => rankPanel.toggle());
   const diaPanel = new DiagramPanel($('dia-modal'), $('diaBody'), transit, () => sim.tick, (m) => tools.onMessage?.(m));
   $('diaBtn').addEventListener('click', () => diaPanel.toggle());

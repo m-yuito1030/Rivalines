@@ -6,6 +6,7 @@ import { type RatingState, newRating, stepRating } from './rating';
 import { migrateStep } from './migration';
 import { Company, FIRST_OWNER, RUNNING_RATE, TOLL, type CompanyState, vehiclePrice } from './economy';
 import { Pacts, type PactState } from './pacts';
+import { Weekly, type WeeklyState, playerMetrics } from './weekly';
 import { AUCTION_TYPES, Auctions, OPEN_EVERY_DAYS, type AuctionState } from './auctions';
 import { hash01 } from './events';
 import { FACILITY_SPECS } from '../world/facilities';
@@ -27,6 +28,7 @@ export interface SimState {
   /** マルチプレイ: 提携(乗り入れ契約)・入札と独占権 */
   pacts?: PactState;
   auctions?: AuctionState;
+  weekly?: WeeklyState;
   /** マルチプレイ: 会社ごとの経営 */
   players?: [number, CompanyState][];
   transit: TransitSave;
@@ -65,6 +67,8 @@ export class Simulation {
   readonly pacts = new Pacts();
   /** マルチプレイ: 入札(競り)と独占権 */
   readonly auctions = new Auctions();
+  /** マルチプレイ: 週間ランキング */
+  readonly weekly = new Weekly();
   multi = false;
   /** 運行が始まった地域へ移住した人数(累計) */
   migrated = 0;
@@ -135,6 +139,7 @@ export class Simulation {
       for (const [id, c] of restore.players ?? []) this.players.set(id, Company.from(c));
       if (restore.pacts) this.pacts.load(restore.pacts);
       if (restore.auctions) this.auctions.load(restore.auctions);
+      if (restore.weekly) this.weekly.load(restore.weekly);
       this.rivals = restore.rivals ?? createRivals(this.rivalRng, this.multi ? 20 : 4);
       if (restore.rivalRng !== undefined) this.rivalRng.setState(restore.rivalRng);
       if (restore.pubRng !== undefined) this.pubRng.setState(restore.pubRng);
@@ -172,7 +177,7 @@ export class Simulation {
 
   /** セーブ用に状態を取り出す */
   state(): SimState {
-    return { tick: this.tick, speed: this.speed, rng: this.rng.getState(), pacts: this.pacts.toJSON(), auctions: this.auctions.toJSON(), players: [...this.players].map(([id, c]) => [id, c.toJSON()] as [number, CompanyState]), towns: this.map.towns, townRegions: [...this.map.townRegions], transit: this.transit.save(), rating: this.rating, migrated: this.migrated, facilities: this.map.facilities, company: this.company.toJSON(), rivals: this.rivals, rivalRng: this.rivalRng.getState(), pubRng: this.pubRng.getState() };
+    return { tick: this.tick, speed: this.speed, rng: this.rng.getState(), pacts: this.pacts.toJSON(), auctions: this.auctions.toJSON(), weekly: this.weekly.toJSON(), players: [...this.players].map(([id, c]) => [id, c.toJSON()] as [number, CompanyState]), towns: this.map.towns, townRegions: [...this.map.townRegions], transit: this.transit.save(), rating: this.rating, migrated: this.migrated, facilities: this.map.facilities, company: this.company.toJSON(), rivals: this.rivals, rivalRng: this.rivalRng.getState(), pubRng: this.pubRng.getState() };
   }
 
   /** 直近のフレームで進めたtick数と所要時間(HUD用) */
@@ -229,7 +234,10 @@ export class Simulation {
           c.endOfDay(ended, this.map, this.transit, this.rating.score, this.rivals, id);
         }
       } else this.company.endOfDay(ended, this.map, this.transit, this.rating.score, this.rivals);
-      if (this.multi) this.auctionDay(ended);
+      if (this.multi) {
+        this.auctionDay(ended);
+        this.weekly.onDay(ended, [...this.players.keys()], (id) => playerMetrics(this, id));
+      }
       stepRivals(this.rivals, this.rivalRng);
       // 事業年度をまたぐ日(3月31日→4月1日)は決算
       const a = calendarOf(ended);
