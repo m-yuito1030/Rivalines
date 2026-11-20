@@ -13,7 +13,7 @@ npm test
 操作: 右/中ドラッグ・WASD で移動、ホイール/Q・E でズーム、Shift で高速、ミニマップクリックでジャンプ。
 建設(左ドラッグで直線): R=道路 / O=一方通行(ドラッグ方向に通行) / T=双方向化 / X=撤去 / B=停留所 / V・Esc=移動。路線は右パネルの「＋ 路線作成」から停留所を順にクリックして Enter で確定し、「＋バス」で車両を追加。Space で一時停止。
 
-街の成長間隔は `src/world/towns.ts` の `GROWTH_BASE_TICKS` で調整(1tick = 実0.1秒 @x1)。
+街の成長間隔は `src/shared/world/towns.ts` の `GROWTH_BASE_TICKS` で調整(1tick = 実0.1秒 @x1)。
 
 ## サーバで一発起動(Ubuntu)
 ```bash
@@ -101,7 +101,7 @@ server { listen 8080; root /path/to/Simulator/dist; location / { try_files $uri 
 - 資金・コストなし(サンドボックス)
 
 ## 車両スプライト
-バス/航空機/鉄道は PNG アトラス描画。サイズは src/render/vehicleSprites.ts の BUS_SCALE / AIR_SCALE で調整。
+バス/航空機/鉄道は PNG アトラス描画。サイズは src/client/render/vehicleSprites.ts の BUS_SCALE / AIR_SCALE で調整。
 
 ## マルチプレイ版
 このフォルダ(simulator-multi)はサーバー権威型のマルチプレイ版です。詳細は docs/MULTIPLAYER.md。

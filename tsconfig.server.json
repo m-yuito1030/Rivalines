@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": { "types": ["node"], "noEmit": true },
-  "include": ["server", "src/sim", "src/world", "src/save", "src/data"]
+  "include": ["server", "src/shared"]
 }

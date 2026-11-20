@@ -1,13 +1,13 @@
-import type { Cmd } from '../src/multi/protocol';
+import type { Cmd } from '../src/shared/protocol';
 import { describe, expect, it } from 'vitest';
-import { GameMap } from '../src/world/gameMap';
-import { Simulation } from '../src/sim/simulation';
-import { SEA_LEVEL } from '../src/world/constants';
-import { TOLL, TRAINING, trainingCost } from '../src/sim/economy';
-import { DEV, devCost, devIncome } from '../src/sim/development';
+import { GameMap } from '../src/shared/world/gameMap';
+import { Simulation } from '../src/shared/sim/simulation';
+import { SEA_LEVEL } from '../src/shared/world/constants';
+import { TOLL, TRAINING, trainingCost } from '../src/shared/sim/economy/economy';
+import { DEV, devCost, devIncome } from '../src/shared/sim/economy/development';
 import { execute } from './commands';
 import { Replicator } from './replicate';
-import { canConnectRail } from '../src/world/rails';
+import { canConnectRail } from '../src/shared/world/rails';
 import { Accounts } from './accounts';
 
 const flatMap = (size = 128) => new GameMap(size, 1, new Uint8Array(size * size).fill(SEA_LEVEL + 20));
@@ -541,8 +541,8 @@ describe('JGRPP風の線路・信号・車両操作', () => {
 
 describe('巨大マップの経路キャッシュ', () => {
   it('終点が1タイル違うだけの経路は別々に計算される(index が大きい場所でキーが衝突しない)', async () => {
-    const { makeWorldMap } = await import('../src/world/bigTerrain');
-    const { Simulation: Sim } = await import('../src/sim/simulation');
+    const { makeWorldMap } = await import('../src/shared/world/bigTerrain');
+    const { Simulation: Sim } = await import('../src/shared/sim/simulation');
     const map = makeWorldMap(65535, 3);
     const sim = new Sim(map, undefined, { multi: true });
     const x = 65535 - 80;

@@ -51,7 +51,7 @@ npm run typecheck
 - **道路ビット**: 下位4bit=接続、上位4bit=その方向へ出られる(一方通行は片側の出口ビットだけ)。線路は接続ビットのみ(下位4bit=N,E,S,W、上位4bit=NE,SE,SW,NW の斜め。斜めは `DX8/DY8`、画面上は横・縦に見える)。
 - **描画**: 1チャンク=16×16セルをCanvas2Dでテクスチャ化(解像度0.5/1/2倍をズームで切替)。地表の装飾(草・木・窓など)は座標とシードのハッシュで決まる決定論的な描画で、ゲーム状態には影響しない。昼夜は乗算オーバーレイ(窓の点灯は未対応)。ズームでLOD(1/4/16タイル/セル)切替、新LODが揃うまで旧を残す。変更タイルは `markDirty` で該当チャンクだけ再生成。
 - **橋・トンネル**: `map.span`(bit4=橋/bit5=トンネル、下位4bit=路面の段数)が中間タイルを示し、道路/線路ビットは通常どおり立てる(経路探索・車両は無改修)。`world/spans.ts`。路面の高さは `map.surfaceLevel/smoothLevel`(スロープは中心→辺で1段上る)。川は `terrain.ts` の `carveRivers`(TERRAIN_VERSION=2)。
-- **建物**: `map.building` は `world/buildings.ts` の形式(段階S/M/L=1〜3、種類0〜24、オフィスbit)。Lは2x2を占有し、最前面タイルがアンカー、残り3タイルは付属タイル(0x40|オフセット)。描画は `render/buildingSprites.ts` のアトラス(`src/assets/buildings.png`、128x192/セル)。スプライト未読込のときは従来の手続き描画。
+- **建物**: `map.building` は `world/buildings.ts` の形式(段階S/M/L=1〜3、種類0〜24、オフィスbit)。Lは2x2を占有し、最前面タイルがアンカー、残り3タイルは付属タイル(0x40|オフセット)。描画は `render/buildingSprites.ts` のアトラス(`src/client/assets/buildings.png`、128x192/セル)。スプライト未読込のときは従来の手続き描画。
 - **信号・閉塞**: `Transit.signals`(タイル→方向ビット、一方向のみ)。編成は `v.resTo`(経路のうち予約済みの最後の添字)まで予約し、`nextReserveEnd`/`extendReservation` で信号ごとに前方の閉塞を確保(信号なしなら終点まで)。待ち中は `v.stuck` が増える。単線に両方向の信号を置く用途はデッドロックするため非対応。
 - **分割・併合**: `v.cars`(実際の両数)/`v.hold`(待機)。`splitTrain`/`coupleTrains`/`departHeld`。併合は両端のタイルが線路でつながっている停車中の2編成のみ。UIは駅の情報パネル(`ui/infoPanel.ts`)。
 - **駅・経由点**: `Stop.station`(`world/stations.ts`: 軸・長さ・番線数・デザイン・左上)と `Stop.waypoint`。駅は全タイルが `stopAt` に登録され、停車位置は番線ごとの両端(`docks`)から進行方向の奥側を選ぶ(`railCandidates`)。空いている番線を順に試す。経由点は路線のオーダーに入るが乗客・経路表(Router)からは除外され、`depart` が経由点のタイルを順に通る経路を作る。駅のデザインは0〜99(屋根5種×配色5種×駅舎4種、`world/stations.ts` の `designParts`/`designName`)。描画は `transitLayer.drawStation/drawWaypoint`。
@@ -65,10 +65,10 @@ npm run typecheck
 - **経営**: `sim/economy.ts`(`Company`: 現金・借入・今日/累計の分類別台帳・30日履歴、`PRICES`/`FARE`/`vehiclePrice`)。`Transit.onFare/onVisit` フック → `Simulation` が `company.fare/visits` に接続。1日の締め(`endOfDay`)で運行費・維持費・利払い。建設費は `ToolController`(`afford/pay`)と `main.ts` の各ハンドラで支払い、車両代は `InfoPanel`/`RoutePanel`。施設は `owner`(player/city)で売上の帰属が決まり、`facilityValue` が買収・売却額。民間施設は `sim/cityBusiness.ts`。経営画面は `ui/financePanel.ts`。
 - **格付け・株価・競合・ランキング**: `Company.updateCreditAndStock`(毎日。`credit` 点→`gradeOf`、`stock`/`stockHistory`)。競合は `sim/rivals.ts`(`Simulation.rivals`、街とは別の乱数 `rivalRng`)。`acquireRival/divestRival`。民間施設は `Facility.ownerId`=競合ID。路線の `income/profit`(日次EMA)は `Simulation` の日締めで更新。ランキングは `sim/ranking.ts` と `ui/rankingPanel.ts`。画面右上のステータスは `#status`。
 - **暦・決算**: `sim/calendar.ts`(2026/4/1 開始、`calendarOf/fiscalPeriodOf/quarterOf`、期首4月)。日の締めは暦の 0:00(開始から3/4日後が最初)。`Simulation` が期の最終日に `Company.closeFiscalYear`(インフラ償却10%・繰越欠損金・法人税30%・配当・`FiscalReport`)を呼び `onFiscalClose` を通知。建設費は `infra` として資産計上(`netWorth` に含む)。
-- **オフィスの追加100種**: `src/assets/offices2.png`(`tools/office2-sprites/gen2.py` で生成した300枚を15列×20行に並べ、256色化)。`render/buildingSprites.ts` が旧25種+新100種の計125種から、タイルの個体差 `hv`(位置のハッシュ)で選ぶ。アトラスの作り方: sprites/office2_NNN_{S,M,L}.png を (i%5*3+S/M/L, i//5) のセルに貼り、`quantize(255, FASTOCTREE)` で保存。
+- **オフィスの追加100種**: `src/client/assets/offices2.png`(`tools/office2-sprites/gen2.py` で生成した300枚を15列×20行に並べ、256色化)。`render/buildingSprites.ts` が旧25種+新100種の計125種から、タイルの個体差 `hv`(位置のハッシュ)で選ぶ。アトラスの作り方: sprites/office2_NNN_{S,M,L}.png を (i%5*3+S/M/L, i//5) のセルに貼り、`quantize(255, FASTOCTREE)` で保存。
 - **公共施設**: `Facility.owner==='public'`(`type` は school/cityhall、`size` S/M/L、`design`、`townId`)。`sim/publicFacilities.ts` の `placePublicFacilities` が街ごとに市役所1つ・学校(人口に応じ、`SCHOOL_MIN_DISTANCE`=15 タイル)を自動配置(乱数は別系列 `pubRng`)。需要は `FacilitySpec.windows/base`(学校=8時台・17時台)と `hours:[0,24]`(市役所=一定)。描画は `render/buildingSprites.ts` の `drawFacilitySprite`(アトラス `school.png`/`cityhall.png`)をチャンク側で、敷地の手前タイル(`facilityAnchor`)に描く。撤去は `removeBuilding` が拒否。
-- **百貨店・モールのスプライト**: `src/assets/department.png` / `mall.png`(各20種、15列×4行)。`Facility.design` が決まっているものだけスプライトで描く(`isSpriteFacility`)。designの無い古いセーブの施設(4×3)は手続き描画のまま。サイズは `spriteDims`(S/M=1x1、L=2x2)、需要は `facilityAttract`(S=0.5 M=0.75 L=1)。
-- **バス・航空機スプライト**: `src/assets/bus.png`(250種、1行に5デザイン)/`aircraft.png`(100種、1行に3デザイン)。`render/vehicleSprites.ts` が (種類,デザイン,方向) → Texture を返し、`transitLayer.drawBus/drawPlane` が `putTex` で置く(方向は `dirIndex` で 0=+u から45度刻み)。`VehicleModel.sprite` が車種ごとのデザイン番号(`data/models.ts` の BUS_POOLS/AIR_POOLS で割り当て)。読み込めないときは従来の手続き描画に戻る。航空機の影は `shad`(車両より下)、機体は常に他の乗り物の手前。
+- **百貨店・モールのスプライト**: `src/client/assets/department.png` / `mall.png`(各20種、15列×4行)。`Facility.design` が決まっているものだけスプライトで描く(`isSpriteFacility`)。designの無い古いセーブの施設(4×3)は手続き描画のまま。サイズは `spriteDims`(S/M=1x1、L=2x2)、需要は `facilityAttract`(S=0.5 M=0.75 L=1)。
+- **バス・航空機スプライト**: `src/client/assets/bus.png`(250種、1行に5デザイン)/`aircraft.png`(100種、1行に3デザイン)。`render/vehicleSprites.ts` が (種類,デザイン,方向) → Texture を返し、`transitLayer.drawBus/drawPlane` が `putTex` で置く(方向は `dirIndex` で 0=+u から45度刻み)。`VehicleModel.sprite` が車種ごとのデザイン番号(`data/models.ts` の BUS_POOLS/AIR_POOLS で割り当て)。読み込めないときは従来の手続き描画に戻る。航空機の影は `shad`(車両より下)、機体は常に他の乗り物の手前。
 - **セーブ**: 地形はシードから再生成し保存しない(4096でも約0.1MB)。整地は差分(edits)だけ保存。地形生成を変えたら `TERRAIN_VERSION` を上げる(古いセーブは拒否)。セーブ形式は version 3(span層を追加)。
 - **決定論**: シミュレーションは `Rng`(mulberry32, 状態保存可)のみ使用。同じ入力なら同じ結果(テストあり)。
 - **車両**: 道路は(タイル,向き)の車線を1台ずつ占有(渋滞)。鉄道は経路全体を予約する簡易閉塞(単線の正面衝突を防ぐ)、終端で編成を折り返す。航空は直線飛行。
@@ -118,7 +118,7 @@ npm run typecheck
 
 ## 車両スプライト (bus / aircraft / train)
 - 生成: `tools/vehicle-sprites/` (bus.py, aircraft.py, train.py, build_train_atlas.py)。train は 190 デザインを種別(kind)ごとに割当、先頭/最後尾=head、中間=middle、最後尾は逆向きに反転。
-- サイズ調整: `src/render/vehicleSprites.ts` の `BUS_SCALE`(0.55) / `AIR_SCALE`(0.6)、鉄道は `trainDesigns.json` の design ごとの `sc`（1両≒CAR_LEN）。
+- サイズ調整: `src/client/render/vehicleSprites.ts` の `BUS_SCALE`(0.55) / `AIR_SCALE`(0.6)、鉄道は `trainDesigns.json` の design ごとの `sc`（1両≒CAR_LEN）。
 - テスト 98 件。
 
 ## 巨大マップ (最大 65535×65535) — マルチプレイ構想の第1段階

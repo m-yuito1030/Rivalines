@@ -1,11 +1,11 @@
 import type { WebSocket } from 'ws';
-import type { Simulation } from '../src/sim/simulation';
-import type { MyVeh, PlayerInfo, ServerMsg, TileRec, VehMsg } from '../src/multi/protocol';
-import type { Vehicle } from '../src/sim/transit';
-import { CHUNK, CHUNK_SHIFT } from '../src/world/tileLayer';
-import { assetValue } from '../src/sim/economy';
+import type { Simulation } from '../src/shared/sim/simulation';
+import type { MyVeh, PlayerInfo, ServerMsg, TileRec, VehMsg } from '../src/shared/protocol';
+import type { Vehicle } from '../src/shared/sim/network/transit';
+import { CHUNK, CHUNK_SHIFT } from '../src/shared/world/tileLayer';
+import { assetValue } from '../src/shared/sim/economy/economy';
 import type { Accounts } from './accounts';
-import { profitTotalOf } from '../src/sim/weekly';
+import { profitTotalOf } from '../src/shared/sim/economy/weekly';
 
 /** 1クライアントが見ている範囲(タイル)の最大一辺。これを超える分は切り詰める */
 const MAX_VIEW = 512;

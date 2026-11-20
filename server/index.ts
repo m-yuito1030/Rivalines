@@ -1,14 +1,14 @@
 import { createServer, type IncomingMessage } from 'node:http';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { WebSocketServer } from 'ws';
-import { Simulation } from '../src/sim/simulation';
-import { calendarOf } from '../src/sim/calendar';
-import { makeWorldMap } from '../src/world/bigTerrain';
-import { applyLayers, decodeSave, encodeSave } from '../src/save/serialize';
+import { Simulation } from '../src/shared/sim/simulation';
+import { calendarOf } from '../src/shared/sim/world/calendar';
+import { makeWorldMap } from '../src/shared/world/bigTerrain';
+import { applyLayers, decodeSave, encodeSave } from '../src/shared/save/serialize';
 import { Accounts } from './accounts';
 import { execute } from './commands';
 import { Replicator, type Client } from './replicate';
-import type { ClientMsg } from '../src/multi/protocol';
+import type { ClientMsg } from '../src/shared/protocol';
 
 const PORT = Number(process.env.PORT ?? 8091);
 const DATA = process.env.DATA_DIR ?? './data';
