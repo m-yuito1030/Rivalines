@@ -398,6 +398,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   // ツールバー
   // ツールバーのドロップダウン: メニューは overflow/backdrop の影響を避けるため body 直下へ移す
   const menus: { btn: HTMLButtonElement; menu: HTMLElement }[] = [];
+  let pickedMenu: HTMLElement | null = null;
   const closeMenus = () => menus.forEach((m) => m.menu.classList.remove('open'));
   document.querySelectorAll<HTMLElement>('.dd').forEach((dd) => {
     const btn = dd.querySelector<HTMLButtonElement>('.ddbtn')!;
@@ -420,13 +421,18 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       }
       menu.classList.add('open');
     });
-    menu.addEventListener('click', () => closeMenus());
+    menu.addEventListener('click', () => {
+      pickedMenu = menu; // 同じ道具(車両基地など)が複数のメニューにあるとき、選んだ側だけを強調する
+      closeMenus();
+    });
   });
   document.addEventListener('click', closeMenus);
   const syncMenus = (t: Tool) => {
+    const has = menus.filter((m) => m.menu.querySelector(`[data-tool="${t}"]`));
+    const target = has.find((m) => m.menu === pickedMenu) ?? has[0]; // 含むメニューのうち、選んだ側(なければ最初)だけ
     for (const { btn, menu } of menus) {
       if (btn.dataset.fixed) continue;
-      const item = menu.querySelector<HTMLButtonElement>(`[data-tool="${t}"]`);
+      const item = menu === target?.menu ? menu.querySelector<HTMLButtonElement>(`[data-tool="${t}"]`) : null;
       btn.classList.toggle('on', !!item);
       btn.textContent = `${(item ? item.textContent!.replace(/\s*\(.\)$/, '') : btn.dataset.def) ?? ''} ▾`;
     }
@@ -438,7 +444,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     $('signalOpts').hidden = t !== 'signalline';
     $('bulldozeOpts').hidden = t !== 'bulldoze';
     syncMenus(t);
-    document.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === t));
+    const targetMenu = menus.filter((m) => m.menu.querySelector(`[data-tool="${t}"]`)).find((m) => m.menu === pickedMenu)?.menu ?? menus.find((m) => m.menu.querySelector(`[data-tool="${t}"]`))?.menu;
+    document.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) => b.classList.toggle('on', b.dataset.tool === t && (!b.closest('.ddmenu') || b.closest('.ddmenu') === targetMenu)));
     if (t !== 'route' && (panel.building || panel.inserting)) panel.cancelBuild();
   };
   setToolRef = setTool;
