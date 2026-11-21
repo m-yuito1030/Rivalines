@@ -11,7 +11,7 @@ import { ensureStop, place } from './place';
 import { orderSet, orderShift, routeBulk, routeClone, routeCreate, routeRank, routeReplace, routeSet, tx } from './route';
 import { buyVehicle, rename, vehOffset, vehPlan } from './fleet';
 import { companyAllow, stopAllow } from './access';
-import { ad, bid, develop, pact } from './business';
+import { ad, bid, develop, facPrice, pact } from './business';
 import { fin, gift } from './finance';
 
 type Handlers = { [K in Cmd['t']]: (cmd: Extract<Cmd, { t: K }>, ctx: CommandContext) => CmdResult };
@@ -38,6 +38,7 @@ const handlers: Handlers = {
   stopAllow,
   companyAllow,
   ad,
+  facPrice,
   bid,
   pact,
   develop,

@@ -927,3 +927,21 @@ describe('他社の停留所の使用許可', () => {
     expect(execute(sim, 2, { t: 'routeCreate', stops: [a, b] }).ok).toBe(false);
   });
 });
+
+describe('施設の料金(コマンド)', () => {
+  it('自社の売上のある施設だけ設定でき、段階は整数の0〜4。他社・公園・範囲外は拒否', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    execute(sim, 1, { t: 'place', tool: 'hotel', x: 60, y: 60, fac: { design: 0, size: 'S' } });
+    execute(sim, 1, { t: 'place', tool: 'park', x: 80, y: 60, fac: { design: 0, size: 'S' } });
+    const hotel = sim.map.facilities.find((f) => f.type === 'hotel')!;
+    const park = sim.map.facilities.find((f) => f.type === 'park')!;
+    expect(execute(sim, 1, { t: 'facPrice', facilityId: hotel.id, level: 4 }).ok).toBe(true);
+    expect(hotel.price).toBe(4);
+    expect(execute(sim, 2, { t: 'facPrice', facilityId: hotel.id, level: 0 }).ok).toBe(false); // 他社
+    expect(hotel.price).toBe(4);
+    for (const level of [-1, 5, 1.5, NaN, null, '2']) expect(execute(sim, 1, { t: 'facPrice', facilityId: hotel.id, level: level as number }).ok).toBe(false);
+    expect(execute(sim, 1, { t: 'facPrice', facilityId: park.id, level: 1 }).ok).toBe(false); // 公園は売上がない
+    expect(execute(sim, 1, { t: 'facPrice', facilityId: 999, level: 1 }).ok).toBe(false);
+  });
+});

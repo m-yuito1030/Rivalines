@@ -1,4 +1,5 @@
 import { net } from '../connection/net';
+import { PRICE_LEVELS, bestLevel, demandMul, elasticity, priceLevel, revenueIndex } from '../../shared/sim/facility/pricing';
 import { TIERS, townTier } from '../../shared/world/town';
 import { AD_COOLDOWN_DAYS, AD_TYPES, type AdKind, VISITOR_TYPES, adActive, adAvailable, adCost } from '../../shared/sim/facility/facilityVisitors';
 import { DAY_TICKS, type Stop, type Transit, todOf } from '../../shared/sim/network/transit';
@@ -186,6 +187,7 @@ export class InfoPanel {
     const say = (p: Promise<{ ok: boolean; msg?: string }>, okMsg?: string) => void p.then((r) => this.onMessage(r.msg ?? (r.ok ? (okMsg ?? '') : '失敗しました')));
     const act = b.dataset.act;
     if (act === 'ad') say(net.cmd({ t: 'ad', facilityId: Number(b.dataset.id), kind: b.dataset.kind as AdKind }));
+    else if (act === 'price') say(net.cmd({ t: 'facPrice', facilityId: Number(b.dataset.id), level: Number(b.dataset.level) }));
     else if (act === 'buyfac' || act === 'sellfac') say(net.cmd({ t: 'fin', op: act === 'buyfac' ? 'acquire' : 'sell', id: Number(b.dataset.id) }));
     else if (act === 'buy' && this.sel?.kind === 'depot') {
       const d = this.transit.depots.get(this.sel.id);
@@ -421,6 +423,17 @@ export class InfoPanel {
           )
           .join(' ')}</div>`;
         if (why && !active) econ += `<div class="im muted">${esc(why)}</div>`;
+        if (perVisit > 0) {
+          // 料金: 上げると1人あたりの売上が増え、来場者は減る。条件ごとのいちばん儲かる段階を目安に出す
+          const k = f.elast ?? elasticity(f.type, 0, stopsNear.length > 0, active);
+          const cur = priceLevel(f);
+          const best = bestLevel(k);
+          econ += `<div class="im">料金: ${PRICE_LEVELS.map(
+            (l, i) =>
+              `<button data-act="price" data-id="${f.id}" data-level="${i}" class="${i === cur ? 'on' : ''}" title="客単価 ×${l.mul} ・ 来場者 ×${demandMul(l.mul, k).toFixed(2)} ・ 売上の目安 ${Math.round(revenueIndex(l.mul, k) * 100)}%">${l.label}${i === best ? '★' : ''}</button>`,
+          ).join(' ')}</div>`;
+          econ += `<div class="im muted">客単価 ×${PRICE_LEVELS[cur].mul}・来場者 ×${demandMul(PRICE_LEVELS[cur].mul, k).toFixed(2)}(標準を100%として売上の目安 ${Math.round(revenueIndex(PRICE_LEVELS[cur].mul, k) * 100)}%)。★は今の条件でいちばん儲かる見込みの料金です。近くに同じ種類の施設が増える・駅がなくなると、最適な料金は下がります。</div>`;
+        }
       }
       if (perVisit > 0 && (f.income ?? 0) < upkeep)
         econ += `<div class="im"><b>⚠ 来場が足りません。</b>近くの停留所(${stopsNear

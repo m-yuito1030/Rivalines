@@ -1,3 +1,4 @@
+import { demandMul, elasticity, priceMul } from '../facility/pricing';
 import { type VehicleModel, modelOf } from '../../data/models';
 import { FACILITY_SPECS, type Facility, facilityAttract, facilityBuildCost, facilityUpkeep, hourFactor } from '../../world/facilities';
 import type { GameMap } from '../../world/gameMap';
@@ -416,7 +417,8 @@ export class Company {
       if ((f.owner ?? 'player') !== 'player') return;
       const to = payee ? payee(f) : this;
       if (!to) return;
-      const amount = share * spec.conversion * spec.spend;
+      // 駅から来た客も、料金で買う人が増減する(値上げへの敏感さは、1日の締めに計算した値)
+      const amount = share * spec.conversion * spec.spend * priceMul(f) * demandMul(priceMul(f), f.elast ?? elasticity(f.type, 0, true));
       if (amount > 0) {
         to.earn('facility', amount);
         f.dayIncome = (f.dayIncome ?? 0) + amount;

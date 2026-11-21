@@ -233,6 +233,9 @@ export interface Facility {
   playerId?: number;
   /** 広告: 種類と、打った日(日の通し番号)。効く日数と次に打てるまでの日数は種類・定数で決まる */
   ad?: { kind: 'news' | 'sns' | 'tv'; from: number };
+  /** 料金の段階(0=格安〜4=高級。未設定は標準=2)と、値上げへの敏感さ(1日の締めに計算して、駅からの来場の売上にも使う) */
+  price?: number;
+  elast?: number;
   /** 来場者の累計(人) */
   visits?: number;
   /** 今日の売上(円)と、直近の1日あたりの売上(指数移動平均) */

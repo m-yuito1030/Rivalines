@@ -2,7 +2,8 @@ import type { Cmd, CmdResult } from '../../src/shared/protocol';
 import type { CommandContext } from './context';
 import { fail } from './util';
 import { DEV, devCost } from '../../src/shared/sim/economy/development';
-import { AD_TYPES, adAvailable, adCost } from '../../src/shared/sim/facility/facilityVisitors';
+import { PRICE_LEVELS } from '../../src/shared/sim/facility/pricing';
+import { AD_TYPES, VISITOR_TYPES, adAvailable, adCost } from '../../src/shared/sim/facility/facilityVisitors';
 import { FACILITY_SPECS } from '../../src/shared/world/facilities';
 import { yen } from '../economyApi';
 
@@ -23,6 +24,18 @@ export function ad(cmd: Extract<Cmd, { t: 'ad' }>, ctx: CommandContext): CmdResu
     ok: true,
     msg: `${FACILITY_SPECS[f.type].name}に${a.name}広告を出しました(${yen(cost)})。${a.days}日間、来場者が約${Math.round((a.mul - 1) * 100)}%増え、近くの他の施設は約${Math.round((1 - a.rival) * 100)}%減ります`,
   };
+}
+
+/** facPrice */
+export function facPrice(cmd: Extract<Cmd, { t: 'facPrice' }>, ctx: CommandContext): CmdResult {
+  const { map, who } = ctx;
+  const f = map.facilities.find((x) => x.id === cmd.facilityId);
+  if (!f || (f.owner ?? 'player') !== 'player' || f.playerId !== who) return fail('自社の施設ではありません');
+  if (!VISITOR_TYPES.includes(f.type) || FACILITY_SPECS[f.type].spend <= 0) return fail('この施設は料金を設定できません(売上がありません)');
+  if (!Number.isInteger(cmd.level) || cmd.level < 0 || cmd.level >= PRICE_LEVELS.length) return fail('料金の段階が正しくありません');
+  f.price = cmd.level;
+  map.facilityVer++;
+  return { ok: true, msg: `${f.name}の料金を「${PRICE_LEVELS[cmd.level].label}」にしました。来場者と売上は明日以降に反映されます` };
 }
 
 /** bid */

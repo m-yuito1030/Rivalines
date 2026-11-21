@@ -60,6 +60,8 @@ export type Cmd =
   | { t: 'companyAllow'; who: number; allow: boolean }
   /** 広告: 自社の施設に打つ(施設ごとに一定期間に1度) */
   | { t: 'ad'; facilityId: number; kind: 'news' | 'sns' | 'tv' }
+  /** 施設の料金の段階(0=格安〜4=高級) */
+  | { t: 'facPrice'; facilityId: number; level: number }
   /** 要素ごとの撤去: 矩形(ドラッグした範囲)の中の、選んだ種類の要素だけを撤去する */
   | { t: 'bulldoze'; a: Pt; b: Pt; kinds: BulldozeKinds }
   /** 沿線開発: 自社の停留所の開発度を1上げる */
