@@ -341,7 +341,7 @@ export const FACILITY_SPECS: Record<FacilityType, FacilitySpec> = {
  * スプライトで描く施設(学校・市役所・百貨店・ショッピングモール)。design が決まっているものだけ。
  * design が無い古いセーブの百貨店・モール(4×3)は従来の手続き描画のまま。
  */
-export const SPRITE_TYPES: FacilityType[] = ['school', 'cityhall', 'department', 'mall', 'sight', 'hotel', 'park', ...NEW_FACILITY_TYPES];
+export const SPRITE_TYPES: FacilityType[] = ['school', 'cityhall', 'department', 'mall', 'sight', 'hotel', 'park', ...NEW_FACILITY_TYPES, 'amusement', 'stadium'];
 
 export type FacilitySize = 'S' | 'M' | 'L';
 /** デザインを選べる施設(プレイヤーが好きなデザインと大きさで建てられる)と、デザインの数 */
@@ -351,10 +351,19 @@ export const DESIGN_COUNT: Partial<Record<FacilityType, number>> = {
   hotel: 30,
   park: 20,
   ...Object.fromEntries(NEW_FACILITY_TYPES.map((t) => [t, 16])),
+  amusement: 16,
+  stadium: 16,
 };
-export const CHOOSABLE: FacilityType[] = ['hotel', 'park', 'department', 'mall', ...NEW_FACILITY_TYPES];
+export const CHOOSABLE: FacilityType[] = ['hotel', 'park', 'department', 'mall', ...NEW_FACILITY_TYPES, 'amusement', 'stadium'];
 /** 大きさ S/M/L が 1x1 / 2x2 / 3x3 タイルの施設(ほかのスプライト施設は 1x1 / 1x1 / 2x2) */
 export const SIZED3: FacilityType[] = ['hotel', 'park', ...NEW_FACILITY_TYPES];
+/** 大きさごとにセルが違う(敷地が n×n タイル)スプライト施設。SIZED3 に加えて、敷地の大きい遊園地・スタジアム */
+export const SIZED_TYPES: FacilityType[] = [...SIZED3, 'amusement', 'stadium'];
+/** 大きさ S/M/L の一辺のタイル数(ここにない SIZED3 は 1/2/3)。大きな施設は、従来の大きさ(遊園地 5×5・スタジアム 4×4)が L */
+const SIDE_TILES: Partial<Record<FacilityType, Record<FacilitySize, number>>> = {
+  amusement: { S: 3, M: 4, L: 5 },
+  stadium: { S: 2, M: 3, L: 4 },
+};
 /** 大きさによる倍率(建設費・維持費・来場者の上限)。ホテル・公園は S=1x1 M=2x2 L=3x3、百貨店・モールは S/M=1x1 L=2x2 */
 const SIZE_MUL: Partial<Record<FacilityType, Record<FacilitySize, number>>> = {
   hotel: { S: 0.4, M: 0.7, L: 1 },
@@ -362,12 +371,16 @@ const SIZE_MUL: Partial<Record<FacilityType, Record<FacilitySize, number>>> = {
   department: { S: 0.5, M: 0.75, L: 1 },
   mall: { S: 0.5, M: 0.75, L: 1 },
   sight: { S: 0.5, M: 0.75, L: 1 },
+  amusement: { S: 0.4, M: 0.7, L: 1 },
+  stadium: { S: 0.4, M: 0.7, L: 1 },
   ...Object.fromEntries(NEW_FACILITY_TYPES.map((t) => [t, { S: 0.4, M: 0.7, L: 1 }])),
 };
 export const sizeMul = (type: FacilityType, size: FacilitySize | undefined): number => (size ? (SIZE_MUL[type]?.[size] ?? 1) : 1);
 
 /** 施設の敷地(タイル)。大きさ S/M/L: ホテル・公園は 1x1 / 2x2 / 3x3、ほかのスプライト施設は 1x1 / 1x1 / 2x2 */
 export function facilityDims(type: FacilityType, size: FacilitySize): { w: number; h: number } {
+  const side = SIDE_TILES[type]?.[size];
+  if (side) return { w: side, h: side };
   if (SIZED3.includes(type)) return size === 'L' ? { w: 3, h: 3 } : size === 'M' ? { w: 2, h: 2 } : { w: 1, h: 1 };
   return size === 'L' ? { w: 2, h: 2 } : { w: 1, h: 1 };
 }
@@ -382,6 +395,22 @@ export const spriteDims = (size: 'S' | 'M' | 'L'): { w: number; h: number } => (
 /** 施設の建設費(大きさ・デザインがあれば大きさで変わる) */
 export const facilityBuildCost = (f: Pick<Facility, 'type' | 'size' | 'design'>): number =>
   f.design !== undefined && CHOOSABLE.includes(f.type) ? facilityCost(f.type, f.size) : FACILITY_SPECS[f.type].cost;
+
+/** デザイン変更の費用: 建設費の何割か */
+export const REDESIGN_RATE = 0.15;
+/** 建てた施設のデザイン変更の費用(大きさは変えられない) */
+export const redesignCost = (f: Pick<Facility, 'type' | 'size' | 'design'>): number => Math.round((facilityBuildCost(f) * REDESIGN_RATE) / 1000) * 1000;
+/**
+ * デザインを変えられる施設か(同じ大きさのまま)。スプライト施設(design と size がある)は可。
+ * 古い手続き描画の施設(design なし)は、敷地が L と同じ大きさなら、L のスプライトに替えられる。変えられなければ理由
+ */
+export function redesignRule(f: Pick<Facility, 'type' | 'size' | 'design' | 'w' | 'h'>): { ok: true; size: FacilitySize } | { ok: false; reason: string } {
+  if (!CHOOSABLE.includes(f.type)) return { ok: false, reason: 'この施設はデザインを変えられません' };
+  if (f.design !== undefined && f.size !== undefined) return { ok: true, size: f.size };
+  const L = facilityDims(f.type, 'L');
+  if (f.w === L.w && f.h === L.h) return { ok: true, size: 'L' };
+  return { ok: false, reason: 'この施設は古い形式で、デザインを変えられません' };
+}
 
 /** 百貨店・モールは大きさで需要が変わる(S=0.5 M=0.75 L=1)。ほかの施設は一定 */
 export function facilityAttract(f: Facility): number {

@@ -22,7 +22,7 @@ def sources(src, only):
     nf = load(os.path.join(src, 'newfac.py'))
     for name, t in nf.TYPES.items():
         if only and name not in only: continue
-        out.append((name, list(t['names']), nf.GEO))
+        out.append((name, list(t['names']), t.get('geo', nf.GEO)))
     return out
 
 def main(src, outdir, outjson, *only):

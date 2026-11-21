@@ -6,7 +6,7 @@ from fackit import *
 
 TYPES = {}
 VAR_BASE = (0, 2, 5, 8)  # 別色にするデザイン(各種類 +4)
-def reg(name, names):
+def reg(name, names, geo=None):
     base = len(names)
     allnames = names + [names[b] + '(別色)' for b in VAR_BASE]
     def deco(fn):
@@ -15,7 +15,7 @@ def reg(name, names):
             v = a - base; bi = VAR_BASE[v]
             sp = dict(fn(bi)); sp['pal'] = WARM[(bi * 3 + 5 + v * 2) % 10]
             return sp
-        TYPES[name] = dict(names=allnames, fn=wrapped)
+        TYPES[name] = dict(names=allnames, fn=wrapped, geo=geo or GEO)
         return fn
     return deco
 
@@ -27,12 +27,12 @@ def sprite(typ, k, s):
     tag = lambda S_, T_: g(S_, T_, 0, 0)[1]
     tn = sp.get('tn', {'S': 0, 'M': 5, 'L': 14})[s]
     trees = scatter(tag, tn, k * 5 + 2, .18, sp.get('trees', ['round', 'bush', 'tall'])) if tn else []
-    return render3(sp['st'], trees, gfn, sp['pal'], sp['kind'], GEO[s], sp['cr'], k)
+    return render3(sp['st'], trees, gfn, sp['pal'], sp['kind'], TYPES[typ]['geo'][s], sp['cr'], k)
 
 def export(typ):
     names = TYPES[typ]['names']
     n = len(names)
-    export3(typ, n, GEO, lambda k, s: sprite(typ, k, s), lambda k: f'{k+1:02d} {k+1}', [[i + 1, names[i]] for i in range(n)], ['id', 'type'])
+    export3(typ, n, TYPES[typ]['geo'], lambda k, s: sprite(typ, k, s), lambda k: f'{k+1:02d} {k+1}', [[i + 1, names[i]] for i in range(n)], ['id', 'type'])
 
 # ---- 共通のパレット ----
 WARM = [(236, 232, 220), (214, 196, 160), (190, 98, 70), (176, 176, 182), (150, 190, 220), (130, 190, 170), (232, 220, 190), (120, 170, 150), (200, 170, 110), (150, 160, 176)]
@@ -277,6 +277,52 @@ def stationmall(a):
     elif a == 10: st = [S([B(30, 22, R=22, kind='stripe')], off=(-16, -12), crown=False), S([SB(6, 50, 4, (190, 190, 196))], off=(14, 6), crown=False)]; cr = 'train'
     else: st = [S([B(40, 26, R=24, kind='glass')], off=(-6, -12))]; kind = 'glass'; cr = 'train'
     return dict(st=st, cr=cr, pal=pal, kind=kind, base=6, layers=LY, trees=['bush'], tn={'S': 0, 'M': 2, 'L': 5})
+
+
+# ===== 遊園地(S=3x3 M=4x4 L=5x5) と スタジアム(S=2x2 M=3x3 L=4x4): 大きな敷地用のサイズ =====
+AGEO = {'S': dict(w=192, h=260, hw=96, fs=1.5, hs=1.4, tsc=1.1, big=True, pad=10), 'M': dict(w=256, h=340, hw=128, fs=2, hs=1.85, tsc=1.3, big=True, pad=12), 'L': dict(w=320, h=420, hw=160, fs=2.5, hs=2.3, tsc=1.5, big=True, pad=14)}
+SGEO = {'S': GEO['M'], 'M': GEO['L'], 'L': dict(w=256, h=340, hw=128, fs=2, hs=1.85, tsc=1.3, big=True, pad=12)}
+def hut(t, c, pc=(236, 226, 204)): return S([B(11, 8, R=11, kind='plaster', pal=pc, roof=('hip', c, 5))], tile=t, crown=False)
+
+AM = ['大観覧車と広場', 'ジェットコースターパーク', 'メリーゴーランド広場', 'お城のテーマパーク', 'サーカスのテント村', 'ウォーターパーク', 'お化け屋敷', 'ドロップタワーとライド', 'ボート池の遊園地', 'ゲートとメインストリート', 'キッズランド', '近未来パーク']
+@reg('amusement', AM, AGEO)
+def amusement(a):
+    pal = [(236, 232, 220), (214, 196, 160), (190, 98, 70), (150, 190, 220), (130, 190, 170), (200, 170, 110)][a % 6]
+    cr, kind, st, base = 'none', 'plaster', None, 0
+    LY = lay(Lplaza(.16), Lcross(.05), Lring(.38, .03))
+    if a == 0: st = [S([W(26)], tile=(.12, -.28), crown=False), S([B(30, 16, R=22, kind='plaster', roof=('hip', (220, 70, 90), 8), door=True)], tile=(-.3, .26), crown=False), S([CAR(12)], tile=(.3, .26), crown=False)]
+    elif a == 1: st = [S([COAST(50, 36)], tile=(0, -.1), crown=False), S([B(26, 14, R=20, kind='stripe')], tile=(-.3, .3), crown=False)]; kind = 'stripe'; LY = lay(Lplaza(.12), Lcross(.04))
+    elif a == 2: st = [S([CAR(20)], tile=(0, 0), crown=False), hut((-.32, .2), (220, 70, 90)), hut((.3, -.25), (80, 150, 220)), hut((.28, .3), (250, 200, 90))]; LY = lay(Lring(.34, .04), Lpond(-.3, -.3, .14, .1))
+    elif a == 3: st = [S([B(30, 20, R=30, kind='brick'), B(20, 16, R=20, kind='brick', roof=('hip', (70, 100, 200), 10))], crown=False)] + [S([C(6, 34, rc=(70, 100, 200))], off=o, crown=False) for o in ((-26, 0), (26, 0), (0, -13), (0, 13))]; kind = 'brick'; cr = 'flag'; pal = (214, 200, 176); LY = lay(Lpond(0, 0, .46, .46), Lplaza(.34), Lcross(.04))
+    elif a == 4: st = [S([TENT(30, 44)], tile=(-.1, -.1), crown=False), S([TENT(16, 24, cols=((70, 130, 210), (244, 240, 230)))], tile=(.3, .2), crown=False), S([TENT(12, 18, cols=((250, 200, 60), (244, 240, 230)))], tile=(-.3, .3), crown=False)]
+    elif a == 5: st = [S([SLIDE(34, 40)], tile=(-.2, -.2), crown=False), S([SLIDE(30, 32, pal=(250, 120, 90))], tile=(.2, -.3), crown=False), S([B(24, 12, R=20, kind='stripe')], tile=(.1, .32), crown=False)]; kind = 'stripe'; LY = lay(Lrect(-.3, .46, -.1, .3, (240, 240, 236), 'paved'), Ltank(-.26, .42, -.06, .26), Lplaza(.0))
+    elif a == 6: st = [S([B(30, 26, R=26, kind='brick', pal=(96, 86, 110), roof=('gB', (60, 50, 70), 10))], crown=False)]; kind = 'brick'; pal = (96, 86, 110); LY = lay(Lring(.36, .03), Lfence()); base = 2
+    elif a == 7: st = [S([B(10, 76, R=10, kind='lattice', pal=(176, 176, 186))], tile=(-.12, -.16), crown=False), S([W(14)], tile=(.3, .2), crown=False), S([CAR(10)], tile=(-.3, .3), crown=False)]; cr = 'none'
+    elif a == 8: st = [S([B(22, 12, R=18, kind='plaster', roof=('hip', (210, 80, 70), 6))], tile=(-.36, .3), crown=False), S([W(16)], tile=(.3, -.3), crown=False)]; LY = lay(Lpond(0, .02, .32, .22), Lcross(.03))
+    elif a == 9: st = [S([B(8, 32, R=8, kind='stripe')], tile=(-.34, .42), crown=False), S([B(8, 32, R=8, kind='stripe')], tile=(.42, -.34), crown=False), S([W(22)], tile=(.2, -.3), crown=False), S([COAST(30, 24)], tile=(-.2, -.22), crown=False)]; LY = lay(Lplaza(.12), Lrect(-.06, .06, -.5, .5, (200, 186, 154), 'path'), Lrect(-.5, .5, -.06, .06, (200, 186, 154), 'path'))
+    elif a == 10: st = [hut((-.3, -.3), (230, 80, 70), (250, 220, 200)), hut((.0, -.34), (250, 200, 90), (220, 240, 250)), hut((.3, -.2), (80, 160, 220), (250, 230, 230)), hut((-.34, .1), (120, 200, 150), (255, 240, 210)), hut((.1, .3), (200, 120, 210), (240, 240, 220)), S([CAR(12)], tile=(0, 0), crown=False)]
+    else: st = [S([C(24, 30, rc=(150, 172, 196))], tile=(-.05, .05), crown=True), S([W(20)], tile=(.3, -.3), crown=False)]; cr = 'dome'; kind = 'glass'; pal = (130, 170, 210)
+    return dict(st=st, cr=cr, pal=pal, kind=kind, base=base, layers=LY, trees=['round', 'sakura', 'bush'], tn={'S': 0, 'M': 6, 'L': 16})
+
+ST = ['サッカー場(円形ボウル)', '野球場', 'ドーム球場', '陸上競技場', 'ラグビー場', 'リング屋根のスタジアム', 'テニスアリーナ', '石造りの古典スタジアム', '市営の小さな球場', '開閉式ドーム', 'サーキット', 'スタジアム+練習場']
+@reg('stadium', ST, SGEO)
+def stadium(a):
+    pal = [(176, 176, 182), (214, 196, 160), (150, 160, 176), (190, 98, 70), (120, 130, 150), (232, 228, 216)][a % 6]
+    cr, kind, st, base = 'floodlights', 'concrete', None, 6
+    LY = plz(.46)
+    if a == 0: st = [S([BOWL(34, 22, pitch='soccer')])]
+    elif a == 1: st = [S([PBOX(44, 44, 18, pitch='diamond')])]
+    elif a == 2: st = [S([C(34, 24, rc=(210, 214, 222)), C(30, 6, rc=(230, 232, 238))])]; cr = 'dome'
+    elif a == 3: st = [S([BOWL(36, 14, pitch='track')])]
+    elif a == 4: st = [S([PBOX(54, 36, 16, pitch='soccer')])]
+    elif a == 5: st = [S([BOWL(34, 20, pitch='soccer')])]; cr = 'searchlight'
+    elif a == 6: st = [S([PBOX(30, 30, 22, pitch='court')])]; cr = 'bannerflags'
+    elif a == 7: st = [S([BOWL(32, 20, pitch='soccer')])]; kind = 'columns'; pal = (230, 222, 200); cr = 'bannerflags'
+    elif a == 8: st = [S([PBOX(30, 30, 10, pitch='diamond')])]
+    elif a == 9: st = [S([C(34, 22, rc=(200, 206, 216)), SB(20, 20, 4, (170, 176, 190))])]; cr = 'dome'
+    elif a == 10: st = [S([PBOX(40, 10, 12, pitch='plain')], tile=(-.1, .3))]; cr = 'none'; LY = lay(Ltrack(.2, .46), Lplaza(.0))
+    else: st = [S([PBOX(34, 34, 16, pitch='soccer')], tile=(-.15, -.1))]; LY = lay(Lplaza(.2), Lfield())
+    return dict(st=st, cr=cr, pal=pal, kind=kind, base=base, layers=LY, trees=['bush', 'round'], tn={'S': 0, 'M': 4, 'L': 10})
 
 if __name__ == '__main__':
     for t in (sys.argv[1:] or list(TYPES)): export(t)

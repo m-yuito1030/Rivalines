@@ -6,6 +6,7 @@ import {
   FACILITY_TYPES,
   NEW_FACILITY_TYPES,
   SIZED3,
+  SIZED_TYPES,
   SKI_MIN_LEVEL,
   SPRITE_TYPES,
   facilityCost,
@@ -96,5 +97,29 @@ describe('新しい施設(映画館・動物園・スキー場・ビーチ・ア
     let found = 0;
     for (let d = 0; d < 200; d++) if (facilityEvent(5, { id: 2, type: 'arena' }, d)?.mul === 4) found++;
     expect(found).toBeGreaterThan(20);
+  });
+
+  it('遊園地とスタジアムも、デザインと大きさを選べる。Lは従来の敷地(遊園地5×5・スタジアム4×4)で、S/Mは小さい', () => {
+    for (const t of ['amusement', 'stadium'] as const) {
+      expect(CHOOSABLE).toContain(t);
+      expect(SPRITE_TYPES).toContain(t);
+      expect(DESIGN_COUNT[t]).toBe(16);
+      const sh = sheets[t];
+      expect(sh.count).toBe(16);
+      expect(new Set(sh.names).size).toBe(16);
+      // アトラスの帯は、敷地が大きいほどセルも大きい
+      expect(sh.sizes.M.w).toBeGreaterThan(sh.sizes.S.w);
+      expect(sh.sizes.L.w).toBeGreaterThan(sh.sizes.M.w);
+      expect(sh.sizes.L.h).toBeGreaterThan(sh.sizes.M.h);
+      expect(facilityCost(t, 'L')).toBe(FACILITY_SPECS[t].cost); // Lの建設費は従来どおり
+      expect(facilityCost(t, 'S')).toBeLessThan(facilityCost(t, 'L'));
+    }
+    expect([facilityDims('amusement', 'S').w, facilityDims('amusement', 'M').w, facilityDims('amusement', 'L').w]).toEqual([3, 4, 5]);
+    expect([facilityDims('stadium', 'S').w, facilityDims('stadium', 'M').w, facilityDims('stadium', 'L').w]).toEqual([2, 3, 4]);
+    expect(SIZED_TYPES).toContain('amusement');
+    expect(SIZED3).not.toContain('amusement'); // 1/2/3 タイルの施設ではない
+    // 敷地のセルの横幅は、敷地(n タイル)の対角線 n*64 以上
+    expect(sheets.amusement.sizes.L.w).toBeGreaterThanOrEqual(5 * 64);
+    expect(sheets.stadium.sizes.L.w).toBeGreaterThanOrEqual(4 * 64);
   });
 });

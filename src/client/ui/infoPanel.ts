@@ -7,7 +7,10 @@ import { DAY_TICKS, type Stop, type Transit, todOf } from '../../shared/sim/netw
 import type { GameMap } from '../../shared/world/gameMap';
 import { designName } from '../../shared/world/stations';
 import { type Company, facilityValue, vehiclePrice, yen } from '../../shared/sim/economy/economy';
-import { FACILITY_SPECS, facilityAt, facilityBuildCost, facilityUpkeep } from '../../shared/world/facilities';
+import { DESIGN_COUNT, FACILITY_SPECS, facilityAt, facilityBuildCost, facilityUpkeep, redesignCost, redesignRule } from '../../shared/world/facilities';
+import sheetInfo from '../../shared/data/facilitySprites.json';
+import { drawFacilityPreview } from '../render/buildingSprites';
+import type { Facility, FacilityType } from '../../shared/world/facilities';
 import { type Mode, clampCars, kindsFor, modelOf, modelsFor } from '../../shared/data/models';
 import type { Town } from '../../shared/world/town';
 
@@ -60,6 +63,8 @@ export function findSelection(map: GameMap, transit: Transit, x: number, y: numb
 /** 停留所(待ち人数・発車案内)と街(人口)の情報パネル。1秒ごとに更新する */
 export class InfoPanel {
   private lastParts: string[] = [];
+  /** デザイン変更で選んでいるデザイン(施設 id → デザイン番号) */
+  private redesignSel = new Map<number, number>();
   /** 車両の追跡(カメラが追いかける)。main が設定する */
   followId = -1;
   onFollow: (id: number) => void = () => {};
@@ -101,6 +106,12 @@ export class InfoPanel {
       if (t.dataset.allow) {
         const cb = t as unknown as HTMLInputElement;
         void net.cmd({ t: 'stopAllow', stopId: Number(t.dataset.id), who: Number(t.dataset.allow), allow: cb.checked }).then((r) => r.msg && this.onMessage(r.msg));
+        return;
+      }
+      if (t.dataset.redesign) {
+        this.redesignSel.set(Number(t.dataset.id), Number(t.value));
+        this.lastParts = [];
+        this.render();
         return;
       }
       if (t.dataset.split) this.splitCount.set(Number(t.dataset.split), Number(t.value));
@@ -181,6 +192,34 @@ export class InfoPanel {
         this.lastParts[i] = h;
       }
     });
+    this.drawRedesignPreview();
+  }
+
+  /** デザイン変更の見本(選んでいるデザインを、施設の大きさで描く) */
+  private drawRedesignPreview(): void {
+    const cv = this.el.querySelector<HTMLCanvasElement>('canvas.facRedesign');
+    if (!cv) return;
+    drawFacilityPreview(cv, cv.dataset.type as FacilityType, Number(cv.dataset.design), cv.dataset.size as 'S' | 'M' | 'L');
+  }
+
+  /** 自社の施設のデザイン変更(同じ大きさのまま・費用あり)。変えられない施設は何も出さない */
+  private redesignHtml(f: Facility): string {
+    if ((f.owner ?? 'player') !== 'player' || f.playerId !== net.id) return '';
+    const rule = redesignRule(f);
+    if (!rule.ok) return '';
+    const n = DESIGN_COUNT[f.type] ?? 1;
+    const names = (sheetInfo as Record<string, { names: string[] }>)[f.type]?.names ?? [];
+    const cur = f.design ?? -1;
+    const sel = Math.min(n - 1, this.redesignSel.get(f.id) ?? (cur >= 0 ? cur : 0));
+    const opts = Array.from(
+      { length: n },
+      (_, i) => `<option value="${i}" ${i === sel ? 'selected' : ''}>${String(i + 1).padStart(2, '0')} ${esc(names[i] ?? '')}${i === cur ? '(いま)' : ''}</option>`,
+    ).join('');
+    const cost = redesignCost(f);
+    return `<div class="ib"><div class="ibt">デザイン変更(大きさ ${f.w}×${f.h} のまま)</div>
+      <canvas class="facRedesign" width="220" height="200" data-type="${f.type}" data-design="${sel}" data-size="${rule.size}" style="width:100%;max-width:220px;background:rgba(0,0,0,.25);border-radius:8px"></canvas>
+      <div class="im"><select data-redesign="1" data-id="${f.id}">${opts}</select> <button data-act="redesign" data-id="${f.id}" data-design="${sel}" ${sel === cur ? 'disabled' : ''}>変更 ${yen(cost)}</button></div>
+      ${f.design === undefined ? '<div class="im muted">古い形式の施設です。変更すると、同じ大きさのスプライトに替わります。</div>' : ''}</div>`;
   }
 
   private trainAction(b: HTMLElement): void {
@@ -190,6 +229,7 @@ export class InfoPanel {
     if (act === 'ad') say(net.cmd({ t: 'ad', facilityId: Number(b.dataset.id), kind: b.dataset.kind as AdKind }));
     else if (act === 'upgrade') say(net.cmd({ t: 'facUpgrade', facilityId: Number(b.dataset.id) }));
     else if (act === 'renovate') say(net.cmd({ t: 'facRenovate', facilityId: Number(b.dataset.id) }));
+    else if (act === 'redesign') say(net.cmd({ t: 'facRedesign', facilityId: Number(b.dataset.id), design: Number(b.dataset.design) }));
     else if (act === 'price') say(net.cmd({ t: 'facPrice', facilityId: Number(b.dataset.id), level: Number(b.dataset.level) }));
     else if (act === 'buyfac' || act === 'sellfac') say(net.cmd({ t: 'fin', op: act === 'buyfac' ? 'acquire' : 'sell', id: Number(b.dataset.id) }));
     else if (act === 'buy' && this.sel?.kind === 'depot') {
@@ -475,6 +515,7 @@ export class InfoPanel {
       <div class="ib"><div class="ibt">この施設に来られる停留所</div>${rows || '<div class="im">集客圏にある停留所はまだありません。バス停・駅を近くに置くと、乗客が増えます。</div>'}</div>
       ${this.facilityOwnerHtml(f)}
       ${f.owner === 'public' ? '' : '<div class="im">撤去: 🧹撤去ツールで敷地をクリック</div>'}`,
+      this.redesignHtml(f),
     ];
   }
 

@@ -9,7 +9,7 @@ import { execute } from './commands/index';
 import { Replicator } from './replicate';
 import { canConnectRail } from '../src/shared/world/rails';
 import { Accounts } from './accounts';
-import { facilityCost } from '../src/shared/world/facilities';
+import { facilityCost, redesignCost, redesignRule } from '../src/shared/world/facilities';
 import { VISITOR_TYPES } from '../src/shared/sim/facility/facilityVisitors';
 
 const flatMap = (size = 128) => new GameMap(size, 1, new Uint8Array(size * size).fill(SEA_LEVEL + 20));
@@ -994,5 +994,37 @@ describe('施設のグレードと改装(コマンド)', () => {
     expect(execute(sim, 1, { t: 'facRenovate', facilityId: f.id }).ok).toBe(true);
     expect(f.renov).toBe(sim.day);
     expect(execute(sim, 2, { t: 'facRenovate', facilityId: f.id }).ok).toBe(false);
+  });
+
+  it('デザイン変更: 同じ大きさのまま費用を払って変えられる。他社の施設・同じデザイン・範囲外は不可。古い形式の施設は大きさが L と同じなら変えられる', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    const co = sim.playerCompany(1);
+    execute(sim, 1, { t: 'place', tool: 'cinema', x: 40, y: 40, fac: { design: 2, size: 'M' } });
+    const f = sim.map.facilities.find((x) => x.type === 'cinema')!;
+    const cost = redesignCost(f);
+    expect(cost).toBe(Math.round((facilityCost('cinema', 'M') * 0.15) / 1000) * 1000);
+    const cash = co.cash;
+    expect(execute(sim, 1, { t: 'facRedesign', facilityId: f.id, design: 7 }).ok).toBe(true);
+    expect(f).toMatchObject({ design: 7, size: 'M', w: 2, h: 2 }); // 大きさ・敷地は変わらない
+    expect(cash - co.cash).toBe(cost);
+    expect(execute(sim, 1, { t: 'facRedesign', facilityId: f.id, design: 7 }).ok).toBe(false); // 同じデザイン
+    expect(execute(sim, 1, { t: 'facRedesign', facilityId: f.id, design: 99 }).ok).toBe(false);
+    expect(execute(sim, 1, { t: 'facRedesign', facilityId: f.id, design: 1.5 }).ok).toBe(false);
+    expect(execute(sim, 2, { t: 'facRedesign', facilityId: f.id, design: 3 }).ok).toBe(false); // 他社
+    co.cash = 0;
+    expect(execute(sim, 1, { t: 'facRedesign', facilityId: f.id, design: 3 }).msg).toContain('資金'); // 資金不足
+    co.cash = 1e9;
+    // 古い形式(design なし)のスタジアム(4×4=Lの敷地)は L のスプライトに替えられる。敷地が合わない古い施設は不可
+    execute(sim, 1, { t: 'place', tool: 'stadium', x: 80, y: 80, fac: { design: 0, size: 'L' } });
+    const st = sim.map.facilities.find((x) => x.type === 'stadium')!;
+    st.design = undefined;
+    st.size = undefined; // 古いセーブ相当
+    expect(execute(sim, 1, { t: 'facRedesign', facilityId: st.id, design: 4 }).ok).toBe(true);
+    expect(st).toMatchObject({ design: 4, size: 'L', w: 4, h: 4 });
+    const old = { ...st, w: 3, h: 3, design: undefined, size: undefined };
+    expect(redesignRule(old).ok).toBe(false);
+    // 公共施設・デザインのない種類は不可
+    expect(redesignRule({ type: 'school', w: 1, h: 1 }).ok).toBe(false);
   });
 });

@@ -3,7 +3,7 @@ import type { CommandContext } from './context';
 import { fail } from './util';
 import { DEV, devCost } from '../../src/shared/sim/economy/development';
 import { GRADE_MAX, freshness, gradeOf, renovateCost, repOf, upgradeCost } from '../../src/shared/world/facilityQuality';
-import { facilityBuildCost } from '../../src/shared/world/facilities';
+import { DESIGN_COUNT, facilityBuildCost, redesignCost, redesignRule } from '../../src/shared/world/facilities';
 import { PRICE_LEVELS } from '../../src/shared/sim/facility/pricing';
 import { AD_TYPES, VISITOR_TYPES, adAvailable, adCost } from '../../src/shared/sim/facility/facilityVisitors';
 import { FACILITY_SPECS } from '../../src/shared/world/facilities';
@@ -68,6 +68,24 @@ export function facRenovate(cmd: Extract<Cmd, { t: 'facRenovate' }>, ctx: Comman
   f.rep = Math.min(100, repOf(f) + 10);
   map.facilityVer++;
   return { ok: true, msg: `${f.name}を改装しました(${yen(cost)})。人気が戻り、評判も少し上がります` };
+}
+
+/** facRedesign: 建てた施設のデザインを、同じ大きさのまま変える(費用を払う) */
+export function facRedesign(cmd: Extract<Cmd, { t: 'facRedesign' }>, ctx: CommandContext): CmdResult {
+  const { map, co, who } = ctx;
+  const f = map.facilities.find((x) => x.id === cmd.facilityId);
+  if (!f || (f.owner ?? 'player') !== 'player' || f.playerId !== who) return fail('自社の施設ではありません');
+  const rule = redesignRule(f);
+  if (!rule.ok) return fail(rule.reason);
+  const n = DESIGN_COUNT[f.type] ?? 1;
+  if (!Number.isInteger(cmd.design) || cmd.design < 0 || cmd.design >= n) return fail('デザインが正しくありません');
+  if (f.design === cmd.design) return fail('今と同じデザインです');
+  const cost = redesignCost(f);
+  if (!co.spend('build', cost)) return fail(`資金が足りません(デザイン変更 ${yen(cost)} / 現金 ${yen(co.cash)})`);
+  f.design = cmd.design;
+  f.size = rule.size;
+  map.facilityVer++;
+  return { ok: true, msg: `${f.name}のデザインを変更しました(${yen(cost)})。大きさ・敷地はそのままです` };
 }
 
 /** bid */
