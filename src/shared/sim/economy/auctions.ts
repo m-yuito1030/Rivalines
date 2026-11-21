@@ -2,7 +2,7 @@ import type { FacilityType } from '../../world/facilities';
 import { TIERS, townTier, type Town } from '../../world/town';
 
 /** 入札・独占権: 街ごと・施設の種類ごとの「独占権」を競りにかける。落札した会社だけが、その街(の範囲)にその種類の施設を建てられる */
-export const AUCTION_TYPES: FacilityType[] = ['stadium', 'amusement', 'mall', 'department', 'hotel'];
+export const AUCTION_TYPES: FacilityType[] = ['stadium', 'amusement', 'mall', 'department', 'hotel', 'arena', 'convention', 'zoo', 'ski', 'beach', 'stationmall'];
 /** 入札の受付日数・同時に開く競りの数・競りを開く間隔(日)・入札の最低刻み(現在額の何倍以上か) */
 export const LOT_DAYS = 3;
 export const MAX_LOTS = 6;

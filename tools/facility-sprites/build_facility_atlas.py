@@ -1,4 +1,4 @@
-"""ホテル・公園のスプライト(各 *_out/sprites/<type>_NN_{S,M,L}.png)を、種類ごとに1枚のアトラスにまとめる。
+"""ホテル・公園、および newfac.py の新しい施設のスプライト(各 *_out/sprites/<type>_NN_{S,M,L}.png)を、種類ごとに1枚のアトラスにまとめる。
 S/M/L でセルの大きさが違う(S=1x1タイル M=2x2 L=3x3)ので、サイズごとの帯を縦に積み、各帯は5列。
 使い方: python3 build_facility_atlas.py <hotel.py と park.py のあるフォルダ(*_out もここ)> <出力フォルダ(assets)> <出力json>"""
 import importlib.util, json, os, sys
@@ -10,12 +10,26 @@ def load(path):
     spec.loader.exec_module(m)
     return m
 
-def main(src, outdir, outjson):
-    meta = {}
-    for name in ('hotel', 'park'):
-        m = load(os.path.join(src, name + '.py'))
-        n = len(m.NAMES)
-        geo = m.GEO
+def sources(src, only):
+    """(種類, 名前の一覧, サイズごとの寸法) を返す。hotel/park は各 .py から、新しい施設は newfac.py の表から"""
+    sys.path.insert(0, src)
+    out = []
+    if not only or any(t in ('hotel', 'park') for t in only):
+        for name in ('hotel', 'park'):
+            if only and name not in only: continue
+            m = load(os.path.join(src, name + '.py'))
+            out.append((name, list(m.NAMES), m.GEO))
+    nf = load(os.path.join(src, 'newfac.py'))
+    for name, t in nf.TYPES.items():
+        if only and name not in only: continue
+        out.append((name, list(t['names']), nf.GEO))
+    return out
+
+def main(src, outdir, outjson, *only):
+    """only に種類名を渡すと、その種類だけ作って、既存の json に統合する(渡さなければ全種類)"""
+    meta = json.load(open(outjson, encoding='utf-8')) if only and os.path.exists(outjson) else {}
+    for name, names, geo in sources(src, only):
+        n = len(names)
         bands = {}
         y = 0
         sheets = []
@@ -35,9 +49,9 @@ def main(src, outdir, outjson):
         q = atlas.quantize(colors=64, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE)
         os.makedirs(outdir, exist_ok=True)
         q.save(os.path.join(outdir, name + '.png'), optimize=True)
-        meta[name] = {'count': n, 'names': list(m.NAMES), 'sizes': bands}
+        meta[name] = {'count': n, 'names': names, 'sizes': bands}
         print(name, n, atlas.size, os.path.getsize(os.path.join(outdir, name + '.png')) // 1024, 'KB')
     json.dump(meta, open(outjson, 'w', encoding='utf-8'), ensure_ascii=False)
 
 if __name__ == '__main__':
-    main(*sys.argv[1:4])
+    main(*sys.argv[1:])

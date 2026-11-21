@@ -24,7 +24,25 @@ export const priceLevel = (f: Pick<Facility, 'price'>): number => (Number.isInte
 export const priceMul = (f: Pick<Facility, 'price'>): number => PRICE_LEVELS[priceLevel(f)].mul;
 
 /** 値上げへの敏感さの基本(種類ごと)。大きいほど、料金を上げたときに客が離れやすい */
-const BASE_ELASTICITY: Partial<Record<FacilityType, number>> = { hotel: 0.9, department: 0.8, mall: 1.0, stadium: 0.7, amusement: 0.7 };
+const BASE_ELASTICITY: Partial<Record<FacilityType, number>> = {
+  hotel: 0.9,
+  department: 0.8,
+  mall: 1.0,
+  stadium: 0.7,
+  amusement: 0.7,
+  // 値上げに強い(わざわざ行く・経費で来る客)ほど小さく、身近でほかへ行きやすいほど大きく
+  cinema: 1.0,
+  zoo: 0.9,
+  ski: 0.6,
+  beach: 1.1,
+  arena: 0.5,
+  convention: 0.5,
+  bizhotel: 0.7,
+  campus: 1.1,
+  golf: 0.6,
+  hospital: 0.6,
+  stationmall: 0.8,
+};
 
 /**
  * 値上げへの敏感さ。近くに同じ種類の施設が多いほど敏感(他へ行ける)、駅が近い・広告中は少し鈍い(わざわざ来る客)。

@@ -2,7 +2,10 @@ import type { GameMap } from './gameMap';
 import { gradeCapMul, gradeOf, gradeUpkeepMul } from './facilityQuality';
 
 /** 大型施設(スタジアム・遊園地など)。周辺の停留所の乗客需要が増える */
-export type FacilityType = 'stadium' | 'amusement' | 'mall' | 'park' | 'department' | 'hotel' | 'school' | 'cityhall' | 'sight';
+/** あとから加わった、デザインと大きさを選んで建てる施設(映画館・動物園・スキー場・ビーチ・アリーナ・コンベンション・ビジネスホテル・大学・ゴルフ場・病院・駅ビル) */
+export const NEW_FACILITY_TYPES = ['cinema', 'zoo', 'ski', 'beach', 'arena', 'convention', 'bizhotel', 'campus', 'golf', 'hospital', 'stationmall'] as const;
+export type NewFacilityType = (typeof NEW_FACILITY_TYPES)[number];
+export type FacilityType = 'stadium' | 'amusement' | 'mall' | 'park' | 'department' | 'hotel' | 'school' | 'cityhall' | 'sight' | NewFacilityType;
 
 export interface FacilitySpec {
   type: FacilityType;
@@ -165,17 +168,193 @@ export const FACILITY_SPECS: Record<FacilityType, FacilitySpec> = {
     spend: 4000,
     conversion: 0.5,
   },
+  cinema: {
+    type: 'cinema',
+    name: '映画館',
+    icon: '🎬',
+    w: 3,
+    h: 3,
+    attract: 900,
+    hours: [10, 23],
+    windows: [
+      [10, 14],
+      [17, 23],
+    ],
+    base: 0.2,
+    desc: '昼と夜(17〜23時)に人が来ます。休日と雨の日に強く、遊園地とは逆に雨でも客足が落ちません',
+    cost: 4_000_000,
+    upkeep: 28_000,
+    spend: 1500,
+    conversion: 0.5,
+  },
+  zoo: {
+    type: 'zoo',
+    name: '動物園・水族館',
+    icon: '🐧',
+    w: 3,
+    h: 3,
+    attract: 1300,
+    hours: [9, 17],
+    desc: '日中(9〜17時)に家族連れが来ます。休日と春・秋に強く、雨や雪の日は少なめ',
+    cost: 6_000_000,
+    upkeep: 42_000,
+    spend: 2000,
+    conversion: 0.5,
+  },
+  ski: {
+    type: 'ski',
+    name: 'スキー場',
+    icon: '⛷',
+    w: 3,
+    h: 3,
+    attract: 2200,
+    hours: [8, 17],
+    desc: '標高4以上の高地にだけ建てられます。12〜3月、特に雪の日に客が殺到し、夏はほとんど来ません',
+    cost: 9_000_000,
+    upkeep: 70_000,
+    spend: 3500,
+    conversion: 0.5,
+  },
+  beach: {
+    type: 'beach',
+    name: 'ビーチ',
+    icon: '🏖',
+    w: 3,
+    h: 3,
+    attract: 1800,
+    hours: [9, 18],
+    desc: '海のそば(2タイル以内)にだけ建てられます。7〜8月の晴れた休日に大勢が来て、冬や雨の日はほとんど来ません',
+    cost: 3_500_000,
+    upkeep: 25_000,
+    spend: 1600,
+    conversion: 0.5,
+  },
+  arena: {
+    type: 'arena',
+    name: 'アリーナ・コンサートホール',
+    icon: '🎤',
+    w: 3,
+    h: 3,
+    attract: 2500,
+    hours: [18, 22],
+    windows: [[18, 22]],
+    base: 0.05,
+    desc: '夜(18〜22時)だけ人が来ます。コンサートの日は需要が数倍になります',
+    cost: 12_000_000,
+    upkeep: 85_000,
+    spend: 3000,
+    conversion: 0.5,
+  },
+  convention: {
+    type: 'convention',
+    name: 'コンベンションセンター',
+    icon: '🧳',
+    w: 3,
+    h: 3,
+    attract: 1400,
+    hours: [9, 18],
+    desc: '平日の日中に出張客が来ます(休日は閑散)。大型の展示会の日は需要が3倍になります',
+    cost: 9_000_000,
+    upkeep: 60_000,
+    spend: 2800,
+    conversion: 0.5,
+  },
+  bizhotel: {
+    type: 'bizhotel',
+    name: 'ビジネスホテル',
+    icon: '🏩',
+    w: 3,
+    h: 3,
+    attract: 500,
+    hours: [0, 24],
+    desc: '出張客が平日に泊まります(休日は少なめ)。リゾートのホテルとは売上の波が逆になります',
+    cost: 3_000_000,
+    upkeep: 20_000,
+    spend: 3500,
+    conversion: 0.5,
+  },
+  campus: {
+    type: 'campus',
+    name: '大学',
+    icon: '🎓',
+    w: 3,
+    h: 3,
+    attract: 1600,
+    hours: [8, 19],
+    windows: [
+      [8, 10],
+      [16, 19],
+    ],
+    base: 0.2,
+    desc: '平日の登校(8〜10時)と下校(16〜19時)に学生が集まります。夏休み・春休み・休日は閑散。売上は小さいが需要が安定します',
+    cost: 7_000_000,
+    upkeep: 40_000,
+    spend: 600,
+    conversion: 0.5,
+  },
+  golf: {
+    type: 'golf',
+    name: 'ゴルフ場',
+    icon: '⛳',
+    w: 3,
+    h: 3,
+    attract: 700,
+    hours: [6, 15],
+    desc: '朝〜昼(6〜15時)に来ます。休日と春・秋に強く、雨や雪の日は閑散。1人あたりの売上が高い施設です',
+    cost: 5_000_000,
+    upkeep: 32_000,
+    spend: 5000,
+    conversion: 0.5,
+  },
+  hospital: {
+    type: 'hospital',
+    name: '病院',
+    icon: '🏥',
+    w: 3,
+    h: 3,
+    attract: 900,
+    hours: [8, 17],
+    windows: [[8, 17]],
+    base: 0.3,
+    desc: '日中(8〜17時)を中心に、一日を通して安定して人が訪れます。冬は少し増えます',
+    cost: 8_000_000,
+    upkeep: 50_000,
+    spend: 1000,
+    conversion: 0.5,
+  },
+  stationmall: {
+    type: 'stationmall',
+    name: '駅ビル',
+    icon: '🛍',
+    w: 3,
+    h: 3,
+    attract: 2200,
+    hours: [8, 22],
+    desc: '鉄道の駅から4タイル以内にだけ建てられます。駅の利用者がそのまま買い物をするので、売上が大きい施設です',
+    cost: 10_000_000,
+    upkeep: 60_000,
+    spend: 1800,
+    conversion: 0.5,
+  },
 };
 /**
  * スプライトで描く施設(学校・市役所・百貨店・ショッピングモール)。design が決まっているものだけ。
  * design が無い古いセーブの百貨店・モール(4×3)は従来の手続き描画のまま。
  */
-export const SPRITE_TYPES: FacilityType[] = ['school', 'cityhall', 'department', 'mall', 'sight', 'hotel', 'park'];
+export const SPRITE_TYPES: FacilityType[] = ['school', 'cityhall', 'department', 'mall', 'sight', 'hotel', 'park', ...NEW_FACILITY_TYPES];
 
 export type FacilitySize = 'S' | 'M' | 'L';
 /** デザインを選べる施設(プレイヤーが好きなデザインと大きさで建てられる)と、デザインの数 */
-export const DESIGN_COUNT: Partial<Record<FacilityType, number>> = { department: 20, mall: 20, hotel: 30, park: 20 };
-export const CHOOSABLE: FacilityType[] = ['hotel', 'park', 'department', 'mall'];
+export const DESIGN_COUNT: Partial<Record<FacilityType, number>> = {
+  department: 20,
+  mall: 20,
+  hotel: 30,
+  park: 20,
+  ...Object.fromEntries(NEW_FACILITY_TYPES.map((t) => [t, 16])),
+};
+export const CHOOSABLE: FacilityType[] = ['hotel', 'park', 'department', 'mall', ...NEW_FACILITY_TYPES];
+/** 大きさ S/M/L が 1x1 / 2x2 / 3x3 タイルの施設(ほかのスプライト施設は 1x1 / 1x1 / 2x2) */
+export const SIZED3: FacilityType[] = ['hotel', 'park', ...NEW_FACILITY_TYPES];
 /** 大きさによる倍率(建設費・維持費・来場者の上限)。ホテル・公園は S=1x1 M=2x2 L=3x3、百貨店・モールは S/M=1x1 L=2x2 */
 const SIZE_MUL: Partial<Record<FacilityType, Record<FacilitySize, number>>> = {
   hotel: { S: 0.4, M: 0.7, L: 1 },
@@ -183,12 +362,13 @@ const SIZE_MUL: Partial<Record<FacilityType, Record<FacilitySize, number>>> = {
   department: { S: 0.5, M: 0.75, L: 1 },
   mall: { S: 0.5, M: 0.75, L: 1 },
   sight: { S: 0.5, M: 0.75, L: 1 },
+  ...Object.fromEntries(NEW_FACILITY_TYPES.map((t) => [t, { S: 0.4, M: 0.7, L: 1 }])),
 };
 export const sizeMul = (type: FacilityType, size: FacilitySize | undefined): number => (size ? (SIZE_MUL[type]?.[size] ?? 1) : 1);
 
 /** 施設の敷地(タイル)。大きさ S/M/L: ホテル・公園は 1x1 / 2x2 / 3x3、ほかのスプライト施設は 1x1 / 1x1 / 2x2 */
 export function facilityDims(type: FacilityType, size: FacilitySize): { w: number; h: number } {
-  if (type === 'hotel' || type === 'park') return size === 'L' ? { w: 3, h: 3 } : size === 'M' ? { w: 2, h: 2 } : { w: 1, h: 1 };
+  if (SIZED3.includes(type)) return size === 'L' ? { w: 3, h: 3 } : size === 'M' ? { w: 2, h: 2 } : { w: 1, h: 1 };
   return size === 'L' ? { w: 2, h: 2 } : { w: 1, h: 1 };
 }
 /** 大きさ・デザインを持つ(スプライトの)施設の建設費と維持費(1日)。古い手続き描画の施設は大きさがなく、従来どおり */
@@ -206,7 +386,7 @@ export const facilityBuildCost = (f: Pick<Facility, 'type' | 'size' | 'design'>)
 /** 百貨店・モールは大きさで需要が変わる(S=0.5 M=0.75 L=1)。ほかの施設は一定 */
 export function facilityAttract(f: Facility): number {
   const a = FACILITY_SPECS[f.type].attract * gradeCapMul(gradeOf(f)); // グレードが高いほど人を呼べる
-  if ((f.type === 'department' || f.type === 'mall' || f.type === 'sight' || f.type === 'hotel' || f.type === 'park') && f.design !== undefined) return a * sizeMul(f.type, f.size);
+  if ((CHOOSABLE.includes(f.type) || f.type === 'sight') && f.design !== undefined) return a * sizeMul(f.type, f.size);
   return a;
 }
 
@@ -283,6 +463,34 @@ export interface FacilityPlan {
   tiles: [number, number][];
 }
 
+/** スキー場に必要な標高(段数) */
+export const SKI_MIN_LEVEL = 4;
+/** ビーチが海から離れてよい距離(タイル) */
+export const BEACH_SEA_RANGE = 2;
+/** 立地の条件(スキー場=高地、ビーチ=海のそば)。満たさなければ理由 */
+export function siteRule(map: GameMap, type: FacilityType, x0: number, y0: number, w: number, h: number, lv: number): string | null {
+  if (type === 'ski' && lv < SKI_MIN_LEVEL) return `スキー場は標高${SKI_MIN_LEVEL}以上の高地にだけ建てられます(ここは標高${lv})`;
+  if (type === 'beach') {
+    for (let y = y0 - BEACH_SEA_RANGE; y < y0 + h + BEACH_SEA_RANGE; y++)
+      for (let x = x0 - BEACH_SEA_RANGE; x < x0 + w + BEACH_SEA_RANGE; x++) if (map.inBounds(x, y) && map.levelAt(x, y) === 0) return null;
+    return `ビーチは海のそば(${BEACH_SEA_RANGE}タイル以内)にだけ建てられます`;
+  }
+  return null;
+}
+
+/** 駅ビルが鉄道の駅から離れてよい距離(タイル) */
+export const STATIONMALL_RANGE = 4;
+/** 敷地 plan の近く(range タイル以内)に、鉄道の駅(経由点を除く)があるか */
+export function nearRailStop(
+  stops: Iterable<{ kind: string; waypoint?: boolean; x: number; y: number }>,
+  plan: { x0: number; y0: number; w: number; h: number },
+  range: number,
+): boolean {
+  for (const s of stops)
+    if (s.kind === 'rail' && !s.waypoint && s.x >= plan.x0 - range && s.x < plan.x0 + plan.w + range && s.y >= plan.y0 - range && s.y < plan.y0 + plan.h + range) return true;
+  return false;
+}
+
 /** 中心を (cx,cy) として置けるか(敷地が同じ高さの陸で、何もない) */
 export function planFacility(map: GameMap, cx: number, cy: number, type: FacilityType, occupied: (idx: number) => boolean, dims?: { w: number; h: number }): FacilityPlan {
   const spec = FACILITY_SPECS[type];
@@ -302,6 +510,8 @@ export function planFacility(map: GameMap, cx: number, cy: number, type: Facilit
     if (map.building.get(i) || map.road.get(i) || map.rail.get(i) || map.air.get(i) || map.span.get(i)) return fail('建物・道路・線路・空港・橋があります');
     if (occupied(i)) return fail('停留所や車両基地と重なっています');
   }
+  const why = siteRule(map, type, x0, y0, w, h, lv);
+  if (why) return fail(why);
   return { ok: true, x0, y0, w, h, tiles };
 }
 
