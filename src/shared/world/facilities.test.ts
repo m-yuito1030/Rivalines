@@ -30,7 +30,9 @@ describe('スプライトの施設(百貨店・モール)', () => {
     expect(facilityAttract(dept)).toBe(FACILITY_SPECS.department.attract);
     const old = { ...dept, design: undefined, size: undefined };
     expect(facilityAttract(old)).toBe(FACILITY_SPECS.department.attract);
-    expect(isSpriteFacility({ ...dept, type: 'stadium' })).toBe(false);
+    // スタジアム・遊園地も、design と size があればスプライトで描き、無ければ(古いセーブ)手続き描画のまま
+    expect(isSpriteFacility({ ...dept, type: 'stadium' })).toBe(true);
+    expect(isSpriteFacility({ ...old, type: 'stadium' })).toBe(false);
   });
 });
 

@@ -324,6 +324,8 @@ def draw_stack(sk,pal,kind,geo,cr,seed,si,cc):
         elif p['t']=='sb':
             L=max(2,p['L']*fs);R=max(2,p['R']*fs);h=max(2,p['h']*hs);cx=ctr[0]-(R-L)/2;cy=ctr[1]+(L+R)/4
             sbox(cx,cy,L,R,h,p['col']);ctr=(cx+(R-L)/2,cy-h-(L+R)/4);lastL=max(L,R)
+        elif p['t'] in EXTRA_PARTS:
+            ctr=EXTRA_PARTS[p['t']](p,ctr,fs,hs,st,seed+n);lastL=p.get('r',p.get('L',20))*fs*2
         else:
             ctr=cyl(ctr,p['r']*fs,max(2,p['h']*hs),st,seed+n,p.get('taper',1.0),p.get('rc',(120,120,126)));lastL=p['r']*fs*2
     if sk['crown'] and cr!='none': crown(cr,ctr,lastL)
@@ -476,3 +478,122 @@ def Lcourt(s0,s1,t0,t1,col=(70,140,200)):
             if abs(s-(s0+s1)/2)<.012 or abs(t-(t0+t1)/2)<.012: c=(240,240,236)
             return c,'court'
     return f
+
+
+# ===== 遊園地・スタジアム向けの部品 =====
+def W(r,**o): return dict(t='wheel',r=r,**o)            # 観覧車
+def TENT(r,h,**o): return dict(t='tent',r=r,h=h,**o)    # サーカステント
+def CAR(r,**o): return dict(t='carousel',r=r,**o)       # メリーゴーランド
+def COAST(L,h,**o): return dict(t='coaster',L=L,h=h,**o)  # ジェットコースター
+def SLIDE(L,h,**o): return dict(t='slide',L=L,h=h,**o)  # ウォータースライダー
+def BOWL(r,h,**o): return dict(t='bowl',r=r,h=h,**o)    # 円形のスタンド(競技場)
+def PBOX(L,R,h,**o): return dict(t='pbox',L=L,R=R,h=h,**o)  # 長方形のスタンド(中央がフィールド)
+def _ellipse(cx,cy,rx,ry,fill,outline=None):
+    d.ellipse([cx-rx,cy-ry,cx+rx,cy+ry],fill=(*fill,255),outline=(*(outline or mul(fill,.55)),255))
+def _pitch(cx,cy,rx,ry,kind):
+    """フィールドの描画(楕円の中)。kind: soccer / diamond / track / court / plain"""
+    if kind=='track':
+        _ellipse(cx,cy,rx,ry,(188,92,66));_ellipse(cx,cy,rx*.74,ry*.74,(236,232,222));_ellipse(cx,cy,rx*.68,ry*.68,(104,170,76))
+        line((cx-rx*.3,cy),(cx+rx*.3,cy),(240,240,236))
+    elif kind=='diamond':
+        _ellipse(cx,cy,rx,ry,(100,164,72));poly([(cx,cy-ry*.6),(cx+rx*.5,cy),(cx,cy+ry*.55),(cx-rx*.5,cy)],(176,132,88),(240,240,236))
+    elif kind=='court':
+        _ellipse(cx,cy,rx,ry,(70,140,200));line((cx-rx*.6,cy),(cx+rx*.6,cy),(240,240,236));d.ellipse([cx-rx*.18,cy-ry*.18,cx+rx*.18,cy+ry*.18],outline=(240,240,236,255))
+    elif kind=='plain':
+        _ellipse(cx,cy,rx,ry,(104,170,76))
+    else:
+        _ellipse(cx,cy,rx,ry,(96,164,70));line((cx,cy-ry),(cx,cy+ry),(240,240,236));d.ellipse([cx-rx*.22,cy-ry*.22,cx+rx*.22,cy+ry*.22],outline=(240,240,236,255))
+def part_wheel(p,ctr,fs,hs,st,seed):
+    x,y=round(ctr[0]),round(ctr[1]);r=p['r']*fs;hub=(x,y-r*1.18-3*fs)
+    for sx in(-1,1): line((x+sx*r*.7,y+r*.18),hub,(120,120,130));line((x+sx*r*.7+sx,y+r*.18),(hub[0]+sx,hub[1]),(86,86,96))
+    d.ellipse([hub[0]-r*.84,hub[1]-r,hub[0]+r*.84,hub[1]+r],outline=(*p.get('col',(226,226,232)),255),width=max(1,int(fs)))
+    d.ellipse([hub[0]-r*.5,hub[1]-r*.6,hub[0]+r*.5,hub[1]+r*.6],outline=(*mul(p.get('col',(226,226,232)),.8),255))
+    n=12
+    for k in range(n):
+        a=k*2*math.pi/n;ex=hub[0]+math.cos(a)*r*.84;ey=hub[1]+math.sin(a)*r
+        line(hub,(ex,ey),(176,176,186))
+        gc=[(220,60,60),(250,200,60),(70,150,220),(80,190,110),(220,120,200),(250,140,60)][k%6]
+        d.rectangle([ex-1.5*fs/1.5,ey-1,ex+1.5*fs/1.5,ey+2*fs/1.5],fill=(*gc,255))
+    d.ellipse([hub[0]-2,hub[1]-2,hub[0]+2,hub[1]+2],fill=(120,120,130,255))
+    return (x,hub[1]-r)
+def part_tent(p,ctr,fs,hs,st,seed):
+    x,y=round(ctr[0]),round(ctr[1]);r=p['r']*fs;h=p['h']*hs;c1,c2=p.get('cols',((210,56,52),(244,240,230)))
+    _ellipse(x,y,r,r/2,mul(c2,.8))
+    n=14
+    for k in range(n):
+        a0=math.pi*k/n;a1=math.pi*(k+1)/n
+        pts=[(x,y-h),(x+math.cos(a0)*r,y+math.sin(a0)*r/2),(x+math.cos(a1)*r,y+math.sin(a1)*r/2)]
+        poly(pts,c1 if k%2 else c2,mul(c1 if k%2 else c2,.7))
+    line((x,y-h),(x,y-h-8*fs),(70,70,76));poly([(x,y-h-8*fs),(x+8,y-h-6*fs),(x,y-h-4*fs)],(250,210,60),(120,90,20))
+    return (x,y-h)
+def part_carousel(p,ctr,fs,hs,st,seed):
+    x,y=round(ctr[0]),round(ctr[1]);r=p['r']*fs
+    _ellipse(x,y,r,r/2,(214,196,160));_ellipse(x,y-3*hs,r*.9,r*.45,(236,226,196))
+    for k in range(8):
+        a=k*2*math.pi/8;px_=x+math.cos(a)*r*.8;py_=y-3*hs+math.sin(a)*r*.4
+        line((px_,py_),(px_,py_-14*hs),(244,214,120))
+    top=y-3*hs-14*hs
+    for k in range(12):
+        a0=2*math.pi*k/12;a1=2*math.pi*(k+1)/12
+        if math.sin((a0+a1)/2)<-.05: continue
+        poly([(x,top-8*hs),(x+math.cos(a0)*r,top+math.sin(a0)*r/2),(x+math.cos(a1)*r,top+math.sin(a1)*r/2)],(220,70,90) if k%2 else (250,230,200),(120,40,50))
+    line((x,top-8*hs),(x,top-14*hs),(200,170,60))
+    return (x,top-8*hs)
+def part_coaster(p,ctr,fs,hs,st,seed):
+    x,y=round(ctr[0]),round(ctr[1]);L=p['L']*fs;H=p['h']*hs;N=40;pts=[]
+    for i in range(N+1):
+        t=i/N;gx=x-L+2*L*t;gy=y-L/2+L*t/1.0*.5*2*.5
+        hh=H*(.18+.82*abs(math.sin(math.pi*(p.get('humps',2))*t+.4)))*(1-.3*abs(2*t-1))
+        pts.append((gx,gy-hh,gy))
+    for i in range(0,N+1,3):
+        gx,ty,gy=pts[i];line((gx,ty),(gx,gy),(120,120,130))
+    for i in range(N):
+        a,b=pts[i],pts[i+1];col=p.get('col',(214,56,52))
+        line((a[0],a[1]),(b[0],b[1]),col);line((a[0],a[1]+1),(b[0],b[1]+1),mul(col,.7))
+    return (x,y-H)
+def part_slide(p,ctr,fs,hs,st,seed):
+    x,y=round(ctr[0]),round(ctr[1]);L=p['L']*fs;H=p['h']*hs
+    d.rectangle([x-3*fs,y-H,x+3*fs,y],fill=(*p.get('pal',(230,230,236)),255),outline=(110,110,120,255))
+    sx,sy=x,y-H
+    pts=[]
+    for i in range(30):
+        t=i/29;pts.append((sx+L*t*1.1+6*fs*math.sin(t*9),sy+(y+L*.25-sy)*t**1.4))
+    for i in range(29):
+        for w in(0,1,2): line((pts[i][0],pts[i][1]+w),(pts[i+1][0],pts[i+1][1]+w),(90,190,230) if w!=2 else (50,130,180))
+    return (x,y-H)
+def part_bowl(p,ctr,fs,hs,st,seed):
+    cx,c0y=round(ctr[0]),round(ctr[1]);r=p['r']*fs;h=p['h']*hs
+    top=cyl((cx,c0y),p['r']*fs,h,st,seed,1.0,p.get('rc',(150,150,156)))
+    _ellipse(cx,c0y-h,r*.97,r*.485,(70,76,96))
+    for k,f in enumerate((.9,.8,.7)):
+        d.ellipse([cx-r*f,c0y-h-r*f*.5,cx+r*f,c0y-h+r*f*.5],outline=(*lerp((70,76,96),(120,130,160),k/3),255))
+    _pitch(cx,c0y-h,r*.6,r*.3,p.get('pitch','soccer'))
+    return (cx,c0y-h-2)
+def part_pbox(p,ctr,fs,hs,st,seed):
+    L=max(4,p['L']*fs);R=max(4,p['R']*fs);h=max(3,p['h']*hs);cx=round(ctr[0]-(R-L)/2);cy=round(ctr[1]+(L+R)/4)
+    c2=box(cx,cy,L,R,h,st,seed,roof=(120,120,126),top=False)
+    A=(cx,cy-h);B=(cx-L,cy-L/2-h);C=(cx-L+R,cy-L/2-R/2-h);D=(cx+R,cy-R/2-h);ctr2=((A[0]+C[0])/2,(A[1]+C[1])/2)
+    ring=lambda k:[(ctr2[0]+(q[0]-ctr2[0])*k,ctr2[1]+(q[1]-ctr2[1])*k) for q in (A,B,C,D)]
+    poly(ring(1.0),(150,152,160),(80,80,88));poly(ring(.86),(70,76,96),(50,54,70));poly(ring(.74),(94,102,128),(60,66,86))
+    pq=ring(.62);poly(pq,(100,166,72) if p.get('pitch','soccer')!='court' else (70,140,200),(236,236,230))
+    k=p.get('pitch','soccer')
+    if k=='diamond':
+        qq=ring(.34);poly([qq[0],qq[1],qq[2],qq[3]],(176,132,88),(240,240,236))
+    elif k=='track':
+        poly(ring(.5),(236,232,222),(188,92,66));poly(ring(.42),(104,170,76),(240,240,236))
+    elif k in('soccer','court'):
+        m1=((pq[0][0]+pq[1][0])/2,(pq[0][1]+pq[1][1])/2);m2=((pq[2][0]+pq[3][0])/2,(pq[2][1]+pq[3][1])/2);line(m1,m2,(240,240,236))
+    return ctr2
+EXTRA_PARTS={'wheel':part_wheel,'tent':part_tent,'carousel':part_carousel,'coaster':part_coaster,'slide':part_slide,'bowl':part_bowl,'pbox':part_pbox}
+_crown1=crown
+def crown(kind,ctr,Lt):
+    x,y=ctr
+    if kind=='floodlights':
+        for ox,oy in((-Lt*.5,Lt*.18),(Lt*.5,Lt*.18),(-Lt*.5,-Lt*.18),(Lt*.5,-Lt*.18)):
+            line((x+ox,y+oy),(x+ox,y+oy-22),(120,120,128));d.rectangle([x+ox-4,y+oy-27,x+ox+4,y+oy-21],fill=(246,244,200,255),outline=(120,120,128,255))
+    elif kind=='bannerflags':
+        for i,c in enumerate(((220,60,60),(250,200,60),(70,150,220))):
+            line((x-14+i*14,y),(x-14+i*14,y-24),(90,90,96));poly([(x-14+i*14,y-24),(x-5+i*14,y-21),(x-14+i*14,y-18)],c)
+    elif kind=='ferrisflag':
+        line((x,y),(x,y-14),(90,90,96));poly([(x,y-14),(x+9,y-11),(x,y-8)],(240,60,100))
+    else: _crown1(kind,ctr,Lt)

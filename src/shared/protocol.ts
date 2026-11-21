@@ -66,6 +66,8 @@ export type Cmd =
   /** 施設のグレードを1つ上げる / 改装する */
   | { t: 'facUpgrade'; facilityId: number }
   | { t: 'facRenovate'; facilityId: number }
+  /** デザイン変更: 建てた施設を、同じ大きさのまま別のデザインにする(費用がかかる) */
+  | { t: 'facRedesign'; facilityId: number; design: number }
   /** 要素ごとの撤去: 矩形(ドラッグした範囲)の中の、選んだ種類の要素だけを撤去する */
   | { t: 'bulldoze'; a: Pt; b: Pt; kinds: BulldozeKinds }
   /** 沿線開発: 自社の停留所の開発度を1上げる */

@@ -18,8 +18,10 @@ import campusUrl from '../assets/campus.png';
 import golfUrl from '../assets/golf.png';
 import hospitalUrl from '../assets/hospital.png';
 import stationmallUrl from '../assets/stationmall.png';
+import amusementUrl from '../assets/amusement.png';
+import stadiumUrl from '../assets/stadium.png';
 import sheetInfo from '../../shared/data/facilitySprites.json';
-import { SIZED3, type Facility } from '../../shared/world/facilities';
+import { SIZED_TYPES, type Facility, facilityDims } from '../../shared/world/facilities';
 import { buildingLevel, buildingVariant, isOffice } from '../../shared/world/buildings';
 
 /**
@@ -59,6 +61,8 @@ const SIZED_URLS: Record<string, string> = {
   golf: golfUrl,
   hospital: hospitalUrl,
   stationmall: stationmallUrl,
+  amusement: amusementUrl,
+  stadium: stadiumUrl,
 };
 const sizedAtlas: Record<string, HTMLImageElement | null> = {};
 
@@ -133,7 +137,7 @@ export function drawBuildingSprite(ctx: CanvasRenderingContext2D, px: number, py
  * @returns 描いたら true
  */
 export function drawFacilitySprite(ctx: CanvasRenderingContext2D, px: number, py: number, f: Facility): boolean {
-  if (SIZED3.includes(f.type)) return drawSizedSprite(ctx, px, py, f);
+  if (SIZED_TYPES.includes(f.type) && f.design !== undefined && f.size !== undefined) return drawSizedSprite(ctx, px, py, f);
   const img =
     f.type === 'school'
       ? atlasSchool
@@ -176,17 +180,28 @@ function drawSizedSprite(ctx: CanvasRenderingContext2D, px: number, py: number, 
   return true;
 }
 
-/** 施設ピッカーの見本: キャンバスの中央に1棟を描く(読み込み前は何も描かない) */
+/** 施設ピッカーの見本: キャンバスの中央に1棟を描く(読み込み前は何も描かない)。大きな施設は、はみ出さないよう縮めて収める */
 export function drawFacilityPreview(canvas: HTMLCanvasElement, type: Facility['type'], design: number, size: 'S' | 'M' | 'L'): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const sized3 = SIZED3.includes(type);
-  const n = sized3 ? (size === 'L' ? 3 : size === 'M' ? 2 : 1) : size === 'L' ? 2 : 1;
+  if (SIZED_TYPES.includes(type)) {
+    const band = (sheetInfo as Record<string, { sizes: Record<string, Band> }>)[type]?.sizes[size];
+    if (!band) return;
+    const n = facilityDims(type, size).w;
+    const k = Math.min(1, (canvas.width - 8) / band.w, (canvas.height - 12) / band.h);
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    // スプライトの下端をキャンバスの下辺(余白6px)に合わせる。drawSizedSprite は手前タイルの上頂点から (n-2)*16 だけ上を足元の中心にする
+    const centreY = (canvas.height - 6) / k - (band.h - band.cy);
+    drawFacilitySprite(ctx, canvas.width / 2 / k, centreY + (n - 2) * 16, { type, design, size, w: n, h: n } as Facility);
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    return;
+  }
+  const n = size === 'L' ? 2 : 1;
   const f = { type, design, size, w: n, h: n } as Facility;
   // 足元の中心をキャンバスの下寄りに置く(drawFacilitySprite の (px,py) は手前タイルの上頂点)
   const centreY = canvas.height - 40;
-  const py = sized3 ? centreY + (n - 2) * 16 : size === 'L' ? centreY : centreY - 16;
+  const py = size === 'L' ? centreY : centreY - 16;
   drawFacilitySprite(ctx, canvas.width / 2, py, f);
 }

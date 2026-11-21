@@ -102,11 +102,19 @@ export class Mirror {
         map.towns.push(...(msg.towns as never[]));
         this.ready.towns = true;
         break;
-      case 'fac':
+      case 'fac': {
+        // デザインや大きさが変わった施設は、敷地のタイルを描き直す(建物の絵は、タイルの更新で再描画される)
+        const before = new Map(map.facilities.map((f) => [f.id, `${f.type}:${f.design}:${f.size}`]));
         map.facilities.length = 0;
         map.facilities.push(...(msg.facilities as never[]));
         map.facilityVer++;
+        for (const f of map.facilities) {
+          const was = before.get(f.id);
+          if (was === undefined || was === `${f.type}:${f.design}:${f.size}`) continue;
+          for (let y = f.y0; y < f.y0 + f.h; y++) for (let x = f.x0; x < f.x0 + f.w; x++) if (map.inBounds(x, y)) map.touch(x, y);
+        }
         break;
+      }
       default:
         break;
     }
