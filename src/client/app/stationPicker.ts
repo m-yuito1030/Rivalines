@@ -1,10 +1,11 @@
-import { BUILDING_STYLES, STATION_DESIGN_COUNT, designName, planStation, type StationOptions, type StationPlan } from '../../shared/world/stations';
+import { STATION_KIT_BASE, STATION_KIT_COUNT, designName, planStation, type StationOptions, type StationPlan } from '../../shared/world/stations';
 import type { GameMap } from '../../shared/world/gameMap';
 import { $ } from './dom';
+import { drawStationPreview, loadStationSprites } from '../render/stationSprites';
 
 /** 駅の設置オプション(番線数・ホーム長・デザイン・向き)の入力欄 */
 export class StationPicker {
-  readonly opts: StationOptions = { axis: 1, len: 4, tracks: 1, design: 51 };
+  readonly opts: StationOptions = { axis: 1, len: 4, tracks: 1, design: STATION_KIT_BASE + 12 };
   private readonly el = $('stationOpts');
 
   constructor() {
@@ -19,32 +20,36 @@ export class StationPicker {
       el.addEventListener('input', sync);
       sync();
     };
-    // デザイン 100 種(屋根 × 配色 × 駅舎)を駅舎ごとのグループで選べるようにする
+    // デザイン 80 種(様式20 × 変種4)を様式ごとのグループで選べるようにする。選んだものの見本を出す
     const designSel = $<HTMLSelectElement>('optDesign');
-    for (let g = 0; g < 4; g++) {
+    for (let b = 0; b < STATION_KIT_COUNT / 4; b++) {
       const og = document.createElement('optgroup');
-      og.label = BUILDING_STYLES[g];
-      for (let k = 0; k < 25; k++) {
-        const d = g * 25 + k;
+      og.label = designName(STATION_KIT_BASE + b * 4).replace(/\(.*\)$/, '');
+      for (let v = 0; v < 4; v++) {
+        const d = STATION_KIT_BASE + b * 4 + v;
         const op = document.createElement('option');
         op.value = String(d);
-        op.textContent = `${String(d + 1).padStart(3, '0')} ${designName(d)}`;
+        op.textContent = designName(d);
         og.appendChild(op);
       }
       designSel.appendChild(og);
     }
     designSel.value = String(opts.design);
     $('optRand').addEventListener('click', () => {
-      designSel.value = String(Math.floor(Math.random() * STATION_DESIGN_COUNT));
+      designSel.value = String(STATION_KIT_BASE + Math.floor(Math.random() * STATION_KIT_COUNT));
       designSel.dispatchEvent(new Event('input'));
     });
-    bindOpt('optTracks', (v) => (opts.tracks = v));
-    bindOpt('optLen', (v) => (opts.len = v));
+    const preview = () => drawStationPreview($<HTMLCanvasElement>('stPreview'), { ...opts, x0: 0, y0: 0 });
+    bindOpt('optTracks', (v) => ((opts.tracks = v), preview()));
+    bindOpt('optLen', (v) => ((opts.len = v), preview()));
     bindOpt('optDesign', (v) => {
       opts.design = v;
-      $('optDesignInfo').textContent = `デザイン ${v + 1} / ${STATION_DESIGN_COUNT}: ${designName(v)}`;
+      $('optDesignInfo').textContent = `デザイン ${v - STATION_KIT_BASE + 1} / ${STATION_KIT_COUNT}: ${designName(v)}`;
+      preview();
     });
-    bindOpt('optAxis', (v) => (opts.axis = v as 0 | 1));
+    bindOpt('optAxis', (v) => ((opts.axis = v as 0 | 1), preview()));
+    // 画像の読み込みが終わってから、もう一度見本を描く
+    void loadStationSprites().then(preview);
   }
 
   setVisible(on: boolean): void {

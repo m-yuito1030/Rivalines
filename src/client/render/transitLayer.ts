@@ -1,11 +1,12 @@
 import { FrontOverlay } from './frontOverlay';
+import { StationSprites, stationSpritesReady } from './stationSprites';
 import { Container, Graphics, Sprite, Texture, type Renderer } from 'pixi.js';
 import { AIR_ALT, CAR_LEN, type Transit, WAIT_CAP } from '../../shared/sim/network/transit';
 import { modelOf } from '../../shared/data/models';
 import { LEVEL_PX } from '../../shared/world/constants';
 import type { GameMap } from '../../shared/world/gameMap';
 import { CONN, DX8, DY8 } from '../../shared/world/directions';
-import { designParts } from '../../shared/world/stations';
+import { designParts, isKitDesign } from '../../shared/world/stations';
 import type { View } from './chunkRenderer';
 import { AIR_SCALE, BUS_SCALE, setVehicleSmoothing, trainFrame, vehicleFrame } from './vehicleSprites';
 import { type Facility, isSpriteFacility } from '../../shared/world/facilities';
@@ -52,6 +53,8 @@ export class TransitLayer {
   private spritesUsed = 0;
   /** 駅・車両基地より手前にある街の建物(駅の上に描き直して、重なりの前後を正しくする) */
   private front: FrontOverlay;
+  /** 新しいデザインの駅(スプライト)。地面は列車の下、屋根などは列車の上 */
+  private stations = new StationSprites();
   /** 駅の屋根・駅舎(車両より上に描く。列車が屋根の下に入って見えるように) */
   private roofG = new Graphics();
   private texCache = new Map<string, { tex: Texture; ax: number; ay: number }>();
@@ -72,7 +75,7 @@ export class TransitLayer {
   ) {
     this.front = new FrontOverlay(map, transit);
     this.veh.sortableChildren = true;
-    this.g.addChild(this.infra, this.shad, this.veh, this.roofG, this.front.container, this.air, this.routeG);
+    this.g.addChild(this.stations.ground, this.infra, this.shad, this.veh, this.roofG, this.stations.objects, this.front.container, this.air, this.routeG);
   }
 
   /**
@@ -331,17 +334,20 @@ export class TransitLayer {
       info = { axis: alongX ? 1 : 0, len: 1, tracks: 1, design: 6, x0: s.x, y0: s.y };
     }
     const { axis, len, tracks, x0, y0 } = info;
-    const { roof, palette, building } = designParts(info.design);
+    // 新しいデザイン(100〜)はスプライト。読み込めていなければ従来の描き方で代用する
+    const kitMode = isKitDesign(info.design) && stationSpritesReady();
+    const { roof, palette, building } = designParts(isKitDesign(info.design) ? info.design % 100 : info.design);
+    if (kitMode) this.stations.add(info, lvl, selected);
     const col = selected ? 0xff9a2f : palette.roof;
     const ax = axis === 1 ? 1 : 0;
     const ay = axis === 1 ? 0 : 1;
     // 長軸方向の位置 i(0..len), 幅方向の位置 w(0..tracks; 番線 t の中心は t+0.5) → タイル座標
     const U = (i: number, w: number) => (axis === 1 ? x0 + i : x0 + w);
     const V = (i: number, w: number) => (axis === 1 ? y0 + w : y0 + i);
-    const slabH = roof === 0 ? 3 : 5;
+    const slabH = kitMode ? 3 : roof === 0 ? 3 : 5;
     // 屋根を支える位置(外側ホームは番線中心から 0.34、島式は番線の間)
     const platW = (w: number) => (w === 0 ? 0.16 : w === tracks ? tracks - 0.16 : w);
-    for (let w = 0; w <= tracks; w++) {
+    for (let w = 0; w <= tracks && !kitMode; w++) {
       const outer = w === 0 || w === tracks;
       for (let i = 0; i < len; i++) {
         this.box(U(i + 0.5, platW(w)), V(i + 0.5, platW(w)), lvl, ax, ay, 1, outer ? 0.16 : 0.5, slabH, palette.slab);
@@ -362,6 +368,7 @@ export class TransitLayer {
         this.person(U(along, platW(w) + jitter), V(along, platW(w) + jitter), lvl, slabH, i, s.id);
       }
     }
+    if (kitMode) return; // スプライトの駅は、屋根・駅舎もタイルの絵に含まれる
     // ここから屋根・駅舎: 車両より上の層に描く
     const gfxBefore = this.gfx;
     this.gfx = this.roofG;
@@ -417,6 +424,7 @@ export class TransitLayer {
       this.infraView = null;
       this.hideSprites(0);
       this.front.clear();
+      this.stations.clear();
       return;
     }
     // 静的な部分は、視点が描画済み範囲から出た・構造が変わった・選択が変わった・0.25秒経過のときだけ描き直す
@@ -448,6 +456,7 @@ export class TransitLayer {
     const m = this.map;
     const margin = 160;
     const inView = (wx: number, wy: number) => wx > view.left - margin && wx < view.right + margin && wy > view.top - margin * 2 && wy < view.bottom + margin;
+    this.stations.begin();
     for (const s of this.transit.stops.values()) {
       const wx = this.wx(s.x + 0.5, s.y + 0.5);
       const wy = this.wy(s.x + 0.5, s.y + 0.5, 0);
@@ -476,6 +485,8 @@ export class TransitLayer {
         for (let i = 0; i < n; i++) this.person(s.x + 0.12 + (i % 7) * 0.11, s.y + 0.86 + Math.floor(i / 7) * 0.08, lvl, 0, i, s.id);
       }
     }
+
+    this.stations.end();
 
     // 大型施設
     // 奥のものから順に描く(手前の施設の広場・庭が、奥の施設の建物の上に重ならないように。前の角の x+y が小さい順)

@@ -447,7 +447,7 @@ describe('駅・経由点のセーブ', () => {
   });
 });
 
-describe('駅のデザイン100種', () => {
+describe('駅のデザイン(従来の0〜99 + スプライトの100〜179)', () => {
   it('0〜99がすべて別の組み合わせで、範囲外は丸められる', async () => {
     const { designName, designParts, STATION_DESIGN_COUNT } = await import('../../world/stations');
     expect(STATION_DESIGN_COUNT).toBe(100);
@@ -464,7 +464,7 @@ describe('駅のデザイン100種', () => {
     expect(designParts(999)).toEqual(designParts(99));
     const m = flat(128);
     const tr = new Transit(m);
-    expect(tr.addStation(30, 30, { axis: 1, len: 4, tracks: 1, design: 5000 }).stop!.station!.design).toBe(99);
+    expect(tr.addStation(30, 30, { axis: 1, len: 4, tracks: 1, design: 5000 }).stop!.station!.design).toBe(179);
   });
 });
 

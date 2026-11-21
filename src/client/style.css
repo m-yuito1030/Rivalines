@@ -333,3 +333,4 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
   .box table { display: block; overflow-x: auto; white-space: nowrap; max-width: 100%; }
   .box canvas { max-width: 100%; }
 }
+#stPreview { width: 100%; height: auto; background: rgba(0, 0, 0, 0.25); border-radius: 8px; image-rendering: pixelated; }

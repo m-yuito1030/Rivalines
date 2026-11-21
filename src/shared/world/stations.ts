@@ -1,12 +1,23 @@
 import { CONN } from './directions';
 import type { GameMap } from './gameMap';
 import { crossingOk } from './tileRules';
+import kit from '../data/stationKit.json';
 
 /**
  * 駅のデザイン(0..99)= 屋根 5種 × 配色 5種 × 駅舎 4種。
  * 番号 d: 屋根 = d % 5、配色 = ⌊d/5⌋ % 5、駅舎 = ⌊d/25⌋。
  */
 export const STATION_DESIGN_COUNT = 100;
+
+/**
+ * 新しい駅のデザイン(スプライトのタイルで組み立てる): 番号 100〜179 の80種(基本の様式20 × 変種4)。
+ * 様式 = ⌊(d-100)/4⌋、変種 = (d-100) % 4(0=標準 1=別色 2=ダーク 3=雪景色)。0〜99 は従来の描き方(セーブ済みの駅用)。
+ */
+export const STATION_KIT_BASE = 100;
+export const STATION_KIT_COUNT = kit.styles.length;
+/** 駅のデザイン番号の上限(含まない) */
+export const STATION_DESIGN_MAX = STATION_KIT_BASE + STATION_KIT_COUNT;
+export const isKitDesign = (design: number): boolean => design >= STATION_KIT_BASE;
 export const ROOF_STYLES = ['屋根なし(待合のみ)', '部分屋根', '全長屋根', 'ガラス大屋根', 'アーチ屋根'] as const;
 export const BUILDING_STYLES = ['駅舎なし', '券売所', '駅舎', '大駅舎'] as const;
 export interface StationPalette {
@@ -32,6 +43,7 @@ export function designParts(design: number): { roof: number; palette: StationPal
 
 /** 例: 「ガラス大屋根・ブルー・大駅舎」 */
 export function designName(design: number): string {
+  if (isKitDesign(design)) return kit.styles[Math.min(STATION_KIT_COUNT - 1, design - STATION_KIT_BASE)].name;
   const { roof, palette, building } = designParts(design);
   return `${ROOF_STYLES[roof]}・${palette.name}・${BUILDING_STYLES[building]}`;
 }
@@ -86,7 +98,7 @@ export interface StationPlan {
 export function planStation(map: GameMap, x0: number, y0: number, o: StationOptions, occupied: (idx: number) => boolean): StationPlan {
   const len = Math.max(1, Math.min(MAX_PLATFORM_LEN, Math.floor(o.len)));
   const tracks = Math.max(1, Math.min(MAX_TRACKS, Math.floor(o.tracks)));
-  const info: StationInfo = { axis: o.axis, len, tracks, design: Math.max(0, Math.min(STATION_DESIGN_COUNT - 1, Math.floor(o.design) || 0)), x0, y0 };
+  const info: StationInfo = { axis: o.axis, len, tracks, design: Math.max(0, Math.min(STATION_DESIGN_MAX - 1, Math.floor(o.design) || 0)), x0, y0 };
   const tiles = stationTiles(info);
   const fail = (reason: string): StationPlan => ({ ok: false, reason, info, tiles });
   const ab = axisBits(o.axis);

@@ -19,6 +19,7 @@ import type { Cmd, CmdResult, PlaceTool } from '../shared/protocol';
 import { type FacilityType, planFacility, placeFacility } from '../shared/world/facilities';
 import { RoutePanel } from './ui/routePanel';
 import { loadBuildingSprites } from './render/buildingSprites';
+import { loadStationSprites } from './render/stationSprites';
 import { loadVehicleSprites } from './render/vehicleSprites';
 import { StatsPanel } from './ui/statsPanel';
 import { AnalysisPanel } from './ui/analysisPanel';
@@ -76,6 +77,7 @@ const pad = (n: number) => String(n).padStart(2, '0');
 async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt: { x: number; y: number }, cam?: { x: number; y: number; zoom: number }): Promise<void> {
   await loadBuildingSprites();
   await loadVehicleSprites();
+  await loadStationSprites();
   const app = new Application();
   await app.init({ resizeTo: window, background: '#0b1a2b', antialias: false, autoDensity: true, resolution: Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2) });
   $('game').append(app.canvas);

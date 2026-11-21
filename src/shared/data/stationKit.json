@@ -1,0 +1,350 @@
+{
+ "tile": 64,
+ "groundTop": 28,
+ "pieces": [
+  "rail_R",
+  "rail_L",
+  "plat_R",
+  "plat_L",
+  "can_R",
+  "can_L",
+  "cang_R",
+  "cang_L",
+  "shel_R",
+  "shel_L",
+  "brg_R",
+  "brg_L",
+  "brgr_R",
+  "brgr_L",
+  "bump_R",
+  "bump_L",
+  "mast_R",
+  "mast_L",
+  "bld_mid",
+  "bld_door",
+  "plaza",
+  "road"
+ ],
+ "styles": [
+  {
+   "name": "田舎の木造駅",
+   "key": "rural_wood"
+  },
+  {
+   "name": "田舎の木造駅(別色)",
+   "key": "rural_wood_v2"
+  },
+  {
+   "name": "田舎の木造駅(ダーク)",
+   "key": "rural_wood_dark"
+  },
+  {
+   "name": "田舎の木造駅(雪景色)",
+   "key": "rural_wood_snow"
+  },
+  {
+   "name": "煉瓦のクラシック駅",
+   "key": "brick_classic"
+  },
+  {
+   "name": "煉瓦のクラシック駅(別色)",
+   "key": "brick_classic_v2"
+  },
+  {
+   "name": "煉瓦のクラシック駅(ダーク)",
+   "key": "brick_classic_dark"
+  },
+  {
+   "name": "煉瓦のクラシック駅(雪景色)",
+   "key": "brick_classic_snow"
+  },
+  {
+   "name": "コンクリートの近代駅",
+   "key": "concrete_modern"
+  },
+  {
+   "name": "コンクリートの近代駅(別色)",
+   "key": "concrete_modern_v2"
+  },
+  {
+   "name": "コンクリートの近代駅(ダーク)",
+   "key": "concrete_modern_dark"
+  },
+  {
+   "name": "コンクリートの近代駅(雪景色)",
+   "key": "concrete_modern_snow"
+  },
+  {
+   "name": "ガラス張りの現代駅",
+   "key": "glass_modern"
+  },
+  {
+   "name": "ガラス張りの現代駅(別色)",
+   "key": "glass_modern_v2"
+  },
+  {
+   "name": "ガラス張りの現代駅(ダーク)",
+   "key": "glass_modern_dark"
+  },
+  {
+   "name": "ガラス張りの現代駅(雪景色)",
+   "key": "glass_modern_snow"
+  },
+  {
+   "name": "和風の駅",
+   "key": "japan"
+  },
+  {
+   "name": "和風の駅(別色)",
+   "key": "japan_v2"
+  },
+  {
+   "name": "和風の駅(ダーク)",
+   "key": "japan_dark"
+  },
+  {
+   "name": "和風の駅(雪景色)",
+   "key": "japan_snow"
+  },
+  {
+   "name": "欧風の鉄骨駅",
+   "key": "euro_iron"
+  },
+  {
+   "name": "欧風の鉄骨駅(別色)",
+   "key": "euro_iron_v2"
+  },
+  {
+   "name": "欧風の鉄骨駅(ダーク)",
+   "key": "euro_iron_dark"
+  },
+  {
+   "name": "欧風の鉄骨駅(雪景色)",
+   "key": "euro_iron_snow"
+  },
+  {
+   "name": "工業地帯の駅",
+   "key": "industrial"
+  },
+  {
+   "name": "工業地帯の駅(別色)",
+   "key": "industrial_v2"
+  },
+  {
+   "name": "工業地帯の駅(ダーク)",
+   "key": "industrial_dark"
+  },
+  {
+   "name": "工業地帯の駅(雪景色)",
+   "key": "industrial_snow"
+  },
+  {
+   "name": "都会の地下鉄風駅",
+   "key": "metro"
+  },
+  {
+   "name": "都会の地下鉄風駅(別色)",
+   "key": "metro_v2"
+  },
+  {
+   "name": "都会の地下鉄風駅(ダーク)",
+   "key": "metro_dark"
+  },
+  {
+   "name": "都会の地下鉄風駅(雪景色)",
+   "key": "metro_snow"
+  },
+  {
+   "name": "山岳リゾートの駅",
+   "key": "alpine"
+  },
+  {
+   "name": "山岳リゾートの駅(別色)",
+   "key": "alpine_v2"
+  },
+  {
+   "name": "山岳リゾートの駅(ダーク)",
+   "key": "alpine_dark"
+  },
+  {
+   "name": "山岳リゾートの駅(雪景色)",
+   "key": "alpine_snow"
+  },
+  {
+   "name": "砂漠の駅",
+   "key": "desert"
+  },
+  {
+   "name": "砂漠の駅(別色)",
+   "key": "desert_v2"
+  },
+  {
+   "name": "砂漠の駅(ダーク)",
+   "key": "desert_dark"
+  },
+  {
+   "name": "砂漠の駅(雪景色)",
+   "key": "desert_snow"
+  },
+  {
+   "name": "石造りのゴシック駅",
+   "key": "stone_gothic"
+  },
+  {
+   "name": "石造りのゴシック駅(別色)",
+   "key": "stone_gothic_v2"
+  },
+  {
+   "name": "石造りのゴシック駅(ダーク)",
+   "key": "stone_gothic_dark"
+  },
+  {
+   "name": "石造りのゴシック駅(雪景色)",
+   "key": "stone_gothic_snow"
+  },
+  {
+   "name": "アールデコの駅",
+   "key": "art_deco"
+  },
+  {
+   "name": "アールデコの駅(別色)",
+   "key": "art_deco_v2"
+  },
+  {
+   "name": "アールデコの駅(ダーク)",
+   "key": "art_deco_dark"
+  },
+  {
+   "name": "アールデコの駅(雪景色)",
+   "key": "art_deco_snow"
+  },
+  {
+   "name": "無骨な社会主義風駅",
+   "key": "soviet"
+  },
+  {
+   "name": "無骨な社会主義風駅(別色)",
+   "key": "soviet_v2"
+  },
+  {
+   "name": "無骨な社会主義風駅(ダーク)",
+   "key": "soviet_dark"
+  },
+  {
+   "name": "無骨な社会主義風駅(雪景色)",
+   "key": "soviet_snow"
+  },
+  {
+   "name": "スチームパンクの駅",
+   "key": "steampunk"
+  },
+  {
+   "name": "スチームパンクの駅(別色)",
+   "key": "steampunk_v2"
+  },
+  {
+   "name": "スチームパンクの駅(ダーク)",
+   "key": "steampunk_dark"
+  },
+  {
+   "name": "スチームパンクの駅(雪景色)",
+   "key": "steampunk_snow"
+  },
+  {
+   "name": "南国の駅",
+   "key": "tropical"
+  },
+  {
+   "name": "南国の駅(別色)",
+   "key": "tropical_v2"
+  },
+  {
+   "name": "南国の駅(ダーク)",
+   "key": "tropical_dark"
+  },
+  {
+   "name": "南国の駅(雪景色)",
+   "key": "tropical_snow"
+  },
+  {
+   "name": "北欧の赤い駅",
+   "key": "nordic_red"
+  },
+  {
+   "name": "北欧の赤い駅(別色)",
+   "key": "nordic_red_v2"
+  },
+  {
+   "name": "北欧の赤い駅(ダーク)",
+   "key": "nordic_red_dark"
+  },
+  {
+   "name": "北欧の赤い駅(雪景色)",
+   "key": "nordic_red_snow"
+  },
+  {
+   "name": "チューダー様式の駅",
+   "key": "tudor"
+  },
+  {
+   "name": "チューダー様式の駅(別色)",
+   "key": "tudor_v2"
+  },
+  {
+   "name": "チューダー様式の駅(ダーク)",
+   "key": "tudor_dark"
+  },
+  {
+   "name": "チューダー様式の駅(雪景色)",
+   "key": "tudor_snow"
+  },
+  {
+   "name": "地中海風の駅",
+   "key": "mediterranean"
+  },
+  {
+   "name": "地中海風の駅(別色)",
+   "key": "mediterranean_v2"
+  },
+  {
+   "name": "地中海風の駅(ダーク)",
+   "key": "mediterranean_dark"
+  },
+  {
+   "name": "地中海風の駅(雪景色)",
+   "key": "mediterranean_snow"
+  },
+  {
+   "name": "未来都市の駅",
+   "key": "futuristic"
+  },
+  {
+   "name": "未来都市の駅(別色)",
+   "key": "futuristic_v2"
+  },
+  {
+   "name": "未来都市の駅(ダーク)",
+   "key": "futuristic_dark"
+  },
+  {
+   "name": "未来都市の駅(雪景色)",
+   "key": "futuristic_snow"
+  },
+  {
+   "name": "鉱山町の駅",
+   "key": "mining"
+  },
+  {
+   "name": "鉱山町の駅(別色)",
+   "key": "mining_v2"
+  },
+  {
+   "name": "鉱山町の駅(ダーク)",
+   "key": "mining_dark"
+  },
+  {
+   "name": "鉱山町の駅(雪景色)",
+   "key": "mining_snow"
+  }
+ ]
+}
