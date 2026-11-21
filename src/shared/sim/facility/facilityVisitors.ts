@@ -8,6 +8,7 @@
  */
 import { FACILITY_SPECS, type Facility, type FacilityType, facilityAttract, facilityBuildCost } from '../../world/facilities';
 import { demandMul, elasticity, priceMul } from './pricing';
+import { freshness, gradeOf, gradeSpendMul, nextRep, repMul, repOf, satisfaction } from '../../world/facilityQuality';
 import type { GameMap } from '../../world/gameMap';
 import type { Transit } from '../network/transit';
 
@@ -103,10 +104,15 @@ export function dailyVisitors(map: GameMap, transit: Transit, day: number, rng: 
     const k = elasticity(f.type, same, station, adActive(f, day));
     f.elast = k;
     v *= demandMul(priceMul(f), k);
+    // 質: 新しさ(古いと人気が落ちる)と評判(満足度に向かって少しずつ動く)が来場者に効く。評判は料金・設備・駅・混雑で決まる
+    f.renov ??= day;
+    const fresh = freshness(f, day);
+    v *= fresh * repMul(repOf(f));
+    f.rep = nextRep(repOf(f), satisfaction({ grade: gradeOf(f), priceMul: priceMul(f), served: station, crowded: v >= cap * 0.95, fresh }));
     f.visits = (f.visits ?? 0) + v;
     total += v;
     if ((f.owner ?? 'player') === 'player' && spec.conversion * spec.spend > 0) {
-      const amount = v * spec.conversion * spec.spend * priceMul(f);
+      const amount = v * spec.conversion * spec.spend * priceMul(f) * gradeSpendMul(gradeOf(f));
       if (amount > 0) {
         pay(f, amount);
         f.dayIncome = (f.dayIncome ?? 0) + amount;

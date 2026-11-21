@@ -1,4 +1,5 @@
 import { net } from '../connection/net';
+import { GRADE_MAX, fairPrice, freshness, gradeCapMul, gradeOf, gradeSpendMul, gradeUpkeepMul, renovateCost, repMul, repOf, upgradeCost } from '../../shared/world/facilityQuality';
 import { PRICE_LEVELS, bestLevel, demandMul, elasticity, priceLevel, revenueIndex } from '../../shared/sim/facility/pricing';
 import { TIERS, townTier } from '../../shared/world/town';
 import { AD_COOLDOWN_DAYS, AD_TYPES, type AdKind, VISITOR_TYPES, adActive, adAvailable, adCost } from '../../shared/sim/facility/facilityVisitors';
@@ -6,7 +7,7 @@ import { DAY_TICKS, type Stop, type Transit, todOf } from '../../shared/sim/netw
 import type { GameMap } from '../../shared/world/gameMap';
 import { designName } from '../../shared/world/stations';
 import { type Company, facilityValue, vehiclePrice, yen } from '../../shared/sim/economy/economy';
-import { FACILITY_SPECS, facilityAt, facilityUpkeep } from '../../shared/world/facilities';
+import { FACILITY_SPECS, facilityAt, facilityBuildCost, facilityUpkeep } from '../../shared/world/facilities';
 import { type Mode, clampCars, kindsFor, modelOf, modelsFor } from '../../shared/data/models';
 import type { Town } from '../../shared/world/town';
 
@@ -187,6 +188,8 @@ export class InfoPanel {
     const say = (p: Promise<{ ok: boolean; msg?: string }>, okMsg?: string) => void p.then((r) => this.onMessage(r.msg ?? (r.ok ? (okMsg ?? '') : '失敗しました')));
     const act = b.dataset.act;
     if (act === 'ad') say(net.cmd({ t: 'ad', facilityId: Number(b.dataset.id), kind: b.dataset.kind as AdKind }));
+    else if (act === 'upgrade') say(net.cmd({ t: 'facUpgrade', facilityId: Number(b.dataset.id) }));
+    else if (act === 'renovate') say(net.cmd({ t: 'facRenovate', facilityId: Number(b.dataset.id) }));
     else if (act === 'price') say(net.cmd({ t: 'facPrice', facilityId: Number(b.dataset.id), level: Number(b.dataset.level) }));
     else if (act === 'buyfac' || act === 'sellfac') say(net.cmd({ t: 'fin', op: act === 'buyfac' ? 'acquire' : 'sell', id: Number(b.dataset.id) }));
     else if (act === 'buy' && this.sel?.kind === 'depot') {
@@ -433,6 +436,20 @@ export class InfoPanel {
               `<button data-act="price" data-id="${f.id}" data-level="${i}" class="${i === cur ? 'on' : ''}" title="客単価 ×${l.mul} ・ 来場者 ×${demandMul(l.mul, k).toFixed(2)} ・ 売上の目安 ${Math.round(revenueIndex(l.mul, k) * 100)}%">${l.label}${i === best ? '★' : ''}</button>`,
           ).join(' ')}</div>`;
           econ += `<div class="im muted">客単価 ×${PRICE_LEVELS[cur].mul}・来場者 ×${demandMul(PRICE_LEVELS[cur].mul, k).toFixed(2)}(標準を100%として売上の目安 ${Math.round(revenueIndex(PRICE_LEVELS[cur].mul, k) * 100)}%)。★は今の条件でいちばん儲かる見込みの料金です。近くに同じ種類の施設が増える・駅がなくなると、最適な料金は下がります。</div>`;
+          // グレード・評判・新しさ
+          const g = gradeOf(f);
+          const rep = Math.round(repOf(f));
+          const fresh = freshness(f, day);
+          const build = facilityBuildCost(f);
+          econ += `<div class="im">グレード <b>${'★'.repeat(g)}${'☆'.repeat(GRADE_MAX - g)}</b> ${
+            g < GRADE_MAX
+              ? `<button data-act="upgrade" data-id="${f.id}" title="客単価 ×${gradeSpendMul(g + 1).toFixed(2)}・来場者の上限 ×${gradeCapMul(g + 1).toFixed(2)}・維持費 ×${gradeUpkeepMul(g + 1).toFixed(2)}">★${g + 1}にする ${yen(upgradeCost(build, g))}</button>`
+              : '(最高)'
+          }</div>`;
+          econ += `<div class="im">評判 <b>${rep}</b>/100(来場者 ×${repMul(rep).toFixed(2)}) ・ 新しさ ${Math.round(fresh * 100)}% ${
+            fresh < 0.99 ? `<button data-act="renovate" data-id="${f.id}" title="人気(新しさ)を戻し、評判を少し上げます">改装 ${yen(renovateCost(build))}</button>` : ''
+          }</div>`;
+          econ += `<div class="im muted">評判は、料金が設備に見合うか(★${g}の目安は ×${fairPrice(g).toFixed(2)}より安い)・駅が近いか・混雑していないか・新しいか、で少しずつ動きます。</div>`;
         }
       }
       if (perVisit > 0 && (f.income ?? 0) < upkeep)

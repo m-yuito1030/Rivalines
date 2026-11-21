@@ -945,3 +945,30 @@ describe('施設の料金(コマンド)', () => {
     expect(execute(sim, 1, { t: 'facPrice', facilityId: 999, level: 1 }).ok).toBe(false);
   });
 });
+
+describe('施設のグレードと改装(コマンド)', () => {
+  it('グレードは費用を払って1つずつ★5まで。他社・資金不足・最高では拒否。改装は古いときだけ', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    execute(sim, 1, { t: 'place', tool: 'hotel', x: 60, y: 60, fac: { design: 0, size: 'S' } });
+    const f = sim.map.facilities.find((x) => x.type === 'hotel')!;
+    const co = sim.playerCompany(1);
+    expect(execute(sim, 2, { t: 'facUpgrade', facilityId: f.id }).ok).toBe(false);
+    const cash = co.cash;
+    expect(execute(sim, 1, { t: 'facUpgrade', facilityId: f.id }).ok).toBe(true);
+    expect(f.grade).toBe(2);
+    expect(co.cash).toBeLessThan(cash);
+    co.cash = 1000;
+    expect(execute(sim, 1, { t: 'facUpgrade', facilityId: f.id }).ok).toBe(false); // 資金不足
+    expect(f.grade).toBe(2);
+    co.cash = 1e9;
+    for (let i = 0; i < 10; i++) execute(sim, 1, { t: 'facUpgrade', facilityId: f.id });
+    expect(f.grade).toBe(5);
+    expect(execute(sim, 1, { t: 'facUpgrade', facilityId: f.id }).ok).toBe(false); // 最高
+    expect(execute(sim, 1, { t: 'facRenovate', facilityId: f.id }).ok).toBe(false); // まだ新しい
+    f.renov = -2000; // とても古い
+    expect(execute(sim, 1, { t: 'facRenovate', facilityId: f.id }).ok).toBe(true);
+    expect(f.renov).toBe(sim.day);
+    expect(execute(sim, 2, { t: 'facRenovate', facilityId: f.id }).ok).toBe(false);
+  });
+});

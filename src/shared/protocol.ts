@@ -62,6 +62,9 @@ export type Cmd =
   | { t: 'ad'; facilityId: number; kind: 'news' | 'sns' | 'tv' }
   /** 施設の料金の段階(0=格安〜4=高級) */
   | { t: 'facPrice'; facilityId: number; level: number }
+  /** 施設のグレードを1つ上げる / 改装する */
+  | { t: 'facUpgrade'; facilityId: number }
+  | { t: 'facRenovate'; facilityId: number }
   /** 要素ごとの撤去: 矩形(ドラッグした範囲)の中の、選んだ種類の要素だけを撤去する */
   | { t: 'bulldoze'; a: Pt; b: Pt; kinds: BulldozeKinds }
   /** 沿線開発: 自社の停留所の開発度を1上げる */
