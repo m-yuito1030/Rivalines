@@ -1,3 +1,4 @@
+import { StopLabels } from './app/stopLabels';
 import { $, isTouch } from './app/dom';
 import { initAuth } from './app/auth';
 import { Toast } from './app/toast';
@@ -268,6 +269,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
 
   // 街の名前ラベル(画面座標)
   const labelTexts = new Map<number, Text>();
+  const stopLabels = new StopLabels(labels, transit, map, $('stopNameBtn'));
 
   (window as unknown as Record<string, unknown>).__mp = { map, sim, camera, net, mirror };
   if (import.meta.env.DEV)
@@ -620,6 +622,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       label.visible = true;
       label.position.set(x, y);
     }
+
+    stopLabels.update(camera, w, h);
 
     fpsAcc += t.deltaMS;
     if (++fpsN >= 20) {
