@@ -9,6 +9,8 @@ import { execute } from './commands/index';
 import { Replicator } from './replicate';
 import { canConnectRail } from '../src/shared/world/rails';
 import { Accounts } from './accounts';
+import { facilityCost } from '../src/shared/world/facilities';
+import { VISITOR_TYPES } from '../src/shared/sim/facility/facilityVisitors';
 
 const flatMap = (size = 128) => new GameMap(size, 1, new Uint8Array(size * size).fill(SEA_LEVEL + 20));
 const world = () => {
@@ -925,5 +927,27 @@ describe('他社の停留所の使用許可', () => {
     expect(saved.grants).toEqual([[1, [2]]]);
     expect(execute(sim, 1, { t: 'companyAllow', who: 2, allow: false }).ok).toBe(true);
     expect(execute(sim, 2, { t: 'routeCreate', stops: [a, b] }).ok).toBe(false);
+  });
+
+  it('新しい施設: デザインと大きさを選んで建てられる。立地の条件を満たさないと建てられない', () => {
+    const sim = world();
+    sim.setOnline([1]);
+    const co = sim.playerCompany(1);
+    // 映画館: 大きさSなら安く、選んだデザインで建つ
+    const before = co.cash;
+    const r = execute(sim, 1, { t: 'place', tool: 'cinema', x: 40, y: 40, fac: { design: 5, size: 'S' } });
+    expect(r.ok).toBe(true);
+    const f = sim.map.facilities.find((x) => x.type === 'cinema')!;
+    expect(f).toMatchObject({ design: 5, size: 'S', w: 1, h: 1, playerId: 1 });
+    expect(before - co.cash).toBe(facilityCost('cinema', 'S'));
+    // 範囲外のデザインは不可
+    expect(execute(sim, 1, { t: 'place', tool: 'cinema', x: 60, y: 60, fac: { design: 99, size: 'L' } }).ok).toBe(false);
+    // 立地の条件: 平地(標高2)ではスキー場は建てられず、海がなければビーチも建てられない
+    expect(execute(sim, 1, { t: 'place', tool: 'ski', x: 80, y: 80, fac: { design: 0, size: 'L' } }).msg).toContain('標高');
+    expect(execute(sim, 1, { t: 'place', tool: 'beach', x: 80, y: 80, fac: { design: 0, size: 'L' } }).msg).toContain('海のそば');
+    // 駅ビル: 鉄道の駅がなければ建てられない
+    expect(execute(sim, 1, { t: 'place', tool: 'stationmall', x: 100, y: 100, fac: { design: 0, size: 'L' } }).msg).toContain('駅');
+    // 来場者の対象(広告も出せる)
+    expect(VISITOR_TYPES).toContain('cinema');
   });
 });

@@ -48,7 +48,9 @@ export function isHoliday(day: number): boolean {
   );
 }
 
-const LEISURE: FacilityType[] = ['stadium', 'amusement', 'park', 'mall', 'hotel'];
+const LEISURE: FacilityType[] = ['stadium', 'amusement', 'park', 'mall', 'hotel', 'cinema', 'zoo', 'ski', 'beach', 'arena', 'golf'];
+/** 平日に強い施設(休日は客足が落ちる。大学は特に) */
+const BUSINESS: FacilityType[] = ['convention', 'bizhotel', 'campus'];
 
 /** 季節の倍率(月ごと) */
 export function seasonMul(type: FacilityType, month: number): number {
@@ -68,6 +70,28 @@ export function seasonMul(type: FacilityType, month: number): number {
       return month === 12 ? 1.3 : month === 7 || month === 1 ? 1.15 : 1;
     case 'hotel':
       return month === 8 || month === 1 || month === 5 ? 1.3 : 1;
+    case 'cinema':
+      return month === 12 || month === 1 ? 1.15 : 1;
+    case 'zoo':
+      return spring || autumn ? 1.2 : summer ? 1 : 0.7;
+    case 'ski':
+      return month === 12 ? 1.8 : month === 1 || month === 2 ? 2.6 : month === 3 ? 1.6 : month === 4 ? 0.3 : 0.05;
+    case 'beach':
+      return month === 7 || month === 8 ? 2.6 : month === 6 ? 1.2 : month === 9 ? 0.8 : month === 5 ? 0.5 : 0.1;
+    case 'arena':
+      return summer || autumn ? 1.1 : 1;
+    case 'convention':
+      return month === 3 || month === 9 || month === 10 || month === 11 ? 1.3 : month === 8 || month === 1 ? 0.7 : 1;
+    case 'bizhotel':
+      return month === 3 || month === 4 ? 1.2 : month === 8 || month === 12 || month === 1 ? 0.8 : 1;
+    case 'campus':
+      return month === 8 ? 0.3 : month === 3 ? 0.4 : month === 4 ? 1.2 : 1;
+    case 'golf':
+      return spring || autumn ? 1.4 : summer ? 0.8 : 0.5;
+    case 'hospital':
+      return month === 12 || month === 1 || month === 2 ? 1.2 : 1;
+    case 'stationmall':
+      return month === 12 ? 1.3 : month === 1 ? 1.1 : 1;
     default:
       return 1;
   }
@@ -75,8 +99,44 @@ export function seasonMul(type: FacilityType, month: number): number {
 
 /** 天候の倍率 */
 export function weatherMul(type: FacilityType, w: Weather): number {
-  if (w === 'rain') return type === 'amusement' ? 0.5 : type === 'park' ? 0.4 : type === 'stadium' ? 0.7 : type === 'mall' || type === 'department' ? 1.15 : 1;
-  if (w === 'snow') return type === 'amusement' ? 0.4 : type === 'park' ? 0.3 : type === 'stadium' ? 0.6 : type === 'mall' || type === 'department' ? 0.85 : 1;
+  if (w === 'rain') {
+    const m: Partial<Record<FacilityType, number>> = {
+      amusement: 0.5,
+      park: 0.4,
+      stadium: 0.7,
+      mall: 1.15,
+      department: 1.15,
+      cinema: 1.3,
+      zoo: 0.7,
+      ski: 0.5,
+      beach: 0.2,
+      arena: 0.9,
+      golf: 0.3,
+      stationmall: 1.1,
+    };
+    return m[type] ?? 1;
+  }
+  if (w === 'snow') {
+    const m: Partial<Record<FacilityType, number>> = {
+      amusement: 0.4,
+      park: 0.3,
+      stadium: 0.6,
+      mall: 0.85,
+      department: 0.85,
+      cinema: 1.2,
+      zoo: 0.5,
+      ski: 1.6,
+      beach: 0.1,
+      arena: 0.8,
+      golf: 0.2,
+      stationmall: 0.9,
+    };
+    return m[type] ?? 1;
+  }
+  if (w === 'sunny') {
+    const m: Partial<Record<FacilityType, number>> = { beach: 1.3, golf: 1.1, zoo: 1.1, ski: 0.9 };
+    return m[type] ?? 1;
+  }
   return 1;
 }
 
@@ -101,6 +161,27 @@ export function facilityEvent(seed: number, f: Pick<Facility, 'id' | 'type'>, da
       return r < 0.2 ? { name: '催事', mul: 1.6 } : null;
     case 'hotel':
       return r < 0.1 ? { name: '団体客', mul: 1.5 } : null;
+    case 'cinema':
+      return r < (hol ? 0.3 : 0.12) ? { name: 'ロードショー', mul: 2 } : null;
+    case 'zoo':
+      return r < 0.12 ? { name: 'ふれあいイベント', mul: 1.8 } : null;
+    case 'ski':
+      return c.month === 12 || c.month <= 3 ? (r < 0.12 ? { name: 'スキー大会', mul: 2.2 } : null) : null;
+    case 'beach':
+      return c.month === 7 || c.month === 8 ? (r < 0.12 ? { name: '花火大会', mul: 2.5 } : null) : null;
+    case 'arena':
+      return r < (hol ? 0.5 : 0.3) ? { name: 'コンサート', mul: 4 } : null;
+    case 'convention':
+      return r < 0.18 ? { name: '大型展示会', mul: 3 } : null;
+    case 'bizhotel':
+      return r < 0.1 ? { name: '出張ラッシュ', mul: 1.6 } : null;
+    case 'campus':
+      if (c.month === 11) return r < 0.25 ? { name: '学園祭', mul: 3 } : null;
+      return c.month === 7 || c.month === 8 ? (r < 0.06 ? { name: 'オープンキャンパス', mul: 2 } : null) : null;
+    case 'golf':
+      return hol && r < 0.15 ? { name: 'コンペ', mul: 1.8 } : null;
+    case 'stationmall':
+      return r < 0.15 ? { name: 'フェア', mul: 1.6 } : null;
     case 'park':
       if (c.month === 3 || c.month === 4) return r < 0.4 ? { name: '花見', mul: 3 } : null;
       if (c.month === 11) return r < 0.3 ? { name: '紅葉まつり', mul: 2.5 } : null;
@@ -115,7 +196,9 @@ export function facilityEvent(seed: number, f: Pick<Facility, 'id' | 'type'>, da
 export function facilityDayMul(seed: number, f: Pick<Facility, 'id' | 'type'>, day: number): number {
   const c = calendarOf(day);
   let m = seasonMul(f.type, c.month) * weatherMul(f.type, weatherOf(seed, day));
-  if (isHoliday(day)) m *= LEISURE.includes(f.type) ? 1.4 : f.type === 'department' ? 1.2 : 1;
+  if (isHoliday(day))
+    m *= LEISURE.includes(f.type) ? 1.4 : f.type === 'department' || f.type === 'stationmall' ? 1.2 : f.type === 'campus' ? 0.2 : BUSINESS.includes(f.type) ? 0.5 : 1;
+  else if (BUSINESS.includes(f.type)) m *= 1.25;
   const e = facilityEvent(seed, f, day);
   return e ? m * e.mul : m;
 }

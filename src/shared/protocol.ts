@@ -2,6 +2,7 @@
 import type { DragTool } from './world/buildApply';
 import type { StationOptions } from './world/stations';
 import type { Mode } from './data/models';
+import type { NewFacilityType } from './world/facilities';
 import type { PactState } from './sim/economy/pacts';
 import type { AuctionState } from './sim/economy/auctions';
 import type { WeeklyState } from './sim/economy/weekly';
@@ -25,7 +26,7 @@ export interface BulldozeKinds {
 }
 
 /** 1タイルずつ置くツール */
-export type PlaceTool = 'stop' | 'station' | 'depot' | 'waypoint' | 'signal' | 'airport' | 'stadium' | 'amusement' | 'mall' | 'park' | 'department' | 'hotel';
+export type PlaceTool = 'stop' | 'station' | 'depot' | 'waypoint' | 'signal' | 'airport' | 'stadium' | 'amusement' | 'mall' | 'park' | 'department' | 'hotel' | NewFacilityType;
 
 /** 路線・オーダー・車両の操作のうち、持ち主の確認だけで実行できるもの(Transit のメソッド名) */
 export const TX_METHODS = [

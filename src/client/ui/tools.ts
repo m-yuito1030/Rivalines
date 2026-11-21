@@ -9,7 +9,7 @@ import { DX8, DY8 } from '../../shared/world/directions';
 import { canPlaceAirport } from '../../shared/world/airports';
 import { planSpan } from '../../shared/world/spans';
 import type { StationPlan } from '../../shared/world/stations';
-import type { FacilityPlan, FacilityType } from '../../shared/world/facilities';
+import { FACILITY_TYPES, NEW_FACILITY_TYPES, type FacilityPlan, type FacilityType, type NewFacilityType } from '../../shared/world/facilities';
 
 export type Tool =
   | 'pan'
@@ -37,7 +37,8 @@ export type Tool =
   | 'mall'
   | 'park'
   | 'department'
-  | 'hotel';
+  | 'hotel'
+  | NewFacilityType;
 const RECT: Tool[] = ['raise', 'lower', 'level', 'bulldoze'];
 /** 新規の開発(建設)を伴うツール。会社の評価が最悪のときは使えない(撤去・移動・路線作成は可) */
 const BUILD: Tool[] = [
@@ -63,9 +64,11 @@ const BUILD: Tool[] = [
   'park',
   'department',
   'hotel',
+  ...NEW_FACILITY_TYPES,
 ];
-const SINGLE: Tool[] = ['stop', 'route', 'station', 'airport', 'signal', 'waypoint', 'depot', 'stadium', 'amusement', 'mall', 'park', 'department', 'hotel'];
+const SINGLE: Tool[] = ['stop', 'route', 'station', 'airport', 'signal', 'waypoint', 'depot', 'stadium', 'amusement', 'mall', 'park', 'department', 'hotel', ...NEW_FACILITY_TYPES];
 type Tile = { x: number; y: number };
+const isFacilityTool = (t: string): t is FacilityType => (FACILITY_TYPES as string[]).includes(t);
 
 /** 建設ツール: ドラッグで直線の道路/一方通行/撤去を行い、プレビューを表示する */
 export class ToolController {
@@ -165,10 +168,7 @@ export class ToolController {
       return;
     }
     if (this.tool === 'roadspan' || this.tool === 'railspan') return this.drawSpanPreview(g, w);
-    if (
-      (this.tool === 'stadium' || this.tool === 'amusement' || this.tool === 'mall' || this.tool === 'park' || this.tool === 'department' || this.tool === 'hotel') &&
-      this.facilityPlanner
-    ) {
+    if (isFacilityTool(this.tool) && this.facilityPlanner) {
       const plan = this.facilityPlanner(this.hover.x, this.hover.y, this.tool);
       const color = plan.ok ? 0x66ff99 : 0xff4455;
       for (const [x, y] of plan.tiles) {

@@ -3,6 +3,7 @@ import type { CommandContext } from './context';
 import { fail } from './util';
 import { blockingRight } from '../../src/shared/sim/economy/auctions';
 import { placeAirport } from '../../src/shared/world/airports';
+import { STATIONMALL_RANGE, nearRailStop } from '../../src/shared/world/facilities';
 import { DESIGN_COUNT, FACILITY_SPECS, FACILITY_TYPES, SPRITE_TYPES, facilityCost, facilityDims, placeFacility, planFacility } from '../../src/shared/world/facilities';
 import type { FacilitySize, FacilityType } from '../../src/shared/world/facilities';
 import { PRICES, yen } from '../economyApi';
@@ -60,6 +61,7 @@ export function place(cmd: Extract<Cmd, { t: 'place' }>, ctx: CommandContext): C
     if (cmd.fac && !(Number.isInteger(cmd.fac.design) && cmd.fac.design >= 0 && cmd.fac.design < nDesign)) return fail('デザインが正しくありません');
     const plan = planFacility(map, x, y, type, facOcc, sprite ? facilityDims(type, size) : undefined);
     if (!plan.ok) return fail(`${spec.name}を建てられません: ${plan.reason}`);
+    if (type === 'stationmall' && !nearRailStop(t.stops.values(), plan, STATIONMALL_RANGE)) return fail(`駅ビルは鉄道の駅から${STATIONMALL_RANGE}タイル以内にだけ建てられます`);
     const cost = sprite ? facilityCost(type, size) : spec.cost;
     const bad = charge(cost, 'build', spec.name);
     if (bad) return bad;

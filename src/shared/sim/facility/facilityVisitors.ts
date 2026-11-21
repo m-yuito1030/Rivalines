@@ -6,12 +6,12 @@
  * - 近くに同じ種類の施設(自社・他社どちらも)があると、人数が分散して減る。他の種類の施設も少し減らす。
  * - 広告(新聞・SNS・テレビ)を出すと、自施設は一時的に増え、近くの他の施設は減る。広告は施設ごとに一定期間に1度だけ。
  */
-import { FACILITY_SPECS, type Facility, type FacilityType, facilityAttract, facilityBuildCost } from '../../world/facilities';
+import { FACILITY_SPECS, NEW_FACILITY_TYPES, type Facility, type FacilityType, facilityAttract, facilityBuildCost } from '../../world/facilities';
 import type { GameMap } from '../../world/gameMap';
 import type { Transit } from '../network/transit';
 
 /** この種類の施設が、人口からの来場者の対象か(公共施設は対象外) */
-export const VISITOR_TYPES: FacilityType[] = ['stadium', 'amusement', 'mall', 'park', 'department', 'hotel'];
+export const VISITOR_TYPES: FacilityType[] = ['stadium', 'amusement', 'mall', 'park', 'department', 'hotel', ...NEW_FACILITY_TYPES];
 
 /** 来場者の上限の目安(人口の割合)と、1日の来場者の上限(attract に対する割合)、停留所があるときの倍率 */
 export const WALKIN_FRACTION = 0.2;

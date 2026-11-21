@@ -7,8 +7,19 @@ import mallUrl from '../assets/mall.png';
 import sightsUrl from '../assets/sights.png';
 import hotelUrl from '../assets/hotel.png';
 import parkUrl from '../assets/park.png';
+import cinemaUrl from '../assets/cinema.png';
+import zooUrl from '../assets/zoo.png';
+import skiUrl from '../assets/ski.png';
+import beachUrl from '../assets/beach.png';
+import arenaUrl from '../assets/arena.png';
+import conventionUrl from '../assets/convention.png';
+import bizhotelUrl from '../assets/bizhotel.png';
+import campusUrl from '../assets/campus.png';
+import golfUrl from '../assets/golf.png';
+import hospitalUrl from '../assets/hospital.png';
+import stationmallUrl from '../assets/stationmall.png';
 import sheetInfo from '../../shared/data/facilitySprites.json';
-import type { Facility } from '../../shared/world/facilities';
+import { SIZED3, type Facility } from '../../shared/world/facilities';
 import { buildingLevel, buildingVariant, isOffice } from '../../shared/world/buildings';
 
 /**
@@ -33,8 +44,23 @@ let atlasCityhall: HTMLImageElement | null = null;
 let atlasDepartment: HTMLImageElement | null = null;
 let atlasMall: HTMLImageElement | null = null;
 let atlasSights: HTMLImageElement | null = null;
-let atlasHotel: HTMLImageElement | null = null;
-let atlasPark: HTMLImageElement | null = null;
+/** 大きさごとにセルが違う施設(ホテル・公園と、あとから加わった施設)の種類 → アトラスの画像URLと、読み込んだ画像 */
+const SIZED_URLS: Record<string, string> = {
+  hotel: hotelUrl,
+  park: parkUrl,
+  cinema: cinemaUrl,
+  zoo: zooUrl,
+  ski: skiUrl,
+  beach: beachUrl,
+  arena: arenaUrl,
+  convention: conventionUrl,
+  bizhotel: bizhotelUrl,
+  campus: campusUrl,
+  golf: golfUrl,
+  hospital: hospitalUrl,
+  stationmall: stationmallUrl,
+};
+const sizedAtlas: Record<string, HTMLImageElement | null> = {};
 
 const loadImage = (url: string): Promise<HTMLImageElement | null> =>
   new Promise((resolve) => {
@@ -46,7 +72,9 @@ const loadImage = (url: string): Promise<HTMLImageElement | null> =>
 
 export async function loadBuildingSprites(): Promise<void> {
   if (atlas) return;
-  [atlas, atlas2, atlasSchool, atlasCityhall, atlasDepartment, atlasMall, atlasSights, atlasHotel, atlasPark] = await Promise.all([
+  const sized = Object.keys(SIZED_URLS);
+  let sizedImgs: (HTMLImageElement | null)[] = [];
+  [atlas, atlas2, atlasSchool, atlasCityhall, atlasDepartment, atlasMall, atlasSights, ...sizedImgs] = await Promise.all([
     loadImage(atlasUrl),
     loadImage(offices2Url),
     loadImage(schoolUrl),
@@ -54,9 +82,9 @@ export async function loadBuildingSprites(): Promise<void> {
     loadImage(departmentUrl),
     loadImage(mallUrl),
     loadImage(sightsUrl),
-    loadImage(hotelUrl),
-    loadImage(parkUrl),
+    ...sized.map((k) => loadImage(SIZED_URLS[k])),
   ]);
+  sized.forEach((k, i) => (sizedAtlas[k] = sizedImgs[i]));
 }
 
 export const spritesReady = () => atlas !== null;
@@ -105,7 +133,7 @@ export function drawBuildingSprite(ctx: CanvasRenderingContext2D, px: number, py
  * @returns 描いたら true
  */
 export function drawFacilitySprite(ctx: CanvasRenderingContext2D, px: number, py: number, f: Facility): boolean {
-  if (f.type === 'hotel' || f.type === 'park') return drawSizedSprite(ctx, px, py, f);
+  if (SIZED3.includes(f.type)) return drawSizedSprite(ctx, px, py, f);
   const img =
     f.type === 'school'
       ? atlasSchool
@@ -134,7 +162,7 @@ export function drawFacilitySprite(ctx: CanvasRenderingContext2D, px: number, py
 type Band = { w: number; h: number; y0: number; cx: number; cy: number };
 /** ホテル・公園: 大きさごとにセルの大きさが違う(S=1x1 M=2x2 L=3x3)。敷地の中心にスプライトの足元の中心を合わせる */
 function drawSizedSprite(ctx: CanvasRenderingContext2D, px: number, py: number, f: Facility): boolean {
-  const img = f.type === 'hotel' ? atlasHotel : atlasPark;
+  const img = sizedAtlas[f.type];
   if (!img) return false;
   const band = (sheetInfo as Record<string, { sizes: Record<string, Band> }>)[f.type]?.sizes[f.size ?? 'S'];
   if (!band) return false;
@@ -154,10 +182,11 @@ export function drawFacilityPreview(canvas: HTMLCanvasElement, type: Facility['t
   if (!ctx) return;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const n = type === 'hotel' || type === 'park' ? (size === 'L' ? 3 : size === 'M' ? 2 : 1) : size === 'L' ? 2 : 1;
+  const sized3 = SIZED3.includes(type);
+  const n = sized3 ? (size === 'L' ? 3 : size === 'M' ? 2 : 1) : size === 'L' ? 2 : 1;
   const f = { type, design, size, w: n, h: n } as Facility;
   // 足元の中心をキャンバスの下寄りに置く(drawFacilitySprite の (px,py) は手前タイルの上頂点)
   const centreY = canvas.height - 40;
-  const py = type === 'hotel' || type === 'park' ? centreY + (n - 2) * 16 : size === 'L' ? centreY : centreY - 16;
+  const py = sized3 ? centreY + (n - 2) * 16 : size === 'L' ? centreY : centreY - 16;
   drawFacilitySprite(ctx, canvas.width / 2, py, f);
 }

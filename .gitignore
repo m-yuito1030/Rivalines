@@ -58,3 +58,5 @@ Thumbs.db
 .claude/scratch/
 .preview.pid
 handover/
+tools/facility-sprites/*_out/
+__pycache__/
