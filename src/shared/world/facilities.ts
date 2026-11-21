@@ -1,4 +1,5 @@
 import type { GameMap } from './gameMap';
+import { gradeCapMul, gradeOf, gradeUpkeepMul } from './facilityQuality';
 
 /** 大型施設(スタジアム・遊園地など)。周辺の停留所の乗客需要が増える */
 /** あとから加わった、デザインと大きさを選んで建てる施設(映画館・動物園・スキー場・ビーチ・アリーナ・コンベンション・ビジネスホテル・大学・ゴルフ場・病院・駅ビル) */
@@ -372,8 +373,8 @@ export function facilityDims(type: FacilityType, size: FacilitySize): { w: numbe
 }
 /** 大きさ・デザインを持つ(スプライトの)施設の建設費と維持費(1日)。古い手続き描画の施設は大きさがなく、従来どおり */
 export const facilityCost = (type: FacilityType, size?: FacilitySize): number => Math.round((FACILITY_SPECS[type].cost * sizeMul(type, size)) / 1000) * 1000;
-export const facilityUpkeep = (f: Pick<Facility, 'type' | 'size' | 'design'>): number =>
-  Math.round(FACILITY_SPECS[f.type].upkeep * (f.design !== undefined && CHOOSABLE.includes(f.type) ? sizeMul(f.type, f.size) : 1));
+export const facilityUpkeep = (f: Pick<Facility, 'type' | 'size' | 'design' | 'grade'>): number =>
+  Math.round(FACILITY_SPECS[f.type].upkeep * (f.design !== undefined && CHOOSABLE.includes(f.type) ? sizeMul(f.type, f.size) : 1) * gradeUpkeepMul(gradeOf(f)));
 export const isSpriteFacility = (f: Facility): boolean => SPRITE_TYPES.includes(f.type) && f.design !== undefined && f.size !== undefined;
 
 /** 大きさ S/M は1タイル、L は 2x2 タイル */
@@ -384,7 +385,7 @@ export const facilityBuildCost = (f: Pick<Facility, 'type' | 'size' | 'design'>)
 
 /** 百貨店・モールは大きさで需要が変わる(S=0.5 M=0.75 L=1)。ほかの施設は一定 */
 export function facilityAttract(f: Facility): number {
-  const a = FACILITY_SPECS[f.type].attract;
+  const a = FACILITY_SPECS[f.type].attract * gradeCapMul(gradeOf(f)); // グレードが高いほど人を呼べる
   if ((CHOOSABLE.includes(f.type) || f.type === 'sight') && f.design !== undefined) return a * sizeMul(f.type, f.size);
   return a;
 }
@@ -413,6 +414,13 @@ export interface Facility {
   playerId?: number;
   /** 広告: 種類と、打った日(日の通し番号)。効く日数と次に打てるまでの日数は種類・定数で決まる */
   ad?: { kind: 'news' | 'sns' | 'tv'; from: number };
+  /** 料金の段階(0=格安〜4=高級。未設定は標準=2)と、値上げへの敏感さ(1日の締めに計算して、駅からの来場の売上にも使う) */
+  price?: number;
+  elast?: number;
+  /** グレード(★1〜5。未設定は1)・評判(0〜100。未設定は50)・建てた/改装した日(日の通し番号) */
+  grade?: number;
+  rep?: number;
+  renov?: number;
   /** 来場者の累計(人) */
   visits?: number;
   /** 今日の売上(円)と、直近の1日あたりの売上(指数移動平均) */

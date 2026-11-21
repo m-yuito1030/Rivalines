@@ -951,3 +951,48 @@ describe('他社の停留所の使用許可', () => {
     expect(VISITOR_TYPES).toContain('cinema');
   });
 });
+
+describe('施設の料金(コマンド)', () => {
+  it('自社の売上のある施設だけ設定でき、段階は整数の0〜4。他社・公園・範囲外は拒否', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    execute(sim, 1, { t: 'place', tool: 'hotel', x: 60, y: 60, fac: { design: 0, size: 'S' } });
+    execute(sim, 1, { t: 'place', tool: 'park', x: 80, y: 60, fac: { design: 0, size: 'S' } });
+    const hotel = sim.map.facilities.find((f) => f.type === 'hotel')!;
+    const park = sim.map.facilities.find((f) => f.type === 'park')!;
+    expect(execute(sim, 1, { t: 'facPrice', facilityId: hotel.id, level: 4 }).ok).toBe(true);
+    expect(hotel.price).toBe(4);
+    expect(execute(sim, 2, { t: 'facPrice', facilityId: hotel.id, level: 0 }).ok).toBe(false); // 他社
+    expect(hotel.price).toBe(4);
+    for (const level of [-1, 5, 1.5, NaN, null, '2']) expect(execute(sim, 1, { t: 'facPrice', facilityId: hotel.id, level: level as number }).ok).toBe(false);
+    expect(execute(sim, 1, { t: 'facPrice', facilityId: park.id, level: 1 }).ok).toBe(false); // 公園は売上がない
+    expect(execute(sim, 1, { t: 'facPrice', facilityId: 999, level: 1 }).ok).toBe(false);
+  });
+});
+
+describe('施設のグレードと改装(コマンド)', () => {
+  it('グレードは費用を払って1つずつ★5まで。他社・資金不足・最高では拒否。改装は古いときだけ', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    execute(sim, 1, { t: 'place', tool: 'hotel', x: 60, y: 60, fac: { design: 0, size: 'S' } });
+    const f = sim.map.facilities.find((x) => x.type === 'hotel')!;
+    const co = sim.playerCompany(1);
+    expect(execute(sim, 2, { t: 'facUpgrade', facilityId: f.id }).ok).toBe(false);
+    const cash = co.cash;
+    expect(execute(sim, 1, { t: 'facUpgrade', facilityId: f.id }).ok).toBe(true);
+    expect(f.grade).toBe(2);
+    expect(co.cash).toBeLessThan(cash);
+    co.cash = 1000;
+    expect(execute(sim, 1, { t: 'facUpgrade', facilityId: f.id }).ok).toBe(false); // 資金不足
+    expect(f.grade).toBe(2);
+    co.cash = 1e9;
+    for (let i = 0; i < 10; i++) execute(sim, 1, { t: 'facUpgrade', facilityId: f.id });
+    expect(f.grade).toBe(5);
+    expect(execute(sim, 1, { t: 'facUpgrade', facilityId: f.id }).ok).toBe(false); // 最高
+    expect(execute(sim, 1, { t: 'facRenovate', facilityId: f.id }).ok).toBe(false); // まだ新しい
+    f.renov = -2000; // とても古い
+    expect(execute(sim, 1, { t: 'facRenovate', facilityId: f.id }).ok).toBe(true);
+    expect(f.renov).toBe(sim.day);
+    expect(execute(sim, 2, { t: 'facRenovate', facilityId: f.id }).ok).toBe(false);
+  });
+});

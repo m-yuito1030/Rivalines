@@ -334,3 +334,4 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
   .box canvas { max-width: 100%; }
 }
 #stPreview { width: 100%; height: auto; background: rgba(0, 0, 0, 0.25); border-radius: 8px; image-rendering: pixelated; }
+#info button.on { background: #3a6ea5; border-color: #7bd; }

@@ -2,7 +2,10 @@ import type { Cmd, CmdResult } from '../../src/shared/protocol';
 import type { CommandContext } from './context';
 import { fail } from './util';
 import { DEV, devCost } from '../../src/shared/sim/economy/development';
-import { AD_TYPES, adAvailable, adCost } from '../../src/shared/sim/facility/facilityVisitors';
+import { GRADE_MAX, freshness, gradeOf, renovateCost, repOf, upgradeCost } from '../../src/shared/world/facilityQuality';
+import { facilityBuildCost } from '../../src/shared/world/facilities';
+import { PRICE_LEVELS } from '../../src/shared/sim/facility/pricing';
+import { AD_TYPES, VISITOR_TYPES, adAvailable, adCost } from '../../src/shared/sim/facility/facilityVisitors';
 import { FACILITY_SPECS } from '../../src/shared/world/facilities';
 import { yen } from '../economyApi';
 
@@ -23,6 +26,48 @@ export function ad(cmd: Extract<Cmd, { t: 'ad' }>, ctx: CommandContext): CmdResu
     ok: true,
     msg: `${FACILITY_SPECS[f.type].name}に${a.name}広告を出しました(${yen(cost)})。${a.days}日間、来場者が約${Math.round((a.mul - 1) * 100)}%増え、近くの他の施設は約${Math.round((1 - a.rival) * 100)}%減ります`,
   };
+}
+
+/** facPrice */
+export function facPrice(cmd: Extract<Cmd, { t: 'facPrice' }>, ctx: CommandContext): CmdResult {
+  const { map, who } = ctx;
+  const f = map.facilities.find((x) => x.id === cmd.facilityId);
+  if (!f || (f.owner ?? 'player') !== 'player' || f.playerId !== who) return fail('自社の施設ではありません');
+  if (!VISITOR_TYPES.includes(f.type) || FACILITY_SPECS[f.type].spend <= 0) return fail('この施設は料金を設定できません(売上がありません)');
+  if (!Number.isInteger(cmd.level) || cmd.level < 0 || cmd.level >= PRICE_LEVELS.length) return fail('料金の段階が正しくありません');
+  f.price = cmd.level;
+  map.facilityVer++;
+  return { ok: true, msg: `${f.name}の料金を「${PRICE_LEVELS[cmd.level].label}」にしました。来場者と売上は明日以降に反映されます` };
+}
+
+/** facUpgrade: グレードを1つ上げる */
+export function facUpgrade(cmd: Extract<Cmd, { t: 'facUpgrade' }>, ctx: CommandContext): CmdResult {
+  const { map, co, who } = ctx;
+  const f = map.facilities.find((x) => x.id === cmd.facilityId);
+  if (!f || (f.owner ?? 'player') !== 'player' || f.playerId !== who) return fail('自社の施設ではありません');
+  if (!VISITOR_TYPES.includes(f.type) || FACILITY_SPECS[f.type].spend <= 0) return fail('この施設はグレードを上げられません');
+  const g = gradeOf(f);
+  if (g >= GRADE_MAX) return fail('最高のグレードです');
+  const cost = upgradeCost(facilityBuildCost(f), g);
+  if (!co.spend('build', cost)) return fail(`資金が足りません(グレードアップ ${yen(cost)} / 現金 ${yen(co.cash)})`);
+  f.grade = g + 1;
+  map.facilityVer++;
+  return { ok: true, msg: `${f.name}を★${g + 1}にしました(${yen(cost)})。客単価・来場者の上限・維持費が増えます。料金も見直すと評判を保てます` };
+}
+
+/** facRenovate: 改装(新しさを戻し、評判を少し上げる) */
+export function facRenovate(cmd: Extract<Cmd, { t: 'facRenovate' }>, ctx: CommandContext): CmdResult {
+  const { sim, map, co, who } = ctx;
+  const f = map.facilities.find((x) => x.id === cmd.facilityId);
+  if (!f || (f.owner ?? 'player') !== 'player' || f.playerId !== who) return fail('自社の施設ではありません');
+  if (!VISITOR_TYPES.includes(f.type) || FACILITY_SPECS[f.type].spend <= 0) return fail('この施設は改装できません');
+  if (freshness(f, sim.day) >= 0.99) return fail('まだ新しいので、改装は不要です');
+  const cost = renovateCost(facilityBuildCost(f));
+  if (!co.spend('build', cost)) return fail(`資金が足りません(改装 ${yen(cost)} / 現金 ${yen(co.cash)})`);
+  f.renov = sim.day;
+  f.rep = Math.min(100, repOf(f) + 10);
+  map.facilityVer++;
+  return { ok: true, msg: `${f.name}を改装しました(${yen(cost)})。人気が戻り、評判も少し上がります` };
 }
 
 /** bid */
