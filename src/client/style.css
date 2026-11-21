@@ -335,3 +335,8 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 }
 #stPreview { width: 100%; height: auto; background: rgba(0, 0, 0, 0.25); border-radius: 8px; image-rendering: pixelated; }
 #info button.on { background: #3a6ea5; border-color: #7bd; }
+
+/* 情報パネルのタブ(施設: 概要・経営・広告・デザイン) */
+.ftabs { display: flex; gap: 4px; margin: 6px 0; }
+.ftabs button { flex: 1; padding: 5px 4px; background: #26384f; color: #cfd9e6; border: 1px solid #456; border-radius: 6px; cursor: pointer; font-size: 12px; }
+.ftabs button.on { background: #3a6ea5; border-color: #7bd; color: #fff; }
