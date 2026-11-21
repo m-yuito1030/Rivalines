@@ -8,6 +8,7 @@ import type { GameMap } from '../../shared/world/gameMap';
 import { designName } from '../../shared/world/stations';
 import { type Company, facilityValue, vehiclePrice, yen } from '../../shared/sim/economy/economy';
 import { DESIGN_COUNT, FACILITY_SPECS, facilityAt, facilityBuildCost, facilityUpkeep, redesignCost, redesignRule } from '../../shared/world/facilities';
+import { hospitalGrowth, hospitalServes } from '../../shared/world/hospital';
 import sheetInfo from '../../shared/data/facilitySprites.json';
 import { drawFacilityPreview } from '../render/buildingSprites';
 import type { Facility, FacilityType } from '../../shared/world/facilities';
@@ -23,6 +24,9 @@ const hm = (tod: number) => {
 };
 /** tick → ゲーム内の分(切り上げ) */
 const mins = (t: number) => Math.ceil((t / DAY_TICKS) * 24 * 60);
+
+/** 施設の情報パネルのタブ */
+type FacTab = 'overview' | 'econ' | 'ads' | 'design';
 
 export type Selection =
   { kind: 'vehicle'; id: number } | { kind: 'stop'; id: number } | { kind: 'town'; id: number } | { kind: 'depot'; id: number } | { kind: 'facility'; id: number };
@@ -63,6 +67,8 @@ export function findSelection(map: GameMap, transit: Transit, x: number, y: numb
 /** 停留所(待ち人数・発車案内)と街(人口)の情報パネル。1秒ごとに更新する */
 export class InfoPanel {
   private lastParts: string[] = [];
+  /** 施設の情報パネルで開いているタブ */
+  private facTab: FacTab = 'overview';
   /** デザイン変更で選んでいるデザイン(施設 id → デザイン番号) */
   private redesignSel = new Map<number, number>();
   /** 車両の追跡(カメラが追いかける)。main が設定する */
@@ -121,6 +127,13 @@ export class InfoPanel {
       const fol = t.closest<HTMLElement>('[data-follow]');
       if (fol) {
         this.onFollow(Number(fol.dataset.follow));
+        this.lastParts = [];
+        this.render();
+        return;
+      }
+      const ft = t.closest<HTMLElement>('[data-ftab]');
+      if (ft) {
+        this.facTab = ft.dataset.ftab as FacTab;
         this.lastParts = [];
         this.render();
         return;
@@ -433,9 +446,15 @@ export class InfoPanel {
     ];
   }
 
-  private facilityOwnerHtml(f: import('../../shared/world/facilities').Facility): string {
+  /** 施設の情報を、タブごとの内容に分けて返す(概要・経営・広告)。自社の施設でなければ経営・広告は空 */
+  private facilitySections(f: Facility): { overview: string; econ: string; ads: string; own: boolean } {
     if (f.owner === 'public')
-      return `<div class="im">持ち主: <b>${f.type === 'sight' ? '観光地(ご当地)' : '公共施設(市)'}</b> ・ 来場者 ${Math.floor(f.visits ?? 0)}人 ・ 買収・売却・撤去はできません</div>`;
+      return {
+        own: false,
+        econ: '',
+        ads: '',
+        overview: `<div class="im">持ち主: <b>${f.type === 'sight' ? '観光地(ご当地)' : '公共施設(市)'}</b> ・ 来場者 ${Math.floor(f.visits ?? 0)}人 ・ 買収・売却・撤去はできません</div>`,
+      };
     const mineF = (f.owner ?? 'player') === 'player' && f.playerId === net.id;
     const theirs = (f.owner ?? 'player') === 'player' && !mineF;
     const own = mineF;
@@ -446,26 +465,27 @@ export class InfoPanel {
     const upkeep = facilityUpkeep(f);
     const breakEven = perVisit > 0 ? Math.ceil(upkeep / perVisit) : 0;
     let econ = '';
+    let ads = '';
     if (own) {
       const profit = (f.income ?? 0) - upkeep;
       econ = `<div class="im">売上/日 ${yen(f.income ?? 0)} − 維持費/日 ${yen(upkeep)} = <b class="${profit < 0 ? 'neg' : ''}">${profit < 0 ? '' : '+'}${yen(profit)}</b>/日</div>`;
       if (perVisit > 0)
         econ += `<div class="im muted">来場1人あたり ${yen(perVisit)} の売上。黒字には1日に約 ${breakEven} 人の来場が必要です(いまの来場の目安: 売上/日 ÷ ${yen(perVisit)} ≒ ${Math.round((f.income ?? 0) / perVisit)} 人)</div>`;
       if (VISITOR_TYPES.includes(f.type)) {
-        econ += `<div class="im muted">来場者: 周辺の人口の2割までのランダムな人数が毎日来ます。${stopsNear.length ? '集客圏に駅・停留所があるので増えています。' : '近くに駅・停留所を置くと増えます。'}近くに同じ種類の施設(自社・他社)があると分散して減ります。</div>`;
-        if (!(f.visits ?? 0)) econ += `<div class="im muted">⏳ 来場者は毎日 0:00 にまとめて集計されます。建てた日は 0 人のままで、日付が変わると反映されます。</div>`;
+        ads += `<div class="im muted">来場者: 周辺の人口の2割までのランダムな人数が毎日来ます。${stopsNear.length ? '集客圏に駅・停留所があるので増えています。' : '近くに駅・停留所を置くと増えます。'}近くに同じ種類の施設(自社・他社)があると分散して減ります。</div>`;
+        if (!(f.visits ?? 0)) ads += `<div class="im muted">⏳ 来場者は毎日 0:00 にまとめて集計されます。建てた日は 0 人のままで、日付が変わると反映されます。</div>`;
         const day = Math.floor((this.getTick() + DAY_TICKS / 4) / DAY_TICKS);
         const active = adActive(f, day);
         const why = adAvailable(f, day);
         if (active && f.ad)
-          econ += `<div class="im">📣 ${AD_TYPES[f.ad.kind].name}広告 実施中(あと${f.ad.from + AD_TYPES[f.ad.kind].days - day}日): 来場者 ×${AD_TYPES[f.ad.kind].mul}、近くの他の施設 ×${AD_TYPES[f.ad.kind].rival}</div>`;
-        econ += `<div class="im">広告(1施設につき${AD_COOLDOWN_DAYS}日に1度): ${(Object.keys(AD_TYPES) as AdKind[])
+          ads += `<div class="im">📣 ${AD_TYPES[f.ad.kind].name}広告 実施中(あと${f.ad.from + AD_TYPES[f.ad.kind].days - day}日): 来場者 ×${AD_TYPES[f.ad.kind].mul}、近くの他の施設 ×${AD_TYPES[f.ad.kind].rival}</div>`;
+        ads += `<div class="im">広告(1施設につき${AD_COOLDOWN_DAYS}日に1度): ${(Object.keys(AD_TYPES) as AdKind[])
           .map(
             (k) =>
               `<button data-act="ad" data-id="${f.id}" data-kind="${k}" ${why ? 'disabled' : ''} title="${AD_TYPES[k].days}日間 自施設 ×${AD_TYPES[k].mul} / 近くの他の施設 ×${AD_TYPES[k].rival}">${AD_TYPES[k].name} ${yen(adCost(f, k))}</button>`,
           )
           .join(' ')}</div>`;
-        if (why && !active) econ += `<div class="im muted">${esc(why)}</div>`;
+        if (why && !active) ads += `<div class="im muted">${esc(why)}</div>`;
         if (perVisit > 0) {
           // 料金: 上げると1人あたりの売上が増え、来場者は減る。条件ごとのいちばん儲かる段階を目安に出す
           const k = f.elast ?? elasticity(f.type, 0, stopsNear.length > 0, active);
@@ -498,24 +518,50 @@ export class InfoPanel {
           .map((st) => esc(st.name))
           .join('・')})へ向かう乗客を増やす(本数・路線・周辺の人口)と売上が増えます</div>`;
     }
-    return `<div class="im">持ち主: <b>${own ? '自社' : theirs ? '他のプレイヤー' : '他社(民間)'}</b> ・ 評価額 ${yen(v)} ・ 来場者 ${Math.floor(f.visits ?? 0)}人 ・ 売上/日 ${yen(f.income ?? 0)}</div>
-      ${econ}
-      <div class="im">${own ? `<button data-act="sellfac" data-id="${f.id}">売却(評価額の60%)</button>` : theirs ? '' : `<button data-act="buyfac" data-id="${f.id}">買収(${yen(v)})</button>`}</div>`;
+    const stops = [...this.transit.stops.values()].filter((st) => !st.waypoint && st.facs?.includes(f.id));
+    const rows = stops.map((st) => `<div class="im">${esc(st.name)} ・ 待ち ${Math.floor(st.waiting)}人</div>`).join('');
+    const overview = `<div class="ib"><div class="ibt">この施設に来られる停留所</div>${rows || '<div class="im">集客圏にある停留所はまだありません。バス停・駅を近くに置くと、乗客が増えます。</div>'}</div>
+      <div class="im">持ち主: <b>${own ? '自社' : theirs ? '他のプレイヤー' : '他社(民間)'}</b> ・ 評価額 ${yen(v)} ・ 来場者 ${Math.floor(f.visits ?? 0)}人 ・ 売上/日 ${yen(f.income ?? 0)}</div>
+      ${this.hospitalHtml(f)}
+      <div class="im">${own ? `<button data-act="sellfac" data-id="${f.id}">売却(評価額の60%)</button>` : theirs ? '' : `<button data-act="buyfac" data-id="${f.id}">買収(${yen(v)})</button>`}</div>
+      <div class="im muted">撤去: 🧹撤去ツールで敷地をクリック</div>`;
+    return { overview, econ, ads, own };
+  }
+
+  /** 病院が、どの街の成長を何%速めているか */
+  private hospitalHtml(f: Facility): string {
+    if (f.type !== 'hospital') return '';
+    const towns = this.map.towns.filter((t) => hospitalServes(f, t));
+    if (!towns.length) return '<div class="im muted">🏥 この病院が届く街がありません(街の近くに建てると、街の成長が速くなります)</div>';
+    return `<div class="ib"><div class="ibt">🏥 街の成長への効果</div>${towns
+      .slice(0, 5)
+      .map((t) => {
+        const g = hospitalGrowth(this.map, t);
+        return `<div class="im">${esc(t.name)}: 成長 <b>+${Math.round(g.bonus * 100)}%</b>(届いている病院 ${g.count}件)</div>`;
+      })
+      .join('')}</div>`;
   }
 
   private facilityHtml(id: number): string[] | null {
     const f = this.map.facilities.find((x) => x.id === id);
     if (!f) return null;
     const spec = FACILITY_SPECS[f.type];
-    const stops = [...this.transit.stops.values()].filter((s) => s.facs?.includes(id));
-    const rows = stops.map((s) => `<div class="im">${esc(s.name)} ・ 待ち ${Math.floor(s.waiting)}人</div>`).join('');
+    const sec = this.facilitySections(f);
+    const design = this.redesignHtml(f);
+    // 使えるタブだけ並べる(自社の施設は 概要・経営・広告・デザイン、ほかは概要だけ)
+    const tabs: [FacTab, string][] = [['overview', '概要']];
+    if (sec.own) {
+      tabs.push(['econ', '経営']);
+      if (sec.ads) tabs.push(['ads', '広告']);
+      if (design) tabs.push(['design', 'デザイン']);
+    }
+    const cur = tabs.some(([k]) => k === this.facTab) ? this.facTab : 'overview';
+    const content = cur === 'econ' ? sec.econ : cur === 'ads' ? sec.ads : cur === 'design' ? design : sec.overview;
     return [
       `<div class="ih"><b>${spec.icon} ${esc(f.name)}</b><span><button data-focus data-x="${f.x0}" data-y="${f.y0}" title="この場所へ移動">⌖</button><button data-close>✕</button></span></div>
       <div class="im">${spec.desc}。需要は周辺の停留所の集客圏の人口 ${spec.attract}人ぶんに相当します。</div>
-      <div class="ib"><div class="ibt">この施設に来られる停留所</div>${rows || '<div class="im">集客圏にある停留所はまだありません。バス停・駅を近くに置くと、乗客が増えます。</div>'}</div>
-      ${this.facilityOwnerHtml(f)}
-      ${f.owner === 'public' ? '' : '<div class="im">撤去: 🧹撤去ツールで敷地をクリック</div>'}`,
-      this.redesignHtml(f),
+      ${tabs.length > 1 ? `<div class="ftabs">${tabs.map(([k, l]) => `<button data-ftab="${k}" class="${k === cur ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}`,
+      content,
     ];
   }
 
@@ -530,10 +576,11 @@ export class InfoPanel {
       waiting += Math.floor(s.waiting);
     }
     const total = this.map.towns.reduce((a, b) => a + b.pop, 0);
+    const hosp = hospitalGrowth(this.map, town);
     return [
       `<div class="ih"><b>🏘 ${esc(town.name)}</b><span><button data-focus data-x="${town.x}" data-y="${town.y}" title="中心へ移動">⌖</button><button data-close>✕</button></span></div>
       <div class="im">${TIERS[townTier(town)].name}(成長の範囲 ${TIERS[townTier(town)].min.toLocaleString()}〜${TIERS[townTier(town)].max.toLocaleString()}人) ・ 人口 <b>${town.pop.toLocaleString()}</b>人(全体の${total ? Math.round((town.pop / total) * 100) : 0}%) ・ 住宅 ${town.houses}戸</div>
-      <div class="im">停留所 ${stops} ・ 待ち人数 ${waiting}人 ・ 最近の乗降 ${Math.floor(town.pax)}人</div>`,
+      <div class="im">停留所 ${stops} ・ 待ち人数 ${waiting}人 ・ 最近の乗降 ${Math.floor(town.pax)}人</div>${hosp.count ? `<div class="im">🏥 病院 ${hosp.count}件: 成長 <b>+${Math.round(hosp.bonus * 100)}%</b></div>` : ''}`,
     ];
   }
 }

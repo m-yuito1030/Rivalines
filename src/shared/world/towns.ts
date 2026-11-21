@@ -3,6 +3,7 @@ import { DX, DY } from './directions';
 import type { GameMap } from './gameMap';
 import { canConnect, connect, hasRoad } from './roads';
 import { SPRITE_VARIANTS, fillerOf, makeBuilding } from './buildings';
+import { hospitalGrowth } from './hospital';
 import { POP_PER_LEVEL, TIERS, popMul, townTier, type Town } from './town';
 
 /** 決定論的な乱数(mulberry32)。状態を保存/復元できる */
@@ -96,9 +97,10 @@ export function pickTier(rng: () => number, maxTier: number): number {
   return 0;
 }
 
-function scheduleNext(town: Town, now: number, rng: () => number): void {
+/** 次の成長の時刻を決める。bonus: 病院などによる成長の速さの上乗せ(0.25 なら 25% 速い) */
+export function scheduleNext(town: Town, now: number, rng: () => number, bonus = 0): void {
   const slow = 1 + town.houses / 150;
-  const boost = 1 + Math.min(3, town.pax / 40); // 交通サービスで最大4倍速
+  const boost = (1 + Math.min(3, town.pax / 40)) * (1 + bonus); // 交通サービスで最大4倍速。病院でさらに速くなる
   town.nextGrowth = now + Math.round((GROWTH_BASE_TICKS * (0.6 + rng() * 0.8) * slow) / boost);
 }
 
@@ -266,7 +268,7 @@ function tryExtendRoad(map: GameMap, town: Town, rng: () => number): boolean {
 export function growTown(map: GameMap, town: Town, now: number, rng: () => number): void {
   // 段階の上限に達したらそれ以上は成長しない(村は村、都市は都市のまま)
   if (town.pop < TIERS[townTier(town)].max && !tryPlaceHouse(map, town, rng)) tryExtendRoad(map, town, rng);
-  scheduleNext(town, now, rng);
+  scheduleNext(town, now, rng, hospitalGrowth(map, town).bonus);
 }
 
 /** 初期の街を配置する。数は面積に比例(最低2) */
