@@ -1,16 +1,16 @@
 import { Container, Rectangle, Sprite, Texture } from 'pixi.js';
 import type { Transit } from '../../shared/sim/network/transit';
 import type { GameMap } from '../../shared/world/gameMap';
-import { FACILITY_TILE, isSpriteFacility } from '../../shared/world/facilities';
+import { FACILITY_TILE, type Facility, isSpriteFacility } from '../../shared/world/facilities';
 import { stationTiles } from '../../shared/world/stations';
 import { LEVEL_PX } from '../../shared/world/constants';
-import { SPRITE_H, SPRITE_W, buildingSpriteRect } from './buildingSprites';
+import { SPRITE_H, SPRITE_W, buildingSpriteRect, facilitySpriteFrame } from './buildingSprites';
 import { hash2 } from './terrainDraw';
 import type { View } from './chunkRenderer';
 
 /**
  * 前面の建物: 駅・車両基地・大型施設・車両は街の建物とは別の層で描くため、そのままだと手前の建物にも上から被さる。
- * それらの手前にある建物だけを、上の層に描き直して前後を正しくする。
+ * それらの手前にある建物(街の建物と、スプライトで描く施設)だけを、上の層に描き直して前後を正しくする。
  */
 export class FrontOverlay {
   readonly container = new Container();
@@ -31,11 +31,14 @@ export class FrontOverlay {
   clear(): void {
     this.hideFrom(0);
     this.staticFront = [];
+    this.staticFacs = [];
     this.vehTiles.length = 0;
   }
 
   /** 駅・車両基地・大型施設の手前にある建物(タイルindex)。構造が変わったときだけ計算し直す */
   private staticFront: number[] = [];
+  /** 同じく、駅・基地・大型施設の手前にあるスプライトの施設(駅の屋根などが上から被さるのを防ぐ) */
+  private staticFacs: Facility[] = [];
   /** 今のフレームで車両を描いたタイル(重複あり) */
   private vehTiles: number[] = [];
   /** タイルごとの「手前にある建物」の一覧(車両用。数秒ごとに作り直す) */
@@ -51,6 +54,8 @@ export class FrontOverlay {
     const m = this.map;
     const inView = (wx: number, wy: number) => wx > view.left - 160 && wx < view.right + 160 && wy > view.top - 320 && wy < view.bottom + 160;
     const out = new Set<number>();
+    const outFacs = new Set<Facility>();
+    const spriteFacs = m.facilities.filter(isSpriteFacility);
     const R = 7; // 建物の高さぶん、手前〜周囲の何タイルまで調べるか
     const scan = (tiles: [number, number][]) => {
       let x0 = Infinity,
@@ -81,6 +86,22 @@ export class FrontOverlay {
           if (tx + ty > bsum) out.add(m.idx(tx, ty));
         }
       }
+      // スプライトの施設: 手前のタイル(敷地の x+y が最大のタイル)が、最も近いタイルより手前にあるものだけ
+      for (const f of spriteFacs) {
+        const ax = f.x0 + f.w - 1;
+        const ay = f.y0 + f.h - 1;
+        if (ax < x0 - 2 || ax > x1 + R || ay < y0 - 2 || ay > y1 + R) continue;
+        let best = Infinity;
+        let bsum = 0;
+        for (const [x, y] of tiles) {
+          const d = Math.abs(ax - x) + Math.abs(ay - y);
+          if (d < best) {
+            best = d;
+            bsum = x + y;
+          }
+        }
+        if (ax + ay > bsum) outFacs.add(f);
+      }
     };
     for (const s of this.transit.stops.values()) {
       if (s.waypoint || s.kind !== 'rail') continue;
@@ -94,6 +115,7 @@ export class FrontOverlay {
       scan(tiles);
     }
     this.staticFront = [...out];
+    this.staticFacs = [...outFacs];
   }
 
   /** 車両のいるタイルの手前にある建物(車両を建物の陰に隠す) */
@@ -165,6 +187,31 @@ export class FrontOverlay {
       sp.texture = tex;
       sp.position.set(Math.round(px - 64), Math.round(cy - 150));
       sp.zIndex = tx + ty;
+    }
+    // スプライトの施設(敷地の手前のタイルを基準に、街の建物と同じ前後関係で並べる)
+    for (const f of this.staticFacs) {
+      const fr = facilitySpriteFrame(f);
+      if (!fr) continue;
+      const ax = f.x0 + f.w - 1;
+      const ay = f.y0 + f.h - 1;
+      const lvl = m.levelAt(ax, ay);
+      const fk = `${fr.img.src}|${fr.sx}|${fr.sy}|${fr.w}|${fr.h}`;
+      let tex = this.frameTex.get(fk);
+      if (!tex) {
+        tex = new Texture({ source: Texture.from(fr.img).source, frame: new Rectangle(fr.sx, fr.sy, fr.w, fr.h) });
+        this.frameTex.set(fk, tex);
+      }
+      let sp = this.sprites[n];
+      if (!sp) {
+        sp = new Sprite();
+        this.container.addChild(sp);
+        this.sprites.push(sp);
+      }
+      n++;
+      sp.visible = true;
+      sp.texture = tex;
+      sp.position.set(Math.round((ax - ay) * 32 + fr.dx), Math.round((ax + ay) * 16 - lvl * LEVEL_PX + fr.dy));
+      sp.zIndex = ax + ay;
     }
     this.hideFrom(n);
   }

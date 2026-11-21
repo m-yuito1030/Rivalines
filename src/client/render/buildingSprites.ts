@@ -131,51 +131,63 @@ export function drawBuildingSprite(ctx: CanvasRenderingContext2D, px: number, py
   return true;
 }
 
-/**
- * 施設(学校・市役所・百貨店・モール)のスプライトを描く。大きさ S/M は1タイル、L は 2x2 タイルの敷地。
- * (px,py) は敷地の手前側(x+y が最大)のタイルの上頂点。アトラスは 15列×N行(種類 i は 行=⌊i/5⌋、列=(i%5)*3+S/M/L)。
- * @returns 描いたら true
- */
-export function drawFacilitySprite(ctx: CanvasRenderingContext2D, px: number, py: number, f: Facility): boolean {
-  if (SIZED_TYPES.includes(f.type) && f.design !== undefined && f.size !== undefined) return drawSizedSprite(ctx, px, py, f);
-  const img =
-    f.type === 'school'
-      ? atlasSchool
-      : f.type === 'cityhall'
-        ? atlasCityhall
-        : f.type === 'department'
-          ? atlasDepartment
-          : f.type === 'mall'
-            ? atlasMall
-            : f.type === 'sight'
-              ? atlasSights
-              : null;
-  if (!img) return false;
-  const si = f.size === 'L' ? 2 : f.size === 'M' ? 1 : 0;
-  const d = f.design ?? 0;
-  const col = (d % 5) * 3 + si;
-  const row = Math.floor(d / 5);
-  const cy = si === 2 ? py : py + 16;
-  const scale = ctx.getTransform().a;
-  ctx.imageSmoothingEnabled = scale < 1;
-  ctx.drawImage(img, col * SPRITE_W, row * SPRITE_H, SPRITE_W, SPRITE_H, Math.round(px - CX), Math.round(cy - CY), SPRITE_W, SPRITE_H);
-  ctx.imageSmoothingEnabled = true;
-  return true;
+/** 施設スプライトの、アトラス内の切り出し位置と、敷地の手前タイルの上頂点 (px,py) からの描画位置のずれ(画像なしの幾何だけ) */
+export interface FacilityGeom {
+  /** アトラスの種類(sizedAtlas のキー、または school/cityhall/department/mall/sight) */
+  atlas: string;
+  sx: number;
+  sy: number;
+  w: number;
+  h: number;
+  dx: number;
+  dy: number;
 }
 
 type Band = { w: number; h: number; y0: number; cx: number; cy: number };
-/** ホテル・公園: 大きさごとにセルの大きさが違う(S=1x1 M=2x2 L=3x3)。敷地の中心にスプライトの足元の中心を合わせる */
-function drawSizedSprite(ctx: CanvasRenderingContext2D, px: number, py: number, f: Facility): boolean {
-  const img = sizedAtlas[f.type];
-  if (!img) return false;
-  const band = (sheetInfo as Record<string, { sizes: Record<string, Band> }>)[f.type]?.sizes[f.size ?? 'S'];
-  if (!band) return false;
+
+/**
+ * 施設のスプライトの幾何を求める。描けない(スプライトの施設でない)なら null。
+ * ホテル・公園・あとから加わった施設・遊園地・スタジアム: 大きさごとにセルが違う(敷地が n×n)。敷地の中心に足元の中心を合わせる。
+ * 学校・市役所・百貨店・モール・観光地: アトラスは 15列×N行(種類 i は 行=⌊i/5⌋、列=(i%5)*3+S/M/L)。S/M は1タイル、L は 2x2 タイル。
+ */
+export function facilityGeom(f: Pick<Facility, 'type' | 'design' | 'size' | 'w'>): FacilityGeom | null {
   const d = f.design ?? 0;
-  // 敷地が n×n のとき、中心は手前タイルの上頂点から (n-2)*16 だけ上
-  const cy = py - (f.w - 2) * 16;
+  if (SIZED_TYPES.includes(f.type) && f.design !== undefined && f.size !== undefined) {
+    const band = (sheetInfo as Record<string, { sizes: Record<string, Band> }>)[f.type]?.sizes[f.size];
+    if (!band) return null;
+    // 敷地が n×n のとき、中心は手前タイルの上頂点から (n-2)*16 だけ上
+    return { atlas: f.type, sx: (d % 5) * band.w, sy: band.y0 + Math.floor(d / 5) * band.h, w: band.w, h: band.h, dx: -band.cx, dy: -(f.w - 2) * 16 - band.cy };
+  }
+  if (f.type !== 'school' && f.type !== 'cityhall' && f.type !== 'department' && f.type !== 'mall' && f.type !== 'sight') return null;
+  const si = f.size === 'L' ? 2 : f.size === 'M' ? 1 : 0;
+  // 足元の中心: 1x1 はタイル中心(py+16)、2x2 は4タイルの共有点(py)
+  return { atlas: f.type, sx: ((d % 5) * 3 + si) * SPRITE_W, sy: Math.floor(d / 5) * SPRITE_H, w: SPRITE_W, h: SPRITE_H, dx: -CX, dy: (si === 2 ? 0 : 16) - CY };
+}
+
+export interface FacilityFrame extends FacilityGeom {
+  img: HTMLImageElement;
+}
+
+/** 施設のスプライトの画像つきの切り出し。画像がまだ読み込まれていない・スプライトでない場合は null */
+export function facilitySpriteFrame(f: Pick<Facility, 'type' | 'design' | 'size' | 'w'>): FacilityFrame | null {
+  const g = facilityGeom(f);
+  if (!g) return null;
+  const img = SIZED_URLS[g.atlas]
+    ? sizedAtlas[g.atlas]
+    : { school: atlasSchool, cityhall: atlasCityhall, department: atlasDepartment, mall: atlasMall, sight: atlasSights }[g.atlas];
+  return img ? { ...g, img } : null;
+}
+
+/**
+ * 施設のスプライトを描く。(px,py) は敷地の手前側(x+y が最大)のタイルの上頂点。
+ * @returns 描いたら true
+ */
+export function drawFacilitySprite(ctx: CanvasRenderingContext2D, px: number, py: number, f: Facility): boolean {
+  const r = facilitySpriteFrame(f);
+  if (!r) return false;
   const scale = ctx.getTransform().a;
-  ctx.imageSmoothingEnabled = scale < 1;
-  ctx.drawImage(img, (d % 5) * band.w, band.y0 + Math.floor(d / 5) * band.h, band.w, band.h, Math.round(px - band.cx), Math.round(cy - band.cy), band.w, band.h);
+  ctx.imageSmoothingEnabled = scale < 1; // 拡大時はドットを保つ
+  ctx.drawImage(r.img, r.sx, r.sy, r.w, r.h, Math.round(px + r.dx), Math.round(py + r.dy), r.w, r.h);
   ctx.imageSmoothingEnabled = true;
   return true;
 }
