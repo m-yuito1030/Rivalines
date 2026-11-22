@@ -6,6 +6,8 @@ import { LISTING_DAYS, askingPrice, listedFacilities, listingLeft } from '../../
 import { net } from '../connection/net';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+/** 一覧に出す件数(多すぎると、画面が縦に長くなる) */
+const MAX_ROWS = 50;
 const SIZE_NAME = { S: '小', M: '中', L: '大' } as const;
 
 /** 不動産物件: どの会社も持っていない売り出し中の施設の一覧。場所へ移動したり、評価額で購入したりできる */
@@ -57,9 +59,8 @@ export class ForSalePanel extends ModalPanel {
     if (this.pressed) return;
     const day = this.day();
     const cash = this.cash();
-    const list = listedFacilities(this.map)
-      .sort((a, b) => listingLeft(a, day) - listingLeft(b, day) || askingPrice(a) - askingPrice(b))
-      .slice(0, 100);
+    const all = listedFacilities(this.map).sort((a, b) => listingLeft(a, day) - listingLeft(b, day) || askingPrice(a) - askingPrice(b));
+    const list = all.slice(0, MAX_ROWS);
     let h = `<div class="muted">どの会社も持っていない売り出し中の施設です。評価額で購入できます。売却された施設や、街が建てた施設が並びます。<b>${LISTING_DAYS}日間</b>買い手がつかないと、取り壊されて更地に戻ります。(現金 ${yen(cash)})</div>`;
     h += list.length
       ? `<table><tr><th>物件</th><th>大きさ</th><th>場所</th><th>売上/日</th><th>価格</th><th>残り</th><th></th></tr>${list
@@ -72,6 +73,7 @@ export class ForSalePanel extends ModalPanel {
           })
           .join('')}</table>`
       : '<div>いま売り出し中の物件はありません</div>';
+    if (all.length > list.length) h += `<div class="muted">全${all.length}件のうち、残り日数の短い${list.length}件を表示しています</div>`;
     this.body.innerHTML = h;
   }
 }
