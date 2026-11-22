@@ -1,7 +1,7 @@
 {
-  "name": "シミュレーター",
-  "short_name": "シミュレーター",
-  "description": "街の成長と路線・車・飛行機を楽しむサンドボックス交通シミュレーション",
+  "name": "Rivalines",
+  "short_name": "Rivalines",
+  "description": "Build rail, road and air lines, grow towns and compete with rival companies in a shared world. 街と路線を育てて、ライバル会社と競うマルチプレイの交通シミュレーション",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",

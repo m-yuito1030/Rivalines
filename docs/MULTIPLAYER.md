@@ -1,4 +1,4 @@
-# マルチプレイ (simulator-multi)
+# マルチプレイ (Rivalines / リポジトリ名 simulator-multi)
 
 個人用(ソロ)版は `../simulator-solo-v1.zip`(と `../simulator-handover` :8090)。こちらはサーバー権威型のマルチプレイ版。
 

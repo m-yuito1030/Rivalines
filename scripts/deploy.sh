@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# シミュレーター: Ubuntu サーバ用ワンショット セットアップ & 起動スクリプト
+# Rivalines: Ubuntu サーバ用ワンショット セットアップ & 起動スクリプト
 #
 #   bash deploy.sh            Node.js導入(なければ) → 取得/更新 → ビルド → バックグラウンド起動
 #   bash deploy.sh stop       停止
@@ -16,7 +16,7 @@ PORT="${PORT:-4173}"
 # リポジトリ内から実行された場合はそのディレクトリ、そうでなければ ~/Simulator
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
 if [ -n "${APP_DIR:-}" ]; then :
-elif [ -f "$SELF_DIR/../package.json" ] && grep -q '"name": "simulator"' "$SELF_DIR/../package.json" 2>/dev/null; then APP_DIR="$(cd "$SELF_DIR/.." && pwd)"
+elif [ -f "$SELF_DIR/../package.json" ] && grep -q '"name": "rivalines"' "$SELF_DIR/../package.json" 2>/dev/null; then APP_DIR="$(cd "$SELF_DIR/.." && pwd)"
 else APP_DIR="$HOME/Simulator"; fi
 
 PIDFILE="$APP_DIR/.preview.pid"

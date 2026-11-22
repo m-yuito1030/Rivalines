@@ -1,4 +1,4 @@
-# シミュレーター
+# Rivalines
 
 Webブラウザで遊べる、交通・街づくりのシミュレーション(サンドボックス・マルチプレイ)。要件は [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)。
 
