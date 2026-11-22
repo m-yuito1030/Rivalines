@@ -17,23 +17,28 @@ npm test
 
 街の成長間隔は `src/shared/world/towns.ts` の `GROWTH_BASE_TICKS` で調整(1tick = 実0.1秒 @x1)。
 
-## サーバで一発起動(Ubuntu)
-```bash
-curl -fsSL https://raw.githubusercontent.com/m-yuito1030/Simulator/claude/exciting-johnson-gvyeow/scripts/deploy.sh | bash
-```
-Node.js導入 → 取得/更新 → ビルド → バックグラウンド起動まで自動です(再実行で最新に更新)。リポジトリ取得済みなら `bash scripts/deploy.sh`。
-`bash scripts/deploy.sh stop|status|logs` で停止/状態/ログ。ポートは `PORT=8080 bash scripts/deploy.sh` で変更。
+## サーバーを動かして遊ぶ(マルチプレイ)
+世界を進めるサーバー(Node)と、画面を配るサーバー(nginx)を、Docker でまとめて起動します。
 
-## ローカルUbuntuサーバでの仮検証
+```bash
+git clone https://github.com/m-yuito1030/rivalines.git && cd rivalines
+echo 'INVITE_CODE=好きな文字列' > .env      # 招待コード。公開するときは必ず設定する(新規登録に必要になる)
+docker compose up -d --build
+```
+`http://<サーバーのアドレス>:8092` で遊べます。更新するときは、`git pull` のあと同じ `docker compose up -d --build`(世界のデータは残ります)。
+
+- **設定**(`docker-compose.yml` の `environment`): `WORLD_SIZE`(世界の一辺。既定 65535)・`MAX_USERS`(登録できる人数。既定 100)・`INVITE_CODE`(空なら、新規登録は誰でもできる)。
+- **データ**: 世界(`world.sav`)・アカウント(`accounts.json`)・ログインの署名鍵(`token.secret`)は、Docker のボリューム `multi-data` の `/data` に保存されます。**バックアップを取ってください**(1つのファイルだけです)。
+- **公開するとき**: 暗号化なしの HTTP だと、パスワードが通信の途中で読めます。HTTPS の入口(リバースプロキシ)の後ろに置いてください。前段にプロキシがある場合は、利用者の IP アドレスを `X-Real-IP` で nginx に渡さないと、全員が1つの接続元として制限されます。
+- **開発中**: サーバーは `npm run server`(8091)、画面は `npm run dev`(5173。`/api` と `/ws` を 8091 に中継)。
+
+### 画面だけの試し見(サーバーなし)
+サーバーが無いので、ログインも、マルチプレイも、できません。見た目の確認用です。
 ```bash
 npm run build
 npm run preview    # http://<server-ip>:4173 に静的配信
 ```
-nginx を使う場合は `dist/` を root に指定するだけ(バックエンド不要・`base: './'`)。
-```nginx
-server { listen 8080; root /path/to/Simulator/dist; location / { try_files $uri /index.html; } }
-```
-認証なし前提のため、LAN内のみで公開すること。
+Ubuntu のサーバーで、Node.js の導入から起動までまとめて行うスクリプトもあります(`bash scripts/deploy.sh`。`stop|status|logs` で停止/状態/ログ。ポートは `PORT=8080 bash scripts/deploy.sh`)。
 
 ## 現在の進捗
 - [x] M0/M1: Vite+TS+PixiJS、アイソメ描画、チャンク描画(LOD 3段・LRU)、地形生成(Worker・シード再現・256〜4096)、ミニマップ

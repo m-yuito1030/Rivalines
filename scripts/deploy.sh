@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 # Rivalines: Ubuntu サーバ用ワンショット セットアップ & 起動スクリプト
 #
+# 注意: 画面だけを静的に配信する(vite preview)。世界を進めるサーバーは起動しないので、ログインやマルチプレイはできない。
+#       遊ぶときは README の「サーバーを動かして遊ぶ」(docker compose)を使う。
+#
 #   bash deploy.sh            Node.js導入(なければ) → 取得/更新 → ビルド → バックグラウンド起動
 #   bash deploy.sh stop       停止
 #   bash deploy.sh status     状態表示
@@ -9,15 +12,15 @@
 # 環境変数: REPO_URL, BRANCH, APP_DIR, PORT
 set -euo pipefail
 
-REPO_URL="${REPO_URL:-https://github.com/m-yuito1030/Simulator.git}"
-BRANCH="${BRANCH:-claude/exciting-johnson-gvyeow}"
+REPO_URL="${REPO_URL:-https://github.com/m-yuito1030/rivalines.git}"
+BRANCH="${BRANCH:-main}"
 PORT="${PORT:-4173}"
 
-# リポジトリ内から実行された場合はそのディレクトリ、そうでなければ ~/Simulator
+# リポジトリ内から実行された場合はそのディレクトリ、そうでなければ ~/rivalines
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
 if [ -n "${APP_DIR:-}" ]; then :
 elif [ -f "$SELF_DIR/../package.json" ] && grep -q '"name": "rivalines"' "$SELF_DIR/../package.json" 2>/dev/null; then APP_DIR="$(cd "$SELF_DIR/.." && pwd)"
-else APP_DIR="$HOME/Simulator"; fi
+else APP_DIR="$HOME/rivalines"; fi
 
 PIDFILE="$APP_DIR/.preview.pid"
 LOGFILE="$APP_DIR/preview.log"
