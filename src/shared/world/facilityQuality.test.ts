@@ -22,7 +22,11 @@ describe('施設の質(グレード・評判・新しさ)', () => {
     expect(gradeUpkeepMul(1)).toBe(1);
     expect(upgradeCost(4_000_000, 2)).toBeGreaterThan(upgradeCost(4_000_000, 1));
     const map = world();
-    const f = placeFacility(map, planFacility(map, 20, 20, 'hotel', () => false), 'hotel');
+    const f = placeFacility(
+      map,
+      planFacility(map, 20, 20, 'hotel', () => false),
+      'hotel',
+    );
     const base = facilityUpkeep(f);
     f.grade = 3;
     expect(facilityUpkeep(f)).toBeGreaterThan(base);
@@ -45,14 +49,24 @@ describe('施設の質(グレード・評判・新しさ)', () => {
     const run = (grade: number, price: number, days: number) => {
       const map = world();
       const tr = new Transit(map, () => 0.5);
-      const f = placeFacility(map, planFacility(map, 30, 30, 'hotel', () => false), 'hotel');
+      const f = placeFacility(
+        map,
+        planFacility(map, 30, 30, 'hotel', () => false),
+        'hotel',
+      );
       f.grade = grade;
       f.price = price;
       let income = 0;
       let last = 0;
       for (let d = 1; d <= days; d++) {
         const before = f.visits ?? 0;
-        dailyVisitors(map, tr, d, () => 0.5, (_f, a) => (income += a));
+        dailyVisitors(
+          map,
+          tr,
+          d,
+          () => 0.5,
+          (_f, a) => (income += a),
+        );
         last = (f.visits ?? 0) - before;
       }
       return { income, last, rep: f.rep ?? 50 };
