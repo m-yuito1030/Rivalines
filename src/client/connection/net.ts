@@ -26,8 +26,12 @@ export class Net {
     this.ws?.close(1000);
   }
 
-  async auth(kind: 'login' | 'register', name: string, password: string): Promise<{ ok: boolean; reason?: string; token?: string }> {
-    const r = await fetch(`/api/${kind}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, password }) });
+  async auth(kind: 'login' | 'register', name: string, password: string, code = ''): Promise<{ ok: boolean; reason?: string; token?: string }> {
+    const r = await fetch(`/api/${kind}`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(kind === 'register' ? { name, password, code } : { name, password }),
+    });
     const j = (await r.json()) as { ok: boolean; reason?: string; token?: string; name?: string };
     if (j.ok) localStorage.setItem(SESSION, JSON.stringify({ token: j.token, name: j.name }));
     return j;

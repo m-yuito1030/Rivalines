@@ -63,7 +63,7 @@ export function initAuth(startGame: StartGame): void {
     errEl.textContent = '';
     authBusy(true);
     try {
-      const r = await net.auth(kind, $<HTMLInputElement>('uname').value, $<HTMLInputElement>('upw').value);
+      const r = await net.auth(kind, $<HTMLInputElement>('uname').value, $<HTMLInputElement>('upw').value, $<HTMLInputElement>('ucode').value.trim());
       if (!r.ok) {
         errEl.textContent = r.reason ?? '失敗しました';
         return authBusy(false);
@@ -83,10 +83,10 @@ export function initAuth(startGame: StartGame): void {
   $('register').addEventListener('click', () => void doAuth('register'));
   void fetch('/api/status')
     .then((r) => r.json())
-    .then(
-      (s: { world: { size: number }; accounts: number; maxUsers: number; online: string[] }) =>
-        (note.textContent = `サーバー稼働中: ${s.world.size}² / 登録${s.accounts}/${s.maxUsers}人 / オンライン${s.online.length}人`),
-    )
+    .then((s: { world: { size: number }; accounts: number; maxUsers: number; online: number; invite?: boolean }) => {
+      note.textContent = `サーバー稼働中: ${s.world.size}² / 登録${s.accounts}/${s.maxUsers}人 / オンライン${s.online}人`;
+      $('codeRow').hidden = !s.invite; // 招待コードが必要なサーバーだけ、入力欄を出す
+    })
     .catch(() => (note.textContent = 'サーバーに接続できません'));
   const serverUp = () =>
     fetch('/api/status')

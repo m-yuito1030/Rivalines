@@ -140,6 +140,7 @@ export class Simulation {
       map.towns.push(...restore.towns);
       for (const r of restore.townRegions ?? []) map.townRegions.add(r);
       this.transit.restore(restore.transit);
+      this.transit.repair(); // 以前の不具合などで壊れた路線が保存データに残っていても、読み込み時に直す
       if (restore.rating) this.rating = restore.rating;
       this.migrated = restore.migrated ?? 0;
       map.facilities.push(...(restore.facilities ?? []));

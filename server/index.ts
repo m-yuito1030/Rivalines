@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage } from 'node:http';
+import { timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { WebSocketServer } from 'ws';
 import { Simulation } from '../src/shared/sim/simulation';
@@ -9,6 +10,7 @@ import { Accounts } from './accounts';
 import { execute } from './commands/index';
 import { Replicator, type Client } from './replicate';
 import type { ClientMsg } from '../src/shared/protocol';
+import { Governor, isHeavy, messageLimit } from './limits';
 
 const PORT = Number(process.env.PORT ?? 8091);
 const DATA = process.env.DATA_DIR ?? './data';
@@ -16,6 +18,13 @@ const SIZE = Number(process.env.WORLD_SIZE ?? 65535);
 const SEED = Number(process.env.WORLD_SEED ?? 20260401);
 const MAX_USERS = Number(process.env.MAX_USERS ?? 100);
 const SAVE_FILE = `${DATA}/world.sav`;
+/** 招待コード(設定すると、新規登録に必要になる。公開サーバーで、見知らぬ人に登録枠を使い切られないようにする) */
+const INVITE_CODE = process.env.INVITE_CODE ?? '';
+const sameCode = (a: string, b: string): boolean => {
+  const x = Buffer.from(a);
+  const y = Buffer.from(b);
+  return x.length === y.length && timingSafeEqual(x, y);
+};
 
 mkdirSync(DATA, { recursive: true });
 const accounts = new Accounts(`${DATA}/accounts.json`);
@@ -50,6 +59,8 @@ async function saveWorld(): Promise<void> {
 }
 
 // ---- 接続 ----
+/** 重い操作の、サーバー全体の間隔(かかった時間の3倍は次を受け付けない) */
+const governor = new Governor();
 const repl = new Replicator(sim, accounts);
 const clients = new Set<Client>();
 /** オンライン中の会社を反映する(切断した会社は止まる) */
@@ -59,7 +70,8 @@ for (let id = 1; id <= accounts.count + 10; id++) if (accounts.byId(id)) sim.pla
 syncOnline();
 
 const json = (res: import('node:http').ServerResponse, code: number, body: unknown) => {
-  res.writeHead(code, { 'content-type': 'application/json', 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type' });
+  // 画面と同じ場所(同一オリジン)から使うので、CORS は許可しない(他のサイトから勝手に呼べないように)
+  res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' });
   res.end(JSON.stringify(body));
 };
 const readBody = (req: IncomingMessage) =>
@@ -96,7 +108,10 @@ const throttled = (ip: string) => {
 };
 
 const server = createServer(async (req, res) => {
-  if (req.method === 'OPTIONS') return json(res, 204, {});
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204);
+    return void res.end();
+  }
   const url = req.url ?? '';
   try {
     if (req.method === 'GET' && url === '/api/status') return json(res, 200, status());
@@ -106,6 +121,7 @@ const server = createServer(async (req, res) => {
       const name = String(b.name ?? '');
       const password = String(b.password ?? '');
       if (url === '/api/register') {
+        if (INVITE_CODE && !sameCode(String(b.code ?? ''), INVITE_CODE)) return json(res, 403, { ok: false, reason: '招待コードが違います' });
         const r = await accounts.register(name, password, MAX_USERS);
         if (!r.ok) return json(res, 400, r);
         sim.playerCompany(r.account.id);
@@ -141,18 +157,46 @@ server.on('upgrade', (req, socket, head) => {
     ws.send(JSON.stringify({ type: 'init', you: a.name, id: a.id, world: { size: SIZE, seed: SEED }, tick: sim.tick, start: accounts.byId(a.id)?.last ?? null }));
     let tokens = 30;
     const refill = setInterval(() => (tokens = Math.min(30, tokens + 10)), 1000); // 操作は毎秒10回まで(瞬間30回)
-    ws.on('close', () => clearInterval(refill));
+    const limit = messageLimit();
+    let viewTimer: ReturnType<typeof setTimeout> | null = null;
+    let pendingView: Extract<ClientMsg, { type: 'view' }> | null = null;
+    let lastViewAt = 0;
+    const applyView = (m: Extract<ClientMsg, { type: 'view' }>) => {
+      if (![m.x0, m.y0, m.x1, m.y1].every((n) => Number.isFinite(n))) return;
+      repl.setView(c, m.x0, m.y0, m.x1, m.y1);
+      accounts.setLast(c.id, Math.round((m.x0 + m.x1) / 2), Math.round((m.y0 + m.y1) / 2));
+    };
+    ws.on('close', () => {
+      clearInterval(refill);
+      if (viewTimer) clearTimeout(viewTimer);
+    });
     ws.on('message', (data) => {
+      // どの種類のメッセージも、毎秒の件数に上限(超えた分は捨て、あまりに多ければ切断)
+      const verdict = limit();
+      if (verdict === 'drop') return;
+      if (verdict === 'close') return void ws.terminate(); // 洪水は、閉じる手続きを待たず、すぐ切る
       let m: ClientMsg;
       try {
         m = JSON.parse(String(data)) as ClientMsg;
       } catch {
         return;
       }
+      if (!m || typeof m !== 'object') return;
       if (m.type === 'view') {
-        if ([m.x0, m.y0, m.x1, m.y1].every((n) => Number.isFinite(n))) {
-          repl.setView(c, m.x0, m.y0, m.x1, m.y1);
-          accounts.setLast(c.id, Math.round((m.x0 + m.x1) / 2), Math.round((m.y0 + m.y1) / 2));
+        // 視界の更新は 0.1秒に1回まで(広い範囲を次々指定してサーバーに地図データを作らせ続ける攻撃を防ぐ)。間引いた分は最新だけ後で反映
+        const wait = 100 - (Date.now() - lastViewAt);
+        if (wait <= 0) {
+          lastViewAt = Date.now();
+          applyView(m);
+        } else {
+          pendingView = m;
+          viewTimer ??= setTimeout(() => {
+            viewTimer = null;
+            if (!pendingView) return;
+            lastViewAt = Date.now();
+            applyView(pendingView);
+            pendingView = null;
+          }, wait);
         }
       } else if (m.type === 'profile') {
         if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: '操作が多すぎます。少し待ってください' } }));
@@ -164,7 +208,15 @@ server.on('upgrade', (req, socket, head) => {
         tokens--;
         let res;
         try {
-          res = execute(sim, c.id, m.cmd);
+          // 重い操作(長距離の自動敷設など)は、サーバー全体で間隔をあける(全員の画面が固まらないように)
+          const heavy = isHeavy(m.cmd);
+          const busy = heavy && governor.busy();
+          if (busy) res = { ok: false, msg: '重い操作が混み合っています。数秒おいて、もう一度お試しください' };
+          else {
+            const t0 = performance.now();
+            res = execute(sim, c.id, m.cmd);
+            if (heavy) governor.used(performance.now() - t0);
+          }
         } catch (e) {
           console.warn('[cmd]', (e as Error).message);
           res = { ok: false, msg: 'サーバーエラー' };
@@ -194,8 +246,9 @@ function status() {
     pop: Math.floor(sim.map.towns.reduce((s, t) => s + t.pop, 0)),
     vehicles: sim.transit.vehicles.length,
     accounts: accounts.count,
-    online: [...clients].map((c) => c.name),
+    online: clients.size, // 人数だけ(名前は出さない)
     maxUsers: MAX_USERS,
+    invite: !!INVITE_CODE,
     perf: { simMs: +perf.sim.toFixed(1), replMs: +perf.repl.toFixed(1), loopMs: +perf.loop.toFixed(1), throttled: sim.throttled },
   };
 }

@@ -166,7 +166,7 @@ export function autoRailPath(map: GameMap, a: { x: number; y: number }, b: { x: 
         return { x, y, d };
       });
     }
-    if (++expanded > 60000) return null;
+    if (++expanded > 30000) return null;
     const cg = g.get(cur)!;
     const cx = cur % S;
     const cy = (cur - cx) / S;

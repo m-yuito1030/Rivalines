@@ -1,6 +1,6 @@
 import type { Cmd, CmdResult } from '../../src/shared/protocol';
 import type { CommandContext } from './context';
-import { MAX_ROUTES_PER_PLAYER, MINT, clampName, fail } from './util';
+import { MAX_ORDERS_PER_ROUTE, MAX_ROUTES_PER_PLAYER, MINT, clampName, fail } from './util';
 import { clampCars, modelOf } from '../../src/shared/data/models';
 import { TX_METHODS } from '../../src/shared/protocol';
 import { clampFareMul } from '../../src/shared/sim/network/fares';
@@ -8,11 +8,19 @@ import { DAY_TICKS, RANKS } from '../../src/shared/sim/network/transit';
 import type { Route } from '../../src/shared/sim/network/transit';
 import { vehiclePrice, yen } from '../economyApi';
 
+/** 自社の路線が上限に達していれば、失敗の結果(路線を増やす操作の前に確かめる) */
+function routeLimit(ctx: CommandContext): CmdResult | null {
+  let n = 0;
+  for (const r of ctx.t.routes.values()) if (r.owner === ctx.who) n++;
+  return n >= MAX_ROUTES_PER_PLAYER ? fail(`路線は1社${MAX_ROUTES_PER_PLAYER}本までです`) : null;
+}
+
 /** routeCreate */
 export function routeCreate(cmd: Extract<Cmd, { t: 'routeCreate' }>, ctx: CommandContext): CmdResult {
   const { t, who } = ctx;
   if (!Array.isArray(cmd.stops) || cmd.stops.length > 200 || !cmd.stops.every((s) => Number.isInteger(s))) return fail('停留所の指定が正しくありません');
-  if ([...t.routes.values()].filter((r) => r.owner === who).length >= MAX_ROUTES_PER_PLAYER) return fail(`路線は1社${MAX_ROUTES_PER_PLAYER}本までです`);
+  const full = routeLimit(ctx);
+  if (full) return full;
   if (new Set(cmd.stops).size < 2) return fail('路線には異なる停留所を2つ以上選んでください');
   const foreign = cmd.stops.map((id) => t.stops.get(id)).find((s) => s && !t.mayUse(s, who));
   if (foreign) return fail(`「${foreign.name}」は他社の停留所です。持ち主の許可がないと路線に使えません`);
@@ -20,15 +28,35 @@ export function routeCreate(cmd: Extract<Cmd, { t: 'routeCreate' }>, ctx: Comman
   return r ? { ok: true, id: r.id } : fail('路線を作れません(同じ種別の停留所を2つ以上選んでください)');
 }
 
+/** tx の引数の型: id=整数のID・添え字 / dir=+1か-1 / num=有限の数 */
+const TX_ARGS: Record<(typeof TX_METHODS)[number], ('id' | 'dir' | 'num')[]> = {
+  removeRoute: ['id'],
+  shareRoute: ['id'],
+  unshareRoute: ['id'],
+  removeDepot: ['id'],
+  removeVehicle: ['id'],
+  departHeld: ['id'],
+  moveOrder: ['id', 'id', 'dir'],
+  insertOrder: ['id', 'id', 'id'],
+  removeOrder: ['id', 'id'],
+  autoTimetable: ['id', 'num'],
+  splitTrain: ['id', 'id'],
+  coupleTrains: ['id', 'id'],
+};
+/** tx の引数 a が、メソッド m の決まった形(個数・整数・方向・有限の数)か */
+export function validTxArgs(m: string, a: unknown): boolean {
+  const spec = (TX_ARGS as Record<string, ('id' | 'dir' | 'num')[] | undefined>)[m];
+  if (!spec || !Array.isArray(a) || a.length !== spec.length) return false;
+  return spec.every((kind, i) => (kind === 'id' ? Number.isSafeInteger(a[i]) : kind === 'dir' ? a[i] === 1 || a[i] === -1 : typeof a[i] === 'number' && Number.isFinite(a[i])));
+}
+
 /** tx */
 export function tx(cmd: Extract<Cmd, { t: 'tx' }>, ctx: CommandContext): CmdResult {
   const { sim, t, who, mine } = ctx;
   if (!TX_METHODS.includes(cmd.m)) return fail('不正な操作です');
   const a = cmd.a;
-  if (!Array.isArray(a) || a.length > 4) return fail('不正な操作です');
-  // 添え字・IDは整数だけ(小数・NaN・文字列で順序や車両の番号がずれるのを防ぐ)
-  if ((cmd.m === 'insertOrder' || cmd.m === 'removeOrder' || cmd.m === 'moveOrder') && !a.slice(0, cmd.m === 'insertOrder' ? 3 : 2).every(Number.isInteger))
-    return fail('不正な操作です');
+  // 引数は、個数・型・範囲をメソッドごとに厳密に確かめる(小数・NaN・文字列・余分な引数で、順序や車両の番号が壊れるのを防ぐ)
+  if (!validTxArgs(cmd.m, a)) return fail('不正な操作です');
   const vehOwner = (vid: number) => t.routes.get(t.vehicles.find((v) => v.id === vid)?.routeId ?? -1)?.owner;
   switch (cmd.m) {
     case 'removeDepot': {
@@ -58,14 +86,18 @@ export function tx(cmd: Extract<Cmd, { t: 'tx' }>, ctx: CommandContext): CmdResu
       res = t.moveOrder(a[0], a[1], a[2] as -1 | 1);
       break;
     case 'insertOrder':
+      if ((t.routes.get(a[0])?.orders.length ?? 0) >= MAX_ORDERS_PER_ROUTE) return fail(`1つの路線のオーダーは${MAX_ORDERS_PER_ROUTE}個までです`);
       res = t.insertOrder(a[0], a[1], a[2]);
       break;
     case 'removeOrder':
       res = t.removeOrder(a[0], a[1]);
       break;
-    case 'shareRoute':
+    case 'shareRoute': {
+      const full = routeLimit(ctx);
+      if (full) return full;
       res = t.shareRoute(a[0]);
       break;
+    }
     case 'unshareRoute':
       t.unshareRoute(a[0]);
       res = true;
@@ -156,7 +188,8 @@ export function routeClone(cmd: Extract<Cmd, { t: 'routeClone' }>, ctx: CommandC
   const { t, mine } = ctx;
   const src = t.routes.get(cmd.routeId);
   if (!mine(src)) return fail('自社の路線ではありません');
-  if (t.routes.size > 100000) return fail('路線が多すぎます');
+  const full = routeLimit(ctx);
+  if (full) return full;
   const copy = t.cloneRoute(src.id, !!cmd.reverse, Math.round(Number(cmd.shiftMin) || 0) * MINT);
   return copy ? { ok: true, id: copy.id, msg: `「${copy.name}」を作りました。車両は基地から購入してください` } : fail('複製できません');
 }
@@ -170,6 +203,8 @@ export function routeRank(cmd: Extract<Cmd, { t: 'routeRank' }>, ctx: CommandCon
   if (!(rank >= 0 && rank < RANKS.length)) return fail('種別が不正です');
   let target: Route | null = src;
   if (cmd.copy) {
+    const full = routeLimit(ctx);
+    if (full) return full;
     target = t.cloneRoute(src.id, false, Math.round(Number(cmd.shiftMin ?? 5)) * MINT);
     if (!target) return fail('複製できません');
     target.name = `${src.name.replace(/\((複製|\+\d+分)\)$/, '')}(${RANKS[rank].name})`;
@@ -187,6 +222,7 @@ export function orderShift(cmd: Extract<Cmd, { t: 'orderShift' }>, ctx: CommandC
   const { t, mine } = ctx;
   const r = t.routes.get(cmd.routeId);
   if (!mine(r)) return fail('自社の路線ではありません');
+  if (!Number.isSafeInteger(cmd.from)) return fail('不正な操作です');
   const delta = Math.round(Number(cmd.delta) || 0);
   for (let i = Math.max(0, cmd.from); i < r.orders.length; i++) {
     const o = r.orders[i];

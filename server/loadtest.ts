@@ -57,8 +57,8 @@ console.log(
 );
 for (let k = 0; k < 6; k++) {
   await sleep(5000);
-  const s = (await (await fetch(`${BASE}/api/status`)).json()) as { tick: number; online: string[]; vehicles: number };
-  console.log(`tick ${s.tick} online ${s.online.length} vehicles ${s.vehicles} perf ${JSON.stringify((s as unknown as { perf: unknown }).perf)}`);
+  const s = (await (await fetch(`${BASE}/api/status`)).json()) as { tick: number; online: number; vehicles: number };
+  console.log(`tick ${s.tick} online ${s.online} vehicles ${s.vehicles} perf ${JSON.stringify((s as unknown as { perf: unknown }).perf)}`);
 }
 for (const b of bots) (clearInterval(b.timer), b.ws.close());
 process.exit(0);

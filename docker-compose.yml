@@ -4,6 +4,9 @@ services:
     container_name: simulator-multi-web
     restart: unless-stopped
     depends_on: [server]
+    mem_limit: 256m
+    pids_limit: 200
+    security_opt: [no-new-privileges:true]
     ports:
       - "8092:80"
   server:
@@ -11,9 +14,14 @@ services:
     container_name: simulator-multi-server
     restart: unless-stopped
     stop_grace_period: 30s # 終了の合図を受けたら世界を保存してから終わる
+    mem_limit: 3g
+    pids_limit: 200
+    security_opt: [no-new-privileges:true]
     environment:
       WORLD_SIZE: "65535"
       MAX_USERS: "100"
+      # 招待コード: 設定すると、新規登録にこのコードが必要になる(公開するときは必ず設定する。ここに書かず、.env に INVITE_CODE=... と書いてもよい)
+      INVITE_CODE: "${INVITE_CODE:-}"
     volumes:
       - multi-data:/data
 volumes:

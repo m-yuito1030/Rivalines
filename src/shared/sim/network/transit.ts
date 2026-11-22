@@ -538,7 +538,49 @@ export class Transit {
   dayMulDay = -1;
   dayMul = new Map<number, number>();
 
+  /** 想定外の失敗で、1tick の処理を打ち切った回数(ログの間引き用) */
+  stepFailures = 0;
+
   step(tick: number): void {
+    try {
+      this.stepInner(tick);
+    } catch (e) {
+      // 壊れたデータ(路線のオーダーに穴がある等)で1tickが失敗しても、世界全体を止め続けない。壊れた路線を直して続ける
+      this.stepFailures++;
+      const fixed = this.repair();
+      if (this.stepFailures <= 10 || this.stepFailures % 1000 === 0)
+        console.error(`[transit] tick の処理に失敗しました(${this.stepFailures}回目。壊れた路線 ${fixed} 本を直しました):`, (e as Error).message);
+    }
+  }
+
+  /**
+   * 壊れた路線を直す: オーダーに穴・null・不正な項目があれば取り除き、停留所が2つ未満になった路線は車両ごと取り除く。
+   * 保存データの読み込み時と、tick の処理が失敗したときに呼ぶ。直した(取り除いた)路線の数を返す
+   */
+  repair(): number {
+    let n = 0;
+    const valid = (o: unknown): boolean => !!o && typeof o === 'object' && Number.isInteger((o as { stopId?: unknown }).stopId) && this.stops.has((o as { stopId: number }).stopId);
+    for (const r of [...this.routes.values()]) {
+      if (!Array.isArray(r.orders)) {
+        this.removeRoute(r.id);
+        n++;
+        continue;
+      }
+      const good = r.orders.filter(valid);
+      if (good.length === r.orders.length && r.orders.length >= 2) continue;
+      n++;
+      if (good.length < 2) {
+        this.removeRoute(r.id);
+        continue;
+      }
+      r.orders = good;
+      for (const v of this.vehicles) if (v.routeId === r.id && v.order >= good.length) v.order = 0;
+    }
+    if (n) this.version++;
+    return n;
+  }
+
+  private stepInner(tick: number): void {
     const m = this.map;
 
     if (this.stopListVer !== this.version) {
@@ -566,11 +608,15 @@ export class Transit {
       const route = this.routes.get(v.routeId);
       if (!route) continue;
       if (route.owner && this.frozen.has(route.owner)) continue; // 持ち主が切断中: そのまま止める
-      if (v.state === 'load') this.flow.stepLoad(v, route, tick);
-      else if (v.state === 'noroute') {
-        if (tick >= v.retryAt) this.dispatch.depart(v, route, tick, false);
-      } else if (v.mode === 'air' ? !this.motion.stepAir(v, route, tick) : v.mode === 'rail' ? !this.motion.stepRail(v, route, tick) : !this.motion.stepRoad(v, route, tick)) {
+      try {
+        if (this.stepVehicle(v, route, tick)) removed = true;
+      } catch (e) {
+        // 想定外のデータ(壊れた路線など)で1台が失敗しても、世界全体を止めない。その車両だけ取り除く
+        v.cap = 0;
         removed = true;
+        this.vehicleFailures++;
+        if (this.vehicleFailures <= 10 || this.vehicleFailures % 1000 === 0)
+          console.error(`[transit] 車両 #${v.id}(路線 ${v.routeId})の処理に失敗したので取り除きます(${this.vehicleFailures}件目):`, (e as Error).message);
       }
     }
     if (removed) {
@@ -578,6 +624,22 @@ export class Transit {
       this.vehicles = this.vehicles.filter((v) => v.cap > 0);
       this.version++;
     }
+  }
+
+  /** 想定外の失敗で取り除いた車両の数(ログの間引き用) */
+  vehicleFailures = 0;
+
+  /** 1台ぶんの1tick。車両が消えるなら true */
+  private stepVehicle(v: Vehicle, route: Route, tick: number): boolean {
+    if (v.state === 'load') {
+      this.flow.stepLoad(v, route, tick);
+      return false;
+    }
+    if (v.state === 'noroute') {
+      if (tick >= v.retryAt) this.dispatch.depart(v, route, tick, false);
+      return false;
+    }
+    return v.mode === 'air' ? !this.motion.stepAir(v, route, tick) : v.mode === 'rail' ? !this.motion.stepRail(v, route, tick) : !this.motion.stepRoad(v, route, tick);
   }
 
   /** 目的地を選んで乗客を発生させる(路線に接続された停留所のみ) */

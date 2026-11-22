@@ -10,6 +10,9 @@ import { profitTotalOf } from '../src/shared/sim/economy/weekly';
 /** 1クライアントが見ている範囲(タイル)の最大一辺。これを超える分は切り詰める */
 const MAX_VIEW = 512;
 const MARGIN = 24;
+/** 1クライアントに、1フレームで新しく送るチャンクの最大数と、送信済みとして覚えておく最大数 */
+const CHUNKS_PER_FRAME = 24;
+const MAX_SENT_CHUNKS = 6000;
 
 export interface Client {
   ws: WebSocket;
@@ -155,13 +158,16 @@ export class Replicator {
     for (const c of clients) {
       const { x0, y0, x1, y1 } = c.view;
       if (x1 <= x0 && y1 <= y0) continue; // まだ視界を知らせていない
-      // 新しく視界に入ったチャンク
+      // 新しく視界に入ったチャンク(1フレームに送る数に上限。残りは次のフレーム。視界を次々変える攻撃で、サーバーが地図データ作りに追われないように)
+      if (c.sent.size > MAX_SENT_CHUNKS) c.sent.clear(); // 送信済みの記憶が増え続けないように(忘れても、見えたときに送り直すだけ)
+      let budget = CHUNKS_PER_FRAME;
       const cw = Math.ceil(sim.map.size / CHUNK);
       for (let cy = y0 >> CHUNK_SHIFT; cy <= y1 >> CHUNK_SHIFT; cy++) {
         for (let cx = x0 >> CHUNK_SHIFT; cx <= x1 >> CHUNK_SHIFT; cx++) {
           if (cx >= cw || cy >= cw) continue;
           const key = this.chunkKey(cx, cy);
           if (c.sent.has(key)) continue;
+          if (budget-- <= 0) continue;
           c.sent.add(key);
           this.send(c, this.chunkMsg(cx, cy));
         }

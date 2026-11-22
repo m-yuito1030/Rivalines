@@ -62,8 +62,9 @@ export class OrderEditor {
   /** index のオーダーを dir(-1=前 / +1=後)へ動かす */
   moveOrder(routeId: number, index: number, dir: -1 | 1): { ok: boolean; reason?: string } {
     const r = this.t.routes.get(routeId);
+    if (dir !== -1 && dir !== 1) return { ok: false, reason: '動かす向きが正しくありません' };
     const j = index + dir;
-    if (!r || index < 0 || index >= r.orders.length || j < 0 || j >= r.orders.length) return { ok: false, reason: 'これ以上動かせません' };
+    if (!r || !Number.isInteger(index) || index < 0 || index >= r.orders.length || j < 0 || j >= r.orders.length) return { ok: false, reason: 'これ以上動かせません' };
     for (const g of this.groupOf(r)) {
       [g.orders[index], g.orders[j]] = [g.orders[j], g.orders[index]];
       this.remapOrders(g, (i) => (i === index ? j : i === j ? index : i));
