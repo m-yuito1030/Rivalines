@@ -3,6 +3,8 @@
 Webブラウザで遊べる、交通・街づくりのシミュレーション(サンドボックス・マルチプレイ)。要件は [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md)。
 
 ## 開発
+開発の流れ(ブランチ・PR・リリース)は [docs/WORKFLOW.md](docs/WORKFLOW.md)、コードの構成は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。出す前に `npm run check`(型・整形・テスト)。
+
 ```bash
 npm install
 npm run dev        # http://<host>:5173 (LANからも可)
