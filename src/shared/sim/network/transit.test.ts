@@ -204,7 +204,7 @@ describe('発車案内', () => {
   });
 });
 
-describe('JGRPP風オーダー', () => {
+describe('条件付きオーダー', () => {
   function threeStops() {
     const { map, tr } = setup();
     for (const x of [18, 19, 28, 29]) map.building.set(map.idx(x, 11), 3);

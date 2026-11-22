@@ -41,7 +41,7 @@ export interface Stop {
 /** dwell=一定時間停車 / full=満載まで待つ(最大maxWait) / timed=時刻表(周期 route.period) */
 export type OrderKind = 'dwell' | 'full' | 'timed';
 /**
- * 出発時の条件付きオーダー(JGRPP風): この停留所を出発するとき条件を満たしたら、次のオーダーの代わりに to 番(0始まり)へ進む。
+ * 出発時の条件付きオーダー(時刻・積載率・待ち人数の条件): この停留所を出発するとき条件を満たしたら、次のオーダーの代わりに to 番(0始まり)へ進む。
  * kind: load=積載率(%) / wait=この停留所の待ち人数 / tod=時刻(1日内の分)。op: ge=以上 / lt=未満
  */
 export interface OrderCond {
