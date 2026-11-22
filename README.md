@@ -103,9 +103,9 @@ server { listen 8080; root /path/to/Simulator/dist; location / { try_files $uri 
 ## 車両スプライト
 バス/航空機/鉄道は PNG アトラス描画。サイズは src/client/render/vehicleSprites.ts の BUS_SCALE / AIR_SCALE で調整。
 
-## マルチプレイ版
-このフォルダ(simulator-multi)はサーバー権威型のマルチプレイ版です。詳細は docs/MULTIPLAYER.md。
-`docker compose up -d --build` で :8092 に公開(ブラウザでログイン/新規登録)。
+## マルチプレイ
+サーバー権威型のマルチプレイです。詳細は docs/MULTIPLAYER.md、コードの構成は docs/ARCHITECTURE.md。
+`docker compose up -d --build` で :8092 に公開します(ブラウザでログイン/新規登録)。
 
 ## ライセンス・クレジット
 

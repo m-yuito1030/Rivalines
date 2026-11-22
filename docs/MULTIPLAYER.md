@@ -1,6 +1,6 @@
-# マルチプレイ (Rivalines / リポジトリ名 simulator-multi)
+# マルチプレイ (Rivalines)
 
-個人用(ソロ)版は `../simulator-solo-v1.zip`(と `../simulator-handover` :8090)。こちらはサーバー権威型のマルチプレイ版。
+サーバー権威型のマルチプレイ。世界は1つで、全員が同じ世界を遊ぶ。
 
 ## 構成
 - **server/** (Node + tsx): 世界(65535²)を1つ進行。`src/shared` を共有。
