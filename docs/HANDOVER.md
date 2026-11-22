@@ -93,7 +93,7 @@ npm run typecheck
 - 自動テスト40件(地形/街/道路/経路/乗り換え/渋滞/鉄道/航空/セーブ往復/整地)すべて通過。
 - ヘッドレスChromium(ソフトウェアGL)で描画・操作・セーブ往復・スマホ(iPhone 13エミュレーション)のタッチを確認。
 - **未検証**: 実機GPU・実機スマホでのFPS/メモリ、サーバ(Ubuntu)での実運用、4096マップを長時間回したときの挙動。
-- 開発モードでは `window.__game`(map/sim/camera/setSpeed/transitLayer)が使える。自動確認はPlaywrightで行った(スクリプトはリポジトリに含めていない)。
+- 開発モードでは `window.__game`(map/sim/camera/transitLayer)が使える。自動確認はPlaywrightで行った(スクリプトはリポジトリに含めていない)。
 
 ## 8. 既知の制約・未実装
 - 乗客の乗り換えは同一停留所のみ(徒歩乗り換えなし)。

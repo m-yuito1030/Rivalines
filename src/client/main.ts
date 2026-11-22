@@ -238,19 +238,12 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     if (t !== 'route' && (panel.building || panel.inserting)) panel.cancelBuild();
   };
   setToolRef = setTool;
-  const setSpeed = (s: number) => {
-    sim.speed = s;
-    document.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((b) => b.classList.toggle('on', Number(b.dataset.speed) === s));
-    const lab = document.getElementById('speedLabel');
-    if (lab) lab.textContent = `${s === 0 ? '⏸' : 'x' + s} ▾`;
-  };
   document.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) =>
     b.addEventListener('click', () => {
       if (isTouch) routesWin.close(); // スマホ: ツールを選んだら路線シートは閉じる
       setTool(b.dataset.tool as Tool);
     }),
   );
-  document.querySelectorAll<HTMLButtonElement>('[data-speed]').forEach((b) => b.addEventListener('click', () => setSpeed(Number(b.dataset.speed))));
   window.addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
     if (k === 'enter' && panel.building) panel.finishBuild();
@@ -282,7 +275,6 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       map,
       sim,
       camera,
-      setSpeed,
       transitLayer,
       chunks,
       placeAirport,
@@ -678,7 +670,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       }
       lastEventDay = dayNo;
     }
-    const ctext = `${d.year}年${d.month}月${d.day}日(${WEEKDAYS[d.weekday]})${isHoliday(dayNo) ? '祝' : ''}${WEATHER_ICON[wx]} ${pad(d.hour)}:${pad(d.minute)} 第${d.period}期Q${d.quarter}${sim.speed === 0 ? ' ⏸' : ''}`;
+    const ctext = `${d.year}年${d.month}月${d.day}日(${WEEKDAYS[d.weekday]})${isHoliday(dayNo) ? '祝' : ''}${WEATHER_ICON[wx]} ${pad(d.hour)}:${pad(d.minute)} 第${d.period}期Q${d.quarter}`;
     if (clock.textContent !== ctext) clock.textContent = ctext;
 
     if (!uiTick) return;
