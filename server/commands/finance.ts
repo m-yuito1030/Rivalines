@@ -1,6 +1,7 @@
 import type { Cmd, CmdResult } from '../../src/shared/protocol';
 import type { CommandContext } from './context';
 import { fail } from './util';
+import { LISTING_DAYS } from '../../src/shared/sim/facility/listings';
 import { TRAINING } from '../../src/shared/sim/economy/economy';
 import { acquireRival, divestRival } from '../../src/shared/sim/economy/rivals';
 import { acquirePrice, assetValueFor, facilityValue, yen } from '../economyApi';
@@ -58,16 +59,19 @@ export function fin(cmd: Extract<Cmd, { t: 'fin' }>, ctx: CommandContext): CmdRe
       if (!co.spend('acquire', v)) return fail(`資金が足りません(買収額 ${yen(v)})`);
       f.owner = 'player';
       f.playerId = who;
+      f.listedDay = undefined; // 売り出しが終わる
       map.facilityVer++;
-      return { ok: true, msg: `${f.name}を ${yen(v)} で買収しました` };
+      return { ok: true, msg: `${f.name}を ${yen(v)} で購入しました` };
     }
     if (f.playerId !== who) return fail('自社の施設ではありません');
     const get = Math.round(v * 0.6);
     co.earn('sale', get);
     f.owner = 'city';
+    f.ownerId = undefined; // どの会社も持たない売り出し物件になる
     f.playerId = undefined;
+    f.listedDay = sim.day;
     map.facilityVer++;
-    return { ok: true, msg: `${f.name}を ${yen(get)} で売却しました` };
+    return { ok: true, msg: `${f.name}を ${yen(get)} で売却しました。不動産物件として売りに出され、${LISTING_DAYS}日間買い手がつかないと取り壊されて更地に戻ります` };
   }
   return fail('不正な操作です');
 }

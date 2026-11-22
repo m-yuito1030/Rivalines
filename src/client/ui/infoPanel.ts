@@ -8,6 +8,7 @@ import type { GameMap } from '../../shared/world/gameMap';
 import { designName } from '../../shared/world/stations';
 import { type Company, facilityValue, vehiclePrice, yen } from '../../shared/sim/economy/economy';
 import { DESIGN_COUNT, FACILITY_SPECS, facilityAt, facilityBuildCost, facilityUpkeep, redesignCost, redesignRule } from '../../shared/world/facilities';
+import { LISTING_DAYS, askingPrice, isForSale, listingLeft } from '../../shared/sim/facility/listings';
 import { hospitalGrowth, hospitalServes } from '../../shared/world/hospital';
 import sheetInfo from '../../shared/data/facilitySprites.json';
 import { drawFacilityPreview } from '../render/buildingSprites';
@@ -523,9 +524,17 @@ export class InfoPanel {
     const overview = `<div class="ib"><div class="ibt">この施設に来られる停留所</div>${rows || '<div class="im">集客圏にある停留所はまだありません。バス停・駅を近くに置くと、乗客が増えます。</div>'}</div>
       <div class="im">持ち主: <b>${own ? '自社' : theirs ? '他のプレイヤー' : '他社(民間)'}</b> ・ 評価額 ${yen(v)} ・ 来場者 ${Math.floor(f.visits ?? 0)}人 ・ 売上/日 ${yen(f.income ?? 0)}</div>
       ${this.hospitalHtml(f)}
-      <div class="im">${own ? `<button data-act="sellfac" data-id="${f.id}">売却(評価額の60%)</button>` : theirs ? '' : `<button data-act="buyfac" data-id="${f.id}">買収(${yen(v)})</button>`}</div>
+      ${this.listingHtml(f)}
+      <div class="im">${own ? `<button data-act="sellfac" data-id="${f.id}">売却(評価額の60%)</button>` : theirs ? '' : `<button data-act="buyfac" data-id="${f.id}">${isForSale(f) ? '購入' : '買収'}(${yen(v)})</button>`}</div>
       <div class="im muted">撤去: 🧹撤去ツールで敷地をクリック</div>`;
     return { overview, econ, ads, own };
+  }
+
+  /** 売り出し中の物件の案内(価格・残り日数・取り壊しの警告) */
+  private listingHtml(f: Facility): string {
+    if (!isForSale(f)) return '';
+    const left = listingLeft(f, Math.floor((this.getTick() + DAY_TICKS / 4) / DAY_TICKS));
+    return `<div class="ib"><div class="ibt">🏘 売り出し中の物件</div><div class="im">価格 <b>${yen(askingPrice(f))}</b>(評価額) ・ 残り <b class="${left <= 7 ? 'neg' : ''}">${left}日</b></div><div class="im muted">どの会社も持っていません。購入すると自社の施設になります。${LISTING_DAYS}日間買い手がつかないと、取り壊されて更地に戻ります。</div></div>`;
   }
 
   /** 病院が、どの街の成長を何%速めているか */

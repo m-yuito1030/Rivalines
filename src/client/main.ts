@@ -24,6 +24,8 @@ import { loadVehicleSprites } from './render/vehicleSprites';
 import { StatsPanel } from './ui/statsPanel';
 import { AnalysisPanel } from './ui/analysisPanel';
 import { AuctionPanel } from './ui/auctionPanel';
+import { ForSalePanel } from './ui/forSalePanel';
+import { ForSaleLabels } from './app/forSaleLabels';
 import { FinancePanel } from './ui/financePanel';
 import { RankingPanel } from './ui/rankingPanel';
 import { DiagramPanel } from './ui/diagramPanel';
@@ -272,6 +274,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   // 街の名前ラベル(画面座標)
   const labelTexts = new Map<number, Text>();
   const stopLabels = new StopLabels(labels, transit, map, $('stopNameBtn'));
+  const forSaleLabels = new ForSaleLabels(labels, map, () => sim.day);
 
   (window as unknown as Record<string, unknown>).__mp = { map, sim, camera, net, mirror };
   if (import.meta.env.DEV)
@@ -351,6 +354,16 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     (m) => tools.onMessage?.(m),
   );
   $('anaBtn').addEventListener('click', () => anaPanel.toggle());
+  const salePanel = new ForSalePanel(
+    $('sale-modal'),
+    $('saleBody'),
+    map,
+    () => sim.day,
+    () => sim.company.cash,
+    (x, y) => camera.centerOnTile(x, y),
+    (m) => tools.onMessage?.(m),
+  );
+  $('saleBtn').addEventListener('click', () => salePanel.toggle());
   const aucPanel = new AuctionPanel(
     $('auction-modal'),
     $('aucBody'),
@@ -626,6 +639,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     }
 
     stopLabels.update(camera, w, h);
+    forSaleLabels.update(camera, w, h);
 
     fpsAcc += t.deltaMS;
     if (++fpsN >= 20) {

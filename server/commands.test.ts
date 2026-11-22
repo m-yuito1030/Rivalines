@@ -9,7 +9,12 @@ import { execute } from './commands/index';
 import { Replicator } from './replicate';
 import { canConnectRail } from '../src/shared/world/rails';
 import { Accounts } from './accounts';
-import { facilityCost, redesignCost, redesignRule } from '../src/shared/world/facilities';
+import { FACILITY_TILE, facilityCost, redesignCost, redesignRule } from '../src/shared/world/facilities';
+import { LISTING_DAYS, isForSale } from '../src/shared/sim/facility/listings';
+import { facilityValue } from '../src/shared/sim/economy/economy';
+import { makeRng } from '../src/shared/world/towns';
+import { spawnCityBusiness } from '../src/shared/sim/facility/cityBusiness';
+import { TICKS_PER_DAY } from '../src/shared/sim/simulation';
 import { VISITOR_TYPES } from '../src/shared/sim/facility/facilityVisitors';
 
 const flatMap = (size = 128) => new GameMap(size, 1, new Uint8Array(size * size).fill(SEA_LEVEL + 20));
@@ -1026,5 +1031,54 @@ describe('施設のグレードと改装(コマンド)', () => {
     expect(redesignRule(old).ok).toBe(false);
     // 公共施設・デザインのない種類は不可
     expect(redesignRule({ type: 'school', w: 1, h: 1 }).ok).toBe(false);
+  });
+
+  it('売却すると不動産物件として売り出され、誰でも評価額で買える。28日間買い手がつかないと取り壊されて更地に戻る', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    const c1 = sim.playerCompany(1);
+    const c2 = sim.playerCompany(2);
+    execute(sim, 1, { t: 'place', tool: 'hotel', x: 40, y: 40, fac: { design: 3, size: 'M' } });
+    const f = sim.map.facilities.find((x) => x.type === 'hotel')!;
+    const value = facilityValue(f);
+    const cash = c1.cash;
+    const r = execute(sim, 1, { t: 'fin', op: 'sell', id: f.id });
+    expect(r.ok).toBe(true);
+    expect(r.msg).toContain('28日');
+    expect(c1.cash - cash).toBe(Math.round(value * 0.6)); // 売却額は評価額の60%
+    expect(isForSale(f)).toBe(true);
+    expect(f).toMatchObject({ owner: 'city', playerId: undefined, listedDay: sim.day });
+    // 他社が評価額で購入すると売り出しが終わる
+    const cash2 = c2.cash;
+    expect(execute(sim, 2, { t: 'fin', op: 'acquire', id: f.id }).ok).toBe(true);
+    expect(cash2 - c2.cash).toBe(value);
+    expect(f).toMatchObject({ owner: 'player', playerId: 2, listedDay: undefined });
+    expect(isForSale(f)).toBe(false);
+    // もう一度売却 → だれも買わなければ、日締めを28回で更地に戻る
+    execute(sim, 2, { t: 'fin', op: 'sell', id: f.id });
+    const listed = sim.day;
+    const nextDayEnd = () => {
+      sim.tick = (sim.day + 1) * TICKS_PER_DAY - TICKS_PER_DAY / 4 - 1;
+      sim.step();
+    };
+    for (let k = 1; k < LISTING_DAYS; k++) {
+      nextDayEnd();
+      expect(sim.map.facilities.includes(f), `売り出し${k}日後はまだ残る`).toBe(true);
+    }
+    nextDayEnd();
+    expect(sim.day).toBe(listed + LISTING_DAYS);
+    expect(sim.map.facilities.includes(f)).toBe(false); // 28日後に取り壊し
+    expect(sim.map.building.get(sim.map.idx(f.x0, f.y0))).not.toBe(FACILITY_TILE);
+  });
+
+  it('街が建てる民間の施設は、どの会社も持たない売り出し物件になる', () => {
+    const sim = world();
+    sim.map.towns.push({ id: 1, name: 'T', x: 60, y: 60, pop: 3000, houses: 0, roads: [], nextGrowth: 1e12, pax: 0 });
+    for (let i = 0; i < 128; i++) sim.map.road.set(sim.map.idx(i, 60), 5);
+    const rng = makeRng(42);
+    let built = 0;
+    for (let k = 0; k < 60 && !built; k++) built = spawnCityBusiness(sim.map, sim.transit, rng, 1, sim.rivals);
+    expect(built).toBeGreaterThan(0);
+    for (const f of sim.map.facilities) expect(isForSale(f)).toBe(true);
   });
 });

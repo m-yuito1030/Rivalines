@@ -11,6 +11,7 @@ import { AUCTION_TYPES, Auctions, OPEN_EVERY_DAYS, type AuctionState } from './e
 import { hash01 } from './world/events';
 import { FACILITY_SPECS } from '../world/facilities';
 import { createRivals, stepRivals, type Rival } from './economy/rivals';
+import { processListings } from './facility/listings';
 import { dailyVisitors } from './facility/facilityVisitors';
 import { calendarOf, fiscalPeriodOf, quarterOf } from './world/calendar';
 import { assetValue, type FiscalReport } from './economy/economy';
@@ -265,6 +266,8 @@ export class Simulation {
           c.endOfDay(ended, this.map, this.transit, this.rating.score, this.rivals, id);
         }
       } else this.company.endOfDay(ended, this.map, this.transit, this.rating.score, this.rivals);
+      // 売り出し中の物件: 売り出し日をつけ、期限が過ぎた物件を取り壊して更地に戻す
+      processListings(this.map, this.day);
       if (this.multi) {
         this.auctionDay(ended);
         this.weekly.onDay(ended, [...this.players.keys()], (id) => playerMetrics(this, id));

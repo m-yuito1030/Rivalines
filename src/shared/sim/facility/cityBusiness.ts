@@ -4,7 +4,7 @@ import type { GameMap } from '../../world/gameMap';
 import type { Transit } from '../network/transit';
 import type { Rival } from '../economy/rivals';
 
-/** 街の規模に応じて、民間(他社)の百貨店・ホテル・モールが建つ。買収すると自社の経営資源になる */
+/** 街の規模に応じて、民間の百貨店・ホテル・モールが建つ。どの会社も持たない売り出し物件になり、購入すると自社の経営資源になる(買い手がつかないまま期限が来ると取り壊される) */
 const RULES: { type: FacilityType; minPop: number; per: number }[] = [
   { type: 'department', minPop: 250, per: 600 },
   { type: 'hotel', minPop: 500, per: 900 },
@@ -12,7 +12,7 @@ const RULES: { type: FacilityType; minPop: number; per: number }[] = [
 ];
 
 /** 街ごとに低い確率で、足りない種類の施設を街の中心近くの道沿いに建てる */
-export function spawnCityBusiness(map: GameMap, transit: Transit, rng: () => number, chance = 0.35, rivals: Rival[] = []): number {
+export function spawnCityBusiness(map: GameMap, transit: Transit, rng: () => number, chance = 0.35, _rivals: Rival[] = []): number {
   let built = 0;
   for (const town of map.towns) {
     if (rng() >= chance) continue;
@@ -40,10 +40,8 @@ export function spawnCityBusiness(map: GameMap, transit: Transit, rng: () => num
         // 道路に面している(敷地の外周のすぐ外に道路がある)
         const onStreet = plan.tiles.some(([x, y]) => [0, 1, 2, 3].some((d) => map.inBounds(x + DX[d], y + DY[d]) && map.road.get(map.idx(x + DX[d], y + DY[d])) !== 0));
         if (!onStreet) continue;
-        // 持ち主は競合会社のどれか(傘下に入っている会社が建てた施設は自社のもの)
-        const owner = rivals.length ? rivals[Math.floor(rng() * rivals.length)] : undefined;
-        const f = placeFacility(map, plan, rule.type, owner?.acquired ? 'player' : 'city');
-        if (owner && !owner.acquired) f.ownerId = owner.id;
+        // 持ち主のいない売り出し物件(売り出し日は、次の日締めにつく)
+        const f = placeFacility(map, plan, rule.type, 'city');
         if (sprite) {
           f.size = size;
           f.design = Math.floor(rng() * (DESIGN_COUNT[rule.type] ?? 20));

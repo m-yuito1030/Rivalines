@@ -450,6 +450,8 @@ export interface Facility {
   grade?: number;
   rep?: number;
   renov?: number;
+  /** 売り出し中の物件の、売り出し日(日の通し番号)。LISTING_DAYS 日で買い手がつかないと取り壊される */
+  listedDay?: number;
   /** 来場者の累計(人) */
   visits?: number;
   /** 今日の売上(円)と、直近の1日あたりの売上(指数移動平均) */
