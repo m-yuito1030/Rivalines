@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: 型チェック(クライアント・サーバー)
+        run: npm run typecheck
+      - name: 整形チェック
+        run: npm run format:check
+      - name: テスト
+        run: npx vitest run
+      - name: ビルド
+        run: npx vite build
