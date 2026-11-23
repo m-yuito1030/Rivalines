@@ -238,6 +238,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     if (t !== 'route' && (panel.building || panel.inserting)) panel.cancelBuild();
   };
   setToolRef = setTool;
+  document.querySelectorAll('.optx').forEach((b) => b.addEventListener('click', () => setTool('pan')));
   document.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) =>
     b.addEventListener('click', () => {
       if (isTouch) routesWin.close(); // スマホ: ツールを選んだら路線シートは閉じる

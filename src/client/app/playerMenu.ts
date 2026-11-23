@@ -27,6 +27,8 @@ export class PlayerMenu {
     });
     $('menuBtn').addEventListener('click', () => this.open());
     $('menuClose').addEventListener('click', () => (this.menu.hidden = true));
+    $('menuX').addEventListener('click', () => (this.menu.hidden = true));
+    window.addEventListener('keydown', (e) => e.key === 'Escape' && !this.menu.hidden && (this.menu.hidden = true));
     this.list.addEventListener('change', (e) => {
       const cb = e.target as HTMLInputElement;
       if (cb.dataset.cgrant) void net.cmd({ t: 'companyAllow', who: Number(cb.dataset.cgrant), allow: cb.checked }).then((r) => r.msg && d.notify(r.msg));

@@ -22,4 +22,15 @@ describe('全画面ウィンドウのスマホ用スタイル', () => {
       expect(mobile, `#${id} h2(タイトルと閉じるボタンの固定)`).toContain(`#${id} h2`);
     }
   });
+
+  it('メニュー(#menu)は、パソコンでも画面に収まり(縦にスクロール)、タイトル行に ✕ がある', () => {
+    expect(css).toMatch(/^#menu \.box \{[^}]*max-height: 92vh; overflow: auto/m);
+    expect(readFileSync('index.html', 'utf8')).toMatch(/<h2>プレイヤー <button[^>]*id="menuX"/);
+  });
+
+  it('ツールの設定ウィンドウ(駅・施設・撤去・信号)にも、閉じるボタン(✕)がある', () => {
+    const html = readFileSync('index.html', 'utf8');
+    for (const id of ['stationOpts', 'facilityOpts', 'bulldozeOpts', 'signalOpts'])
+      expect(html, id).toMatch(new RegExp(`<div id="${id}" hidden><button type="button" class="optx"`));
+  });
 });
