@@ -3,6 +3,12 @@ import type { ClientMsg, Cmd, CmdResult, ServerMsg } from '../../shared/protocol
 
 const SESSION = 'simulator-multi-session';
 
+/**
+ * このページの置き場所(例: / や /next/)。API と WebSocket は、ここからの相対にする。
+ * 本稼働(/live/)と次期バージョン(/next/)は、同じサーバー名の別のパスで配信され、それぞれ別の世界につながる。
+ */
+export const BASE = location.pathname.replace(/[^/]*$/, '');
+
 /** サーバーとの接続(ログイン・コマンド送信・受信メッセージの配信) */
 export class Net {
   private ws: WebSocket | null = null;
@@ -28,7 +34,7 @@ export class Net {
   }
 
   async auth(kind: 'login' | 'register', name: string, password: string, code = ''): Promise<{ ok: boolean; reason?: string; token?: string }> {
-    const r = await fetch(`/api/${kind}`, {
+    const r = await fetch(`${BASE}api/${kind}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(kind === 'register' ? { name, password, code } : { name, password }),
@@ -42,7 +48,7 @@ export class Net {
   connect(token: string): Promise<Extract<ServerMsg, { type: 'init' }>> {
     return new Promise((resolve, reject) => {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      const ws = new WebSocket(`${proto}://${location.host}/ws?token=${token}&lang=${lang()}`);
+      const ws = new WebSocket(`${proto}://${location.host}${BASE}ws?token=${token}&lang=${lang()}`);
       this.ws = ws;
       let inited = false;
       ws.onmessage = (e) => {
@@ -127,7 +133,7 @@ export class Net {
 
   /** パスワードの変更 / 退会(どちらも、現在のパスワードで確認する) */
   async account(kind: 'password' | 'leave', name: string, password: string, newPassword = ''): Promise<{ ok: boolean; reason?: string }> {
-    const r = await fetch(`/api/${kind}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, password, newPassword }) });
+    const r = await fetch(`${BASE}api/${kind}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, password, newPassword }) });
     const j = (await r.json()) as { ok: boolean; reason?: string; token?: string; name?: string };
     if (j.ok && kind === 'password') localStorage.setItem(SESSION, JSON.stringify({ token: j.token, name: j.name }));
     if (j.ok && kind === 'leave') localStorage.removeItem(SESSION);

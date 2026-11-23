@@ -203,4 +203,6 @@ export const EN_UI: Catalog = {
   'ui.startForm.t6': 'Terms of Service',
   'ui.startForm.t7': 'Privacy Policy',
   'ui.startForm.t8': 'Licenses & credits',
+  'ui.switchWorld': '🌐 Switch world',
+  'ui.switchWorld.title': 'Choose between the live game and the next version again',
 };

@@ -10,7 +10,7 @@ import { Toolbar } from './app/toolbar';
 import { PlayerMenu } from './app/playerMenu';
 import { Application, Container, Graphics, Text } from 'pixi.js';
 import { Simulation, TICKS_PER_DAY } from '../shared/sim/simulation';
-import { net } from './connection/net';
+import { BASE, net } from './connection/net';
 import { Mirror } from './connection/mirror';
 import { Camera } from './render/camera';
 import { ChunkRenderer, lodForZoom } from './render/chunkRenderer';
@@ -494,6 +494,19 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   });
 
   const playerMenu = new PlayerMenu({ transit, players: () => mirror.players, notify: (m) => tools.onMessage?.(m), beforeOpen: () => closeWindows('menu') });
+
+  // 本稼働以外の世界(次期バージョン)で遊んでいるときは、画面に目立つ印を出す(データが消えることがあるため)
+  void fetch(`${BASE}api/status`)
+    .then((r) => r.json())
+    .then((s: { env?: { name: string; label: string; version: string } }) => {
+      if (!s.env || s.env.name === 'live') return;
+      const b = $('envBadge');
+      b.textContent = `🧪 ${tr('{label}(テスト・データは消えることがあります)', { label: s.env.label })}`;
+      b.hidden = false;
+      document.title = `Rivalines — ${s.env.label}`;
+    })
+    .catch(() => {});
+  $('switchWorld').addEventListener('click', () => (location.href = new URL('../', location.href).href));
 
   $('start').hidden = true;
   $('hud').hidden = false;
