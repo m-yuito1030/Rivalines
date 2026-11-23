@@ -1,12 +1,13 @@
 import { type Catalog, type LangCode, Locale } from './locale';
 import { Ja } from './ja';
 import { EN_CLIENT } from './en/client';
+import { EN_SERVER } from './en/server';
 import { EN_NAMES } from './en/names';
 import { EN_RULES } from './en/rules';
 import { EN_UI } from './en/ui';
 
 /** 英語。訳した文だけを持ち、足りない文は日本語(継承元)で補う */
-export const EN: Catalog = { ...EN_UI, ...EN_RULES, ...EN_CLIENT, ...EN_NAMES };
+export const EN: Catalog = { ...EN_UI, ...EN_RULES, ...EN_CLIENT, ...EN_SERVER, ...EN_NAMES };
 
 export class En extends Ja {
   override readonly code: LangCode = 'en';

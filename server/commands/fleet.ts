@@ -6,12 +6,13 @@ import { vehiclePrice, yen } from '../economyApi';
 
 /** rename */
 export function rename(cmd: Extract<Cmd, { t: 'rename' }>, ctx: CommandContext): CmdResult {
+  const tr = ctx.tr;
   const { t, who } = ctx;
   const name = clampName(cmd.name);
-  if (!name) return fail('名前を入力してください');
+  if (!name) return fail(tr('名前を入力してください'));
   const e = cmd.kind === 'stop' ? t.stops.get(cmd.id) : t.depots.get(cmd.id);
-  if (!e) return fail('見つかりません');
-  if (e.owner && e.owner !== who) return fail('他社のものは名前を変えられません');
+  if (!e) return fail(tr('見つかりません'));
+  if (e.owner && e.owner !== who) return fail(tr('他社のものは名前を変えられません'));
   e.name = name;
   t.version++;
   return { ok: true };
@@ -19,34 +20,37 @@ export function rename(cmd: Extract<Cmd, { t: 'rename' }>, ctx: CommandContext):
 
 /** buyVehicle */
 export function buyVehicle(cmd: Extract<Cmd, { t: 'buyVehicle' }>, ctx: CommandContext): CmdResult {
+  const tr = ctx.tr;
   const { sim, t, co, who, mine } = ctx;
   const r = t.routes.get(cmd.routeId);
-  if (!mine(r)) return fail('自社の路線ではありません');
+  if (!mine(r)) return fail(tr('自社の路線ではありません'));
   const depot = cmd.depotId !== undefined ? t.depots.get(cmd.depotId) : t.nearestDepot(r.id);
-  if (!depot) return fail('車両基地がありません。先に基地を置いてください');
-  if (depot.owner && depot.owner !== who) return fail('他社の基地は使えません');
+  if (!depot) return fail(tr('車両基地がありません。先に基地を置いてください'));
+  if (depot.owner && depot.owner !== who) return fail(tr('他社の基地は使えません'));
   const m = modelOf(cmd.modelId);
   const cars = m.mode === 'rail' ? clampCars(m, cmd.cars) : 1;
   const price = vehiclePrice(m, cars);
-  if (!co.afford(price)) return fail(`資金が足りません(車両 ${yen(price)} / 現金 ${yen(co.cash)})。経営画面(F)で融資を受けられます`);
+  if (!co.afford(price)) return fail(tr('資金が足りません(車両 {price} / 現金 {co})。経営画面(F)で融資を受けられます', { price: yen(price), co: yen(co.cash) }));
   const res = t.buyVehicle(depot.id, r.id, m.id, cars, sim.tick);
-  if (!res.vehicle) return fail(`購入できません: ${res.reason}`);
+  if (!res.vehicle) return fail(tr('購入できません: {reason}', { reason: tr(res.reason ?? '') }));
   co.spend('vehicle', price);
-  return { ok: true, id: res.vehicle.id, msg: `${m.name}を購入しました(${yen(price)})。路線のオーダーで運行します` };
+  return { ok: true, id: res.vehicle.id, msg: tr('{name}を購入しました({price})。路線のオーダーで運行します', { name: m.name, price: yen(price) }) };
 }
 
 /** vehPlan */
 export function vehPlan(cmd: Extract<Cmd, { t: 'vehPlan' }>, ctx: CommandContext): CmdResult {
+  const tr = ctx.tr;
   const { t } = ctx;
   const plan = t.planAhead(Number(cmd.id), 3);
-  return plan ? { ok: true, data: plan } : fail('車両が見つかりません');
+  return plan ? { ok: true, data: plan } : fail(tr('車両が見つかりません'));
 }
 
 /** vehOffset */
 export function vehOffset(cmd: Extract<Cmd, { t: 'vehOffset' }>, ctx: CommandContext): CmdResult {
+  const tr = ctx.tr;
   const { t, mine } = ctx;
   const v = t.vehicles.find((x) => x.id === cmd.id);
-  if (!v || !mine(t.routes.get(v.routeId))) return fail('自社の車両ではありません');
+  if (!v || !mine(t.routes.get(v.routeId))) return fail(tr('自社の車両ではありません'));
   const P = t.routes.get(v.routeId)!.period;
   v.offset = Math.round((((cmd.offset % P) + P) % P) / MINT) * MINT;
   t.version++;

@@ -69,8 +69,13 @@ describe('訳の抜けがない', () => {
       expect(html).toContain(`title="${JA[k]}"`);
     }
   });
-  it("プログラムの tr('日本語') は、すべて英語に訳してある(クライアントの画面の部分)", () => {
-    const files = [...walk(join(ROOT, 'src', 'client')), ...walk(join(ROOT, 'src', 'shared')).filter((f) => !f.includes('/i18n/'))];
+  it("プログラムの tr('日本語') は、すべて英語に訳してある(画面・サーバーの返事)", () => {
+    const files = [
+      ...walk(join(ROOT, 'src', 'client')),
+      ...walk(join(ROOT, 'src', 'shared')).filter((f) => !f.includes('/i18n/')),
+      ...walk(join(ROOT, 'server', 'commands')),
+      join(ROOT, 'server', 'index.ts'),
+    ];
     const missing: string[] = [];
     for (const f of files) {
       const src = readFileSync(f, 'utf8');
@@ -88,5 +93,17 @@ describe('訳の抜けがない', () => {
     const kit = (await import('../src/shared/data/stationKit.json')).default;
     for (const v of Object.values(sheets)) for (const n of v.names) expect(EN[`ja:${n}`], n).toBeTruthy();
     for (const s of kit.styles) expect(EN[`ja:${s.name}`], s.name).toBeTruthy();
+  });
+});
+
+describe('サーバーの返事は、接続した言語で返る', () => {
+  it('英語なら英語、日本語なら日本語でエラーを返す', async () => {
+    const { execute } = await import('./commands');
+    const { Simulation } = await import('../src/shared/sim/simulation');
+    const { GameMap } = await import('../src/shared/world/gameMap');
+    const sim = new Simulation(new GameMap(64, 1), undefined, { multi: true });
+    const bad = { t: 'nope' } as never;
+    expect(execute(sim, 1, bad, 'en').msg).toBe('Invalid action.');
+    expect(execute(sim, 1, bad, 'ja').msg).toBe('不正な操作です');
   });
 });

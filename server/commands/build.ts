@@ -10,10 +10,11 @@ import { PRICES, yen } from '../economyApi';
 
 /** build */
 export function build(cmd: Extract<Cmd, { t: 'build' }>, ctx: CommandContext): CmdResult {
+  const tr = ctx.tr;
   const { map, t, co, who } = ctx;
-  if (!DRAG_TOOLS.includes(cmd.tool)) return fail('不正な操作です');
-  if (![cmd.a.x, cmd.a.y, cmd.b.x, cmd.b.y].every(Number.isInteger)) return fail('不正な操作です');
-  if (Math.max(Math.abs(cmd.a.x - cmd.b.x), Math.abs(cmd.a.y - cmd.b.y)) > 512) return fail('一度に敷設できるのは512タイルまでです');
+  if (!DRAG_TOOLS.includes(cmd.tool)) return fail(tr('不正な操作です'));
+  if (![cmd.a.x, cmd.a.y, cmd.b.x, cmd.b.y].every(Number.isInteger)) return fail(tr('不正な操作です'));
+  if (Math.max(Math.abs(cmd.a.x - cmd.b.x), Math.abs(cmd.a.y - cmd.b.y)) > 512) return fail(tr('一度に敷設できるのは512タイルまでです'));
   const msgs: string[] = [];
   const changed: [number, number][] = [];
   applyBuild(map, cmd.tool, cmd.a, cmd.b, {
@@ -29,14 +30,15 @@ export function build(cmd: Extract<Cmd, { t: 'build' }>, ctx: CommandContext): C
 
 /** bulldoze */
 export function bulldoze(cmd: Extract<Cmd, { t: 'bulldoze' }>, ctx: CommandContext): CmdResult {
+  const tr = ctx.tr;
   const { map, t, who } = ctx;
   const k = cmd.kinds;
-  if (!k || ![cmd.a.x, cmd.a.y, cmd.b.x, cmd.b.y].every(Number.isInteger)) return fail('不正な操作です');
+  if (!k || ![cmd.a.x, cmd.a.y, cmd.b.x, cmd.b.y].every(Number.isInteger)) return fail(tr('不正な操作です'));
   const x0 = Math.max(0, Math.min(cmd.a.x, cmd.b.x));
   const x1 = Math.min(map.size - 1, Math.max(cmd.a.x, cmd.b.x));
   const y0 = Math.max(0, Math.min(cmd.a.y, cmd.b.y));
   const y1 = Math.min(map.size - 1, Math.max(cmd.a.y, cmd.b.y));
-  if ((x1 - x0 + 1) * (y1 - y0 + 1) > 16384) return fail('範囲が広すぎます(128×128タイルまで)');
+  if ((x1 - x0 + 1) * (y1 - y0 + 1) > 16384) return fail(tr('範囲が広すぎます(128×128タイルまで)'));
   const count = { road: 0, rail: 0, signal: 0, stop: 0, depot: 0, waypoint: 0, span: 0, building: 0, airport: 0 };
   const changed: [number, number][] = [];
   for (let y = y0; y <= y1; y++) {
@@ -82,25 +84,26 @@ export function bulldoze(cmd: Extract<Cmd, { t: 'bulldoze' }>, ctx: CommandConte
   }
   t.touchNetworkTiles(changed);
   const names: [keyof typeof count, string][] = [
-    ['road', '道路'],
-    ['rail', '線路'],
-    ['signal', '信号'],
-    ['stop', '停留所・駅'],
-    ['depot', '基地'],
-    ['waypoint', '経由点'],
-    ['span', '橋・トンネル'],
-    ['building', '建物'],
-    ['airport', '空港'],
+    ['road', tr('道路')],
+    ['rail', tr('線路')],
+    ['signal', tr('信号')],
+    ['stop', tr('停留所・駅')],
+    ['depot', tr('基地')],
+    ['waypoint', tr('経由点')],
+    ['span', tr('橋・トンネル')],
+    ['building', tr('建物')],
+    ['airport', tr('空港')],
   ];
   const parts = names.filter(([key]) => count[key] > 0).map(([key, label]) => `${label}${count[key]}`);
-  return { ok: true, msg: parts.length ? `撤去しました: ${parts.join('・')}` : '選んだ種類の要素はありませんでした' };
+  return { ok: true, msg: parts.length ? tr('撤去しました: {parts}', { parts: parts.join(tr('・')) }) : tr('選んだ種類の要素はありませんでした') };
 }
 
 /** signalLine */
 export function signalLine(cmd: Extract<Cmd, { t: 'signalLine' }>, ctx: CommandContext): CmdResult {
+  const tr = ctx.tr;
   const { map, t, co } = ctx;
   if (![cmd.a.x, cmd.a.y, cmd.b.x, cmd.b.y].every(Number.isInteger) || Math.max(Math.abs(cmd.a.x - cmd.b.x), Math.abs(cmd.a.y - cmd.b.y)) > 400)
-    return fail('範囲が不正です(400タイルまで)');
+    return fail(tr('範囲が不正です(400タイルまで)'));
   const step = Math.max(1, Math.min(20, Math.round(Number(cmd.interval) || 3)));
   const tiles = railLineTiles(cmd.a.x, cmd.a.y, cmd.b.x, cmd.b.y);
   let placed = 0;
@@ -111,7 +114,7 @@ export function signalLine(cmd: Extract<Cmd, { t: 'signalLine' }>, ctx: CommandC
     const had = t.signalMask(idx);
     if (had === 1 << tl.d) continue;
     if (!co.afford(PRICES.signal)) {
-      return { ok: true, msg: `資金が足りません。${placed}か所に信号を置きました(${yen(cost)})` };
+      return { ok: true, msg: tr('資金が足りません。{placed}か所に信号を置きました({cost})', { placed, cost: yen(cost) }) };
     }
     if (t.setSignal(tl.x, tl.y, 1 << tl.d)) {
       if (!had) {
@@ -121,5 +124,7 @@ export function signalLine(cmd: Extract<Cmd, { t: 'signalLine' }>, ctx: CommandC
       placed++;
     }
   }
-  return placed ? { ok: true, msg: `信号を${placed}か所に置きました(${yen(cost)})` } : fail('信号を置ける直線の線路がありません(駅・分岐・橋の上には置けません)');
+  return placed
+    ? { ok: true, msg: tr('信号を{placed}か所に置きました({cost})', { placed, cost: yen(cost) }) }
+    : fail(tr('信号を置ける直線の線路がありません(駅・分岐・橋の上には置けません)'));
 }
