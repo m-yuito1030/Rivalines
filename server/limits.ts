@@ -41,3 +41,26 @@ export class Governor {
     this.until = this.now() + Math.max(1500, ms * 3);
   }
 }
+
+/**
+ * 一定時間(既定1時間)あたりの件数の上限。サーバー全体の新規登録の数に使う
+ * (登録できる人数に上限はないが、ボットに短時間で大量のアカウントを作られないようにする)
+ */
+export class WindowLimiter {
+  private times: number[] = [];
+
+  constructor(
+    private max: number,
+    private windowMs = 3_600_000,
+    private now: () => number = Date.now,
+  ) {}
+
+  /** 1件分を受け付けられるなら、数えて true。上限に達していれば false */
+  tryTake(): boolean {
+    const t = this.now();
+    while (this.times.length && t - this.times[0] >= this.windowMs) this.times.shift();
+    if (this.times.length >= this.max) return false;
+    this.times.push(t);
+    return true;
+  }
+}

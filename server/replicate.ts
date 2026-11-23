@@ -12,6 +12,9 @@ const MAX_VIEW = 512;
 const MARGIN = 24;
 /** 1クライアントに、1フレームで新しく送るチャンクの最大数と、送信済みとして覚えておく最大数 */
 const CHUNKS_PER_FRAME = 24;
+/** 会社の一覧に載せる、オフラインの会社の数(時価総額の上位)と、1回の配信で計算し直す数 */
+const OFFLINE_LISTED = 60;
+const OFFLINE_REFRESH = 8;
 const MAX_SENT_CHUNKS = 6000;
 
 export interface Client {
@@ -295,30 +298,67 @@ export class Replicator {
     }
   }
 
+  /** 会社1社ぶんの一覧用の情報(資産の評価などを計算するので、全員ぶんを毎回は求めない) */
+  private computeInfo(id: number): PlayerInfo | null {
+    const sim = this.sim;
+    const co = sim.players.get(id);
+    const a = this.accounts.byId(id);
+    if (!co || !a) return null;
+    const assets = assetValue(sim.map, sim.transit, sim.rivals, id);
+    let passengers = 0;
+    for (const r of sim.transit.routes.values()) if (r.owner === id) passengers += r.carried ?? 0;
+    return {
+      id,
+      name: a.name,
+      company: a.company || a.name,
+      bio: a.bio ?? '',
+      color: a.color,
+      online: sim.online.has(id),
+      marketCap: co.marketCap,
+      price: co.stock,
+      netWorth: co.netWorth(assets),
+      profit: co.profitStats().avg,
+      passengers: Math.floor(passengers),
+      profitTotal: profitTotalOf(co),
+    };
+  }
+
+  /** オフラインの会社の、最後に計算した一覧用の情報 */
+  private infoCache = new Map<number, PlayerInfo>();
+  private refreshCursor = 0;
+
+  /**
+   * 配信する会社の一覧。アカウントの数に上限がないので、全員ぶんは送らない:
+   * オンラインの会社は毎回計算し、オフラインの会社は、時価総額の上位 OFFLINE_LISTED 社だけを出す
+   * (オフラインの会社は止まっているので、1回に OFFLINE_REFRESH 社ずつ順番に計算し直せば足りる)
+   */
   private playerInfos(): PlayerInfo[] {
     const sim = this.sim;
     const out: PlayerInfo[] = [];
-    for (const [id, co] of sim.players) {
-      const a = this.accounts.byId(id);
-      if (!a) continue;
-      const assets = assetValue(sim.map, sim.transit, sim.rivals, id);
-      let passengers = 0;
-      for (const r of sim.transit.routes.values()) if (r.owner === id) passengers += r.carried ?? 0;
-      out.push({
-        id,
-        name: a.name,
-        company: a.company || a.name,
-        bio: a.bio ?? '',
-        color: a.color,
-        online: sim.online.has(id),
-        marketCap: co.marketCap,
-        price: co.stock,
-        netWorth: co.netWorth(assets),
-        profit: co.profitStats().avg,
-        passengers: Math.floor(passengers),
-        profitTotal: profitTotalOf(co),
-      });
+    const offline: number[] = [];
+    for (const id of sim.players.keys()) {
+      if (!sim.online.has(id)) {
+        offline.push(id);
+        continue;
+      }
+      const info = this.computeInfo(id);
+      if (info) {
+        this.infoCache.set(id, info);
+        out.push(info);
+      }
     }
+    for (let k = 0; k < Math.min(OFFLINE_REFRESH, offline.length); k++) {
+      const id = offline[this.refreshCursor++ % offline.length];
+      const info = this.computeInfo(id);
+      if (info) this.infoCache.set(id, info);
+    }
+    const listed: PlayerInfo[] = [];
+    for (const id of offline) {
+      const info = this.infoCache.get(id);
+      if (info) listed.push({ ...info, online: false });
+    }
+    listed.sort((x, y) => y.marketCap - x.marketCap);
+    out.push(...listed.slice(0, OFFLINE_LISTED));
     return out;
   }
 }

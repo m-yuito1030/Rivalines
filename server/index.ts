@@ -10,13 +10,16 @@ import { Accounts } from './accounts';
 import { execute } from './commands/index';
 import { Replicator, type Client } from './replicate';
 import type { ClientMsg } from '../src/shared/protocol';
-import { Governor, isHeavy, messageLimit } from './limits';
+import { Governor, WindowLimiter, isHeavy, messageLimit } from './limits';
 
 const PORT = Number(process.env.PORT ?? 8091);
 const DATA = process.env.DATA_DIR ?? './data';
 const SIZE = Number(process.env.WORLD_SIZE ?? 65535);
 const SEED = Number(process.env.WORLD_SEED ?? 20260401);
-const MAX_USERS = Number(process.env.MAX_USERS ?? 100);
+/** 同時に接続できる人数(登録できる人数には上限がない)。旧名 MAX_USERS も受け付ける */
+const MAX_ONLINE = Number(process.env.MAX_ONLINE ?? process.env.MAX_USERS ?? 100);
+/** サーバー全体で、1時間に新規登録できる人数(ボットに大量登録されないための安全弁) */
+const REGISTER_PER_HOUR = Number(process.env.REGISTER_PER_HOUR ?? 300);
 const SAVE_FILE = `${DATA}/world.sav`;
 /** 招待コード(設定すると、新規登録に必要になる。公開サーバーで、見知らぬ人に登録枠を使い切られないようにする) */
 const INVITE_CODE = process.env.INVITE_CODE ?? '';
@@ -65,9 +68,9 @@ const repl = new Replicator(sim, accounts);
 const clients = new Set<Client>();
 /** オンライン中の会社を反映する(切断した会社は止まる) */
 const syncOnline = () => sim.setOnline([...clients].map((c) => c.id));
-// 登録済みのアカウントは全て会社を持つ
-for (let id = 1; id <= accounts.count + 10; id++) if (accounts.byId(id)) sim.playerCompany(id);
+// 会社は、アカウントが最初に接続したときに作る(登録しただけの人のぶんで、世界のデータが膨らまないように)
 syncOnline();
+const registrations = new WindowLimiter(REGISTER_PER_HOUR);
 
 const json = (res: import('node:http').ServerResponse, code: number, body: unknown) => {
   // 画面と同じ場所(同一オリジン)から使うので、CORS は許可しない(他のサイトから勝手に呼べないように)
@@ -122,9 +125,9 @@ const server = createServer(async (req, res) => {
       const password = String(b.password ?? '');
       if (url === '/api/register') {
         if (INVITE_CODE && !sameCode(String(b.code ?? ''), INVITE_CODE)) return json(res, 403, { ok: false, reason: '招待コードが違います' });
-        const r = await accounts.register(name, password, MAX_USERS);
+        if (!registrations.tryTake()) return json(res, 429, { ok: false, reason: '新規登録が混み合っています。しばらくしてからもう一度お試しください' });
+        const r = await accounts.register(name, password);
         if (!r.ok) return json(res, 400, r);
-        sim.playerCompany(r.account.id);
         return json(res, 200, { ok: true, token: accounts.issueToken(r.account.id), name: r.account.name });
       }
       const a = await accounts.verify(name, password);
@@ -146,6 +149,9 @@ server.on('upgrade', (req, socket, head) => {
     return socket.destroy();
   }
   wss.handleUpgrade(req, socket, head, (ws) => {
+    // 同時接続の上限(同じアカウントの入り直しは、古い接続と入れ替わるので数えない)
+    const rejoin = [...clients].some((c) => c.id === a.id);
+    if (!rejoin && clients.size >= MAX_ONLINE) return void ws.close(4003, 'full');
     // 同じアカウントの二重接続は古い方を切る
     for (const c of clients) if (c.id === a.id) c.ws.close(4000, 'other login');
     (ws as typeof ws & { alive?: boolean }).alive = true;
@@ -247,7 +253,7 @@ function status() {
     vehicles: sim.transit.vehicles.length,
     accounts: accounts.count,
     online: clients.size, // 人数だけ(名前は出さない)
-    maxUsers: MAX_USERS,
+    maxOnline: MAX_ONLINE,
     invite: !!INVITE_CODE,
     perf: { simMs: +perf.sim.toFixed(1), replMs: +perf.repl.toFixed(1), loopMs: +perf.loop.toFixed(1), throttled: sim.throttled },
   };
@@ -307,4 +313,4 @@ for (const sig of ['SIGINT', 'SIGTERM'] as const)
       .finally(() => process.exit(0));
   });
 
-server.listen(PORT, () => console.log(`[server] http/ws :${PORT} (最大${MAX_USERS}人)`));
+server.listen(PORT, () => console.log(`[server] http/ws :${PORT} (同時接続の上限 ${MAX_ONLINE}人)`));
