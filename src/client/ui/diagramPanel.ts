@@ -1,3 +1,4 @@
+import { tr } from '../i18n';
 import { ModalPanel } from './modalPanel';
 import { DAY, MIN, type DiaRoute, type DiaStop, type Run, routeRuns, suggestPassing } from '../../shared/sim/network/diagram';
 import { RANKS, type Transit, todOf } from '../../shared/sim/network/transit';
@@ -43,28 +44,28 @@ export class DiagramPanel extends ModalPanel {
     super(modal, 1000);
     body.innerHTML = `
       <div class="drow">
-        <label>路線 <select data-d="route"></select></label>
-        <label>表示 <select data-d="range"><option value="${DAY / 12}">2時間</option><option value="${DAY / 8}">3時間</option><option value="${DAY / 4}" selected>6時間</option><option value="${DAY / 2}">12時間</option><option value="${DAY}">24時間</option></select></label>
-        <label>開始 <input data-d="start" type="time" value="06:00"></label>
-        <label><input type="radio" name="dmode" value="run" checked> 🚆 列車を動かす</label>
-        <label><input type="radio" name="dmode" value="node"> 🕒 駅の時刻を動かす</label>
+        <label>${tr('路線')} <select data-d="route"></select></label>
+        <label>${tr('表示')} <select data-d="range"><option value="${DAY / 12}">${tr('2時間')}</option><option value="${DAY / 8}">${tr('3時間')}</option><option value="${DAY / 4}" selected>${tr('6時間')}</option><option value="${DAY / 2}">${tr('12時間')}</option><option value="${DAY}">${tr('24時間')}</option></select></label>
+        <label>${tr('開始')} <input data-d="start" type="time" value="06:00"></label>
+        <label><input type="radio" name="dmode" value="run" checked> ${tr('🚆 列車を動かす')}</label>
+        <label><input type="radio" name="dmode" value="node"> ${tr('🕒 駅の時刻を動かす')}</label>
       </div>
       <div class="drow">
-        <button data-d="auto" title="走行時間から時刻表(各駅の発車時刻と周期)を作る">時刻表を自動作成</button>
-        <label>間隔 <input data-d="interval" type="number" min="1" max="720" value="30" style="width:4em">分</label>
-        <label>始発 <input data-d="first" type="time" value="06:00"></label>
-        <button data-d="bulk" title="時刻表がなければ作り、間隔に合う本数の車両を買い足して、等間隔に走らせます">運行本数を一括設定</button>
-        <button data-d="rev" title="この路線を逆向きの路線として複製(時刻表も組み直す。車両は別に購入)">↔ 逆向きに複製</button>
-        <label>ずらし <input data-d="shift" type="number" value="30" style="width:4em">分</label>
-        <label>種別 <select data-d="rank">${RANKS.slice(1)
+        <button data-d="auto" title="${tr('走行時間から時刻表(各駅の発車時刻と周期)を作る')}">${tr('時刻表を自動作成')}</button>
+        <label>${tr('間隔')} <input data-d="interval" type="number" min="1" max="720" value="30" style="width:4em">${tr('分')}</label>
+        <label>${tr('始発')} <input data-d="first" type="time" value="06:00"></label>
+        <button data-d="bulk" title="${tr('時刻表がなければ作り、間隔に合う本数の車両を買い足して、等間隔に走らせます')}">${tr('運行本数を一括設定')}</button>
+        <button data-d="rev" title="${tr('この路線を逆向きの路線として複製(時刻表も組み直す。車両は別に購入)')}">${tr('↔ 逆向きに複製')}</button>
+        <label>${tr('ずらし')} <input data-d="shift" type="number" value="30" style="width:4em">${tr('分')}</label>
+        <label>${tr('種別')} <select data-d="rank">${RANKS.slice(1)
           .map((k, i) => `<option value="${i + 1}" ${i === 1 ? 'selected' : ''}>${k.name}</option>`)
           .join('')}</select></label>
-        <button data-d="rankcopy" title="この路線を元に、通過駅を自動で選んだ種別の路線を作る(元の路線は変わらない。時刻表は走行時間から組み直す)">🚄 種別の路線を作る</button>
-        <button data-d="shiftcopy" title="時刻表を指定の分だけずらして複製">⏱ ずらして複製</button>
+        <button data-d="rankcopy" title="${tr('この路線を元に、通過駅を自動で選んだ種別の路線を作る(元の路線は変わらない。時刻表は走行時間から組み直す)')}">${tr('🚄 種別の路線を作る')}</button>
+        <button data-d="shiftcopy" title="${tr('時刻表を指定の分だけずらして複製')}">${tr('⏱ ずらして複製')}</button>
       </div>
       <canvas data-d="cv" style="width:100%;height:340px;background:#0b1420;border-radius:8px;touch-action:none"></canvas>
       <div class="muted" data-d="info"></div>
-      <h3>待避の提案</h3>
+      <h3>${tr('待避の提案')}</h3>
       <div data-d="sug"></div>`;
     this.routeSel = body.querySelector('[data-d=route]')!;
     this.rangeSel = body.querySelector('[data-d=range]')!;
@@ -88,7 +89,7 @@ export class DiagramPanel extends ModalPanel {
         return h * 60 + m;
       };
       const say = (p: Promise<{ ok: boolean; msg?: string; id?: number }>, after?: (id?: number) => void) =>
-        void p.then((r) => (this.onMessage(r.msg ?? (r.ok ? '完了しました' : '失敗しました')), r.ok && after?.(r.id)));
+        void p.then((r) => (this.onMessage(r.msg ?? (r.ok ? tr('完了しました') : tr('失敗しました'))), r.ok && after?.(r.id)));
       if (act === 'auto') say(net.cmd({ t: 'tx', m: 'autoTimetable', a: [rid, todOf(this.getTick())] }));
       else if (act === 'bulk') say(net.cmd({ t: 'routeBulk', routeId: rid, intervalMin: Number(val('interval')), firstMin: tmin(val('first')) }));
       else if (act === 'rev') say(net.cmd({ t: 'routeClone', routeId: rid, reverse: true, shiftMin: 0 }), (id) => this.select(id));
@@ -174,7 +175,7 @@ export class DiagramPanel extends ModalPanel {
     if (!sel) {
       g.fillStyle = '#9ab';
       g.font = '13px sans-serif';
-      g.fillText('自社の路線がありません', 20, 30);
+      g.fillText(tr('自社の路線がありません'), 20, 30);
       return;
     }
     const stops = this.diaStops();
@@ -216,7 +217,7 @@ export class DiagramPanel extends ModalPanel {
       g.stroke();
       const st = stops.get(sid);
       g.fillStyle = (st?.tracks ?? 1) >= 2 ? '#8fd0ff' : '#cfe0f5';
-      let label = `${st?.name ?? '?'}${(st?.tracks ?? 1) >= 2 ? ` (${st!.tracks}線)` : ''}`;
+      let label = `${st?.name ?? '?'}${(st?.tracks ?? 1) >= 2 ? ` ${tr('({tracks}線)', { tracks: st!.tracks })}` : ''}`;
       while (label.length > 2 && g.measureText(label).width > left - 12) label = label.slice(0, -2) + '…';
       g.fillText(label, left - 8, y);
     });
@@ -237,7 +238,7 @@ export class DiagramPanel extends ModalPanel {
     if (!timed) {
       g.fillStyle = '#ffcc66';
       g.textAlign = 'left';
-      g.fillText('この路線には時刻表がありません。「時刻表を自動作成」か「運行本数を一括設定」で作れます', left, top + h / 2);
+      g.fillText(tr('この路線には時刻表がありません。「時刻表を自動作成」か「運行本数を一括設定」で作れます'), left, top + h / 2);
     }
     // 同じ駅を2つ以上通る自社の他の路線(時刻表あり)も薄く描く
     const others = this.myRoutes().filter((r) => r.id !== sel.id && r.orders.some((o) => o.kind === 'timed') && r.orders.filter((o) => rows.includes(o.stopId)).length >= 2);
@@ -302,7 +303,12 @@ export class DiagramPanel extends ModalPanel {
     }
     g.restore();
     this.infoEl.textContent = timed
-      ? `周期 ${Math.round(sel.period / MIN)}分 ・ 編成 ${dia.vs.length}本${dia.vs.length === 0 ? '(想定線を表示中。車両を購入すると実際の線になります)' : ''}。${this.mode === 'run' ? '線をドラッグすると、その列車の発車時刻がずれます' : '●をドラッグすると、その駅の発車時刻が変わります'}`
+      ? tr('周期 {sel}分 ・ 編成 {length}本{tr}。{tr2}', {
+          sel: Math.round(sel.period / MIN),
+          length: dia.vs.length,
+          tr: dia.vs.length === 0 ? tr('(想定線を表示中。車両を購入すると実際の線になります)') : '',
+          tr2: this.mode === 'run' ? tr('線をドラッグすると、その列車の発車時刻がずれます') : tr('●をドラッグすると、その駅の発車時刻が変わります'),
+        })
       : '';
     // 待避の提案(自社の時刻表つき路線どうし)
     const cands = [sel, ...others];
@@ -321,10 +327,10 @@ export class DiagramPanel extends ModalPanel {
             .map((s) =>
               s.problem
                 ? `<div class="im">⚠ ${esc(s.problem)}</div>`
-                : `<div class="im">${esc(this.transit.routes.get(s.routeId)?.name ?? '')} を <b>${esc(s.stopName)}</b> で約${s.waitMin}分 待避(${esc(s.byName)} を先に通す) <button data-apply="${s.routeId},${s.orderIdx},${Math.round(s.delta)}">適用</button></div>`,
+                : `<div class="im">${tr('{name} を', { name: esc(this.transit.routes.get(s.routeId)?.name ?? '') })} <b>${esc(s.stopName)}</b> ${tr('で約{waitMin}分 待避({byName} を先に通す)', { waitMin: s.waitMin, byName: esc(s.byName) })} <button data-apply="${s.routeId},${s.orderIdx},${Math.round(s.delta)}">${tr('適用')}</button></div>`,
             )
             .join('')
-        : '<div class="muted">追い越しが起きる箇所はありません(停車駅の少ない路線を同じ線路に走らせると、ここに待避の提案が出ます)</div>';
+        : `<div class="muted">${tr('追い越しが起きる箇所はありません(停車駅の少ない路線を同じ線路に走らせると、ここに待避の提案が出ます)')}</div>`;
     }
   }
 
@@ -386,10 +392,10 @@ export class DiagramPanel extends ModalPanel {
       g.beginPath();
       g.arc(this.view.left + ((this.drag.orig + this.drag.delta - this.view.x0) / this.view.span) * this.view.w, p.y, 5, 0, 6.3);
       g.fill();
-      this.infoEl.textContent = `発車時刻 → ${hm(this.drag.orig + this.drag.delta)}`;
+      this.infoEl.textContent = tr('発車時刻 → {delta}', { delta: hm(this.drag.orig + this.drag.delta) });
     } else {
       this.draw();
-      this.infoEl.textContent = `発車のずれ ${this.drag.delta >= 0 ? '+' : ''}${Math.round(this.drag.delta / MIN)}分`;
+      this.infoEl.textContent = tr('発車のずれ {delta}{this}分', { delta: this.drag.delta >= 0 ? '+' : '', this: Math.round(this.drag.delta / MIN) });
     }
   }
 

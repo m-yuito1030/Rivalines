@@ -1,3 +1,4 @@
+import { tr } from '../i18n';
 import { ModalPanel } from './modalPanel';
 import type { GameMap } from '../../shared/world/gameMap';
 import type { Transit } from '../../shared/sim/network/transit';
@@ -101,8 +102,8 @@ export class ListPanel extends ModalPanel {
   }
 
   private townGroups(): Group[] {
-    const groups: Group[] = TIERS.map((t, i) => ({ key: `t${i}`, title: `${t.name}(人口 ${t.min.toLocaleString()}〜)`, items: [] }));
-    for (const t of this.map.towns) groups[townTier(t)].items.push({ name: t.name, sub: `人口 ${Math.floor(t.pop).toLocaleString()}`, x: t.x, y: t.y });
+    const groups: Group[] = TIERS.map((t, i) => ({ key: `t${i}`, title: tr('{name}(人口 {t}〜)', { name: tr(t.name), t: t.min.toLocaleString() }), items: [] }));
+    for (const t of this.map.towns) groups[townTier(t)].items.push({ name: t.name, sub: tr('人口 {t}', { t: Math.floor(t.pop).toLocaleString() }), x: t.x, y: t.y });
     for (const g of groups) g.items.sort((a, b) => Number(b.sub.replace(/\D/g, '')) - Number(a.sub.replace(/\D/g, '')));
     return groups.reverse();
   }
@@ -110,16 +111,16 @@ export class ListPanel extends ModalPanel {
   private equipGroups(): Group[] {
     const mine = (owner: number | undefined) => !this.mineOnly || owner === undefined || owner === net.id;
     const g = (key: string, title: string): Group => ({ key, title, items: [] });
-    const rail = g('e-rail', '🚉 駅(鉄道)');
-    const bus = g('e-bus', '🚏 バス停');
-    const air = g('e-air', '✈ 空港');
-    const way = g('e-way', '📍 経由点');
-    const dRoad = g('d-road', '🏭 バス基地');
-    const dRail = g('d-rail', '🏭 車両基地(鉄道)');
-    const dAir = g('d-air', '🏭 格納庫(航空)');
+    const rail = g('e-rail', tr('🚉 駅(鉄道)'));
+    const bus = g('e-bus', tr('🚏 バス停'));
+    const air = g('e-air', tr('✈ 空港'));
+    const way = g('e-way', tr('📍 経由点'));
+    const dRoad = g('d-road', tr('🏭 バス基地'));
+    const dRail = g('d-rail', tr('🏭 車両基地(鉄道)'));
+    const dAir = g('d-air', tr('🏭 格納庫(航空)'));
     for (const s of this.transit.stops.values()) {
       if (!mine(s.owner)) continue;
-      const sub = s.waypoint ? '' : `待ち${Math.floor(s.waiting)}人${s.station ? ` ・ ${s.station.tracks}番線` : ''}`;
+      const sub = s.waypoint ? '' : `${tr('待ち{s}人', { s: Math.floor(s.waiting) })}${s.station ? ` ${tr('・ {tracks}番線', { tracks: s.station.tracks })}` : ''}`;
       const it = { name: s.name, sub, x: s.x, y: s.y };
       (s.waypoint ? way : s.kind === 'rail' ? rail : s.kind === 'road' ? bus : air).items.push(it);
     }
@@ -130,7 +131,7 @@ export class ListPanel extends ModalPanel {
     const facG = new Map<string, Group>();
     for (const f of this.map.facilities) {
       const spec = FACILITY_SPECS[f.type];
-      const own = (f.owner ?? 'player') === 'player' ? (f.playerId === net.id ? '自社' : '他のプレイヤー') : f.owner === 'public' ? '公共' : '民間';
+      const own = (f.owner ?? 'player') === 'player' ? (f.playerId === net.id ? tr('自社') : tr('他のプレイヤー')) : f.owner === 'public' ? tr('公共') : tr('民間');
       if (this.mineOnly && !((f.owner ?? 'player') === 'player' && f.playerId === net.id)) continue; // 自社のみ: 民間・公共・他のプレイヤーの施設は出さない
       let grp = facG.get(f.type);
       if (!grp) facG.set(f.type, (grp = g(`f-${f.type}`, `${spec.icon} ${spec.name}`)));
@@ -143,7 +144,7 @@ export class ListPanel extends ModalPanel {
   /** 車両: 路線ごと(自社の全車両。視界の外も含む)。タップで現在位置へ */
   private vehGroups(): Group[] {
     const by = new Map<number, Group>();
-    const ST = ['走行中', '停車中', '経路なし', '待機'];
+    const ST = [tr('走行中'), tr('停車中'), tr('経路なし'), tr('待機')];
     for (const [id, routeId, modelId, mode, x, y, st, pct, cars] of this.myVehicles()) {
       let g = by.get(routeId);
       if (!g) {
@@ -152,21 +153,26 @@ export class ListPanel extends ModalPanel {
           routeId,
           (g = {
             key: `v${routeId}`,
-            title: `${{ road: '🚌', rail: '🚆', air: '✈' }[mode]} ${r?.name ?? `路線${routeId}`}${r?.rank ? ` [${RANKS[r.rank].name}]` : ''}`,
+            title: `${{ road: '🚌', rail: '🚆', air: '✈' }[mode]} ${r?.name ?? tr('路線{routeId}', { routeId })}${r?.rank ? ` [${RANKS[r.rank].name}]` : ''}`,
             items: [],
           }),
         );
       }
-      g.items.push({ name: `#${id} ${modelOf(modelId).name}${mode === 'rail' ? ` ${cars}両` : ''}`, sub: `${ST[st] ?? ''} ・ 積載${pct}%`, x, y });
+      g.items.push({
+        name: `#${id} ${modelOf(modelId).name}${mode === 'rail' ? ` ${tr('{cars}両', { cars })}` : ''}`,
+        sub: tr('{st} ・ 積載{pct}%', { st: ST[st] ?? '', pct }),
+        x,
+        y,
+      });
     }
     return [...by.values()].sort((a, b) => a.title.localeCompare(b.title, 'ja'));
   }
 
   render(force = false): void {
     const groups = this.tab === 'town' ? this.townGroups() : this.tab === 'equip' ? this.equipGroups() : this.vehGroups();
-    let html = `<div class="ltabs"><button data-ltab="town" class="${this.tab === 'town' ? 'on' : ''}">🏘 街 (${this.map.towns.length})</button><button data-ltab="equip" class="${this.tab === 'equip' ? 'on' : ''}">🧰 機器・施設</button><button data-ltab="veh" class="${this.tab === 'veh' ? 'on' : ''}">🚆 車両 (${this.myVehicles().length})</button>`;
-    html += `<input data-lq placeholder="名前で検索" value="${esc(this.q)}" style="margin-left:auto;width:11em">`;
-    if (this.tab === 'equip') html += `<label class="muted"><input type="checkbox" data-lmine ${this.mineOnly ? 'checked' : ''}> 自社のみ</label>`;
+    let html = `<div class="ltabs"><button data-ltab="town" class="${this.tab === 'town' ? 'on' : ''}">${tr('🏘 街 ({length})', { length: this.map.towns.length })}</button><button data-ltab="equip" class="${this.tab === 'equip' ? 'on' : ''}">${tr('🧰 機器・施設')}</button><button data-ltab="veh" class="${this.tab === 'veh' ? 'on' : ''}">${tr('🚆 車両 ({length})', { length: this.myVehicles().length })}</button>`;
+    html += `<input data-lq placeholder="${tr('名前で検索')}" value="${esc(this.q)}" style="margin-left:auto;width:11em">`;
+    if (this.tab === 'equip') html += `<label class="muted"><input type="checkbox" data-lmine ${this.mineOnly ? 'checked' : ''}> ${tr('自社のみ')}</label>`;
     html += '</div>';
     for (const gr of groups) {
       const shown = gr.items.filter((i) => this.match(i.name));
@@ -177,7 +183,7 @@ export class ListPanel extends ModalPanel {
         html += '<div class="litems">';
         for (const it of shown.slice(0, MAX_ITEMS))
           html += `<button class="litem" data-jx="${it.x}" data-jy="${it.y}"><span>${esc(it.name)}</span><em>${esc(it.sub)}</em></button>`;
-        if (shown.length > MAX_ITEMS) html += `<div class="muted">ほか ${shown.length - MAX_ITEMS} 件(検索で絞り込めます)</div>`;
+        if (shown.length > MAX_ITEMS) html += `<div class="muted">${tr('ほか {MAX_ITEMS} 件(検索で絞り込めます)', { MAX_ITEMS: shown.length - MAX_ITEMS })}</div>`;
         html += '</div>';
       }
       html += '</div>';
