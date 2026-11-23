@@ -83,8 +83,8 @@ export function initAuth(startGame: StartGame): void {
   $('register').addEventListener('click', () => void doAuth('register'));
   void fetch('/api/status')
     .then((r) => r.json())
-    .then((s: { world: { size: number }; accounts: number; maxUsers: number; online: number; invite?: boolean }) => {
-      note.textContent = `サーバー稼働中: ${s.world.size}² / 登録${s.accounts}/${s.maxUsers}人 / オンライン${s.online}人`;
+    .then((s: { world: { size: number }; accounts: number; maxOnline: number; online: number; invite?: boolean }) => {
+      note.textContent = `サーバー稼働中: ${s.world.size}² / 登録${s.accounts}人 / オンライン${s.online}/${s.maxOnline}人`;
       $('codeRow').hidden = !s.invite; // 招待コードが必要なサーバーだけ、入力欄を出す
     })
     .catch(() => (note.textContent = 'サーバーに接続できません'));

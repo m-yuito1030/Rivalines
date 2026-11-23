@@ -4,10 +4,10 @@
 
 ## 構成
 - **server/** (Node + tsx): 世界(65535²)を1つ進行。`src/shared` を共有。
-  - `accounts.ts` 名前+パスワード(scrypt)、トークン、認証は同一IPから1分10回まで(`AUTH_RATE`)。最大100人。
+  - `accounts.ts` 名前+パスワード(scrypt)、トークン、認証は同一IPから1分10回まで(`AUTH_RATE`)。登録できる人数に上限はなく、同時接続の上限だけ(`MAX_ONLINE`、既定100)。
   - `commands/` プレイヤーの操作を検証して実行(コマンドバス + 種類ごとのハンドラ。docs/ARCHITECTURE.md)(資金の支払い・所有者の確認)。道路/線路/整地/橋トンネル、停留所・駅・基地・経由点・信号・空港・施設、路線・オーダー、車両購入、融資・配当・買収、資金支援(送金)。
   - `replicate.ts` 視界内だけ配信: 新しく見えたチャンク(全タイル)、変更タイルの差分、視界内の車両(10Hz、経路は変更時のみ)、構造(停留所・路線・基地・信号)、街・施設、経営(1秒毎)。
-  - 保存: `/data`(Docker ボリューム `multi-data`)に `accounts.json` と `world.sav`(5分毎+停止時)。環境変数 PORT / DATA_DIR / WORLD_SIZE / WORLD_SEED / MAX_USERS / SPEED / AUTH_RATE。
+  - 保存: `/data`(Docker ボリューム `multi-data`)に `accounts.json` と `world.sav`(5分毎+停止時)。環境変数 PORT / DATA_DIR / WORLD_SIZE / WORLD_SEED / MAX_ONLINE(同時接続の上限) / REGISTER_PER_HOUR(1時間の新規登録数) / SPEED / AUTH_RATE。
 - **クライアント** (`src/client/main.ts` ほか): ブラウザは世界を進めず、サーバーから届いた内容を `GameMap`/`Simulation` のミラー(`src/client/connection/mirror.ts`)に反映して描画。操作は `src/client/connection/net.ts` でコマンドとして送る。地形は座標+シードで決まるので通信しない。
 - 通信の型: `src/shared/protocol.ts`。
 

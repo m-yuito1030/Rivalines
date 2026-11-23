@@ -271,7 +271,7 @@ export class Simulation {
       processListings(this.map, this.day);
       if (this.multi) {
         this.auctionDay(ended);
-        this.weekly.onDay(ended, [...this.players.keys()], (id) => playerMetrics(this, id));
+        this.weekly.onDay(ended, [...this.online], (id) => playerMetrics(this, id)); // オフラインの会社は止まっているので、集計しない(アカウントが多くても重くならない)
       }
       stepRivals(this.rivals, this.rivalRng);
       // 事業年度をまたぐ日(3月31日→4月1日)は決算

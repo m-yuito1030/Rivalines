@@ -25,11 +25,15 @@ export const validPassword = (p: string) => p.length >= 6 && p.length <= 72;
 /** アカウントの保存(JSONファイル。書き込みは一時ファイル経由で原子的に) */
 export class Accounts {
   private list: Account[] = [];
+  /** ID・名前(小文字)から引く索引。アカウントが多くても、毎回全員を探さない */
+  private byIdMap = new Map<number, Account>();
+  private byNameMap = new Map<string, Account>();
   /** トークンの署名鍵(データ置き場に保存する。サーバーを再起動してもログインが切れない) */
   private secret: Buffer;
 
   constructor(private file: string) {
     if (existsSync(file)) this.list = JSON.parse(readFileSync(file, 'utf8')) as Account[];
+    for (const a of this.list) this.index(a);
     const sf = `${dirname(file)}/token.secret`;
     if (existsSync(sf)) this.secret = Buffer.from(readFileSync(sf, 'utf8').trim(), 'hex');
     else {
@@ -37,6 +41,11 @@ export class Accounts {
       mkdirSync(dirname(file), { recursive: true });
       writeFileSync(sf, this.secret.toString('hex'), { mode: 0o600 });
     }
+  }
+
+  private index(a: Account): void {
+    this.byIdMap.set(a.id, a);
+    this.byNameMap.set(a.name.toLowerCase(), a);
   }
 
   private sign(body: string): string {
@@ -85,14 +94,14 @@ export class Accounts {
   }
 
   byId(id: number): Account | undefined {
-    return this.list.find((a) => a.id === id);
+    return this.byIdMap.get(id);
   }
 
-  async register(name: string, password: string, maxUsers: number): Promise<{ ok: true; account: Account } | { ok: false; reason: string }> {
+  /** 新規登録。登録できる人数に上限はない(上限があるのは同時接続の数だけ) */
+  async register(name: string, password: string): Promise<{ ok: true; account: Account } | { ok: false; reason: string }> {
     if (!validName(name)) return { ok: false, reason: '名前は2〜16文字(文字・数字・_-)です' };
     if (!validPassword(password)) return { ok: false, reason: 'パスワードは6文字以上です' };
-    if (this.list.some((a) => a.name.toLowerCase() === name.toLowerCase())) return { ok: false, reason: 'その名前は使われています' };
-    if (this.list.length >= maxUsers) return { ok: false, reason: `参加人数の上限(${maxUsers}人)に達しています` };
+    if (this.byNameMap.has(name.toLowerCase())) return { ok: false, reason: 'その名前は使われています' };
     const salt = randomBytes(16);
     const hash = await kdf(password, salt);
     const account: Account = {
@@ -103,13 +112,17 @@ export class Accounts {
       createdAt: Date.now(),
       color: Math.floor(Math.random() * 0xffffff),
     };
+    // 検査のあとに await(ハッシュ計算)があるので、同時に同じ名前が登録されていないか、保存の直前にもう一度確かめる
+    if (this.byNameMap.has(name.toLowerCase())) return { ok: false, reason: 'その名前は使われています' };
+    account.id = (this.list.at(-1)?.id ?? 0) + 1;
     this.list.push(account);
+    this.index(account);
     this.save();
     return { ok: true, account };
   }
 
   async verify(name: string, password: string): Promise<Account | null> {
-    const a = this.list.find((x) => x.name.toLowerCase() === name.toLowerCase());
+    const a = this.byNameMap.get(name.toLowerCase());
     // 存在しない名前でも同じ時間をかける(ユーザー名の探り出し対策)
     const salt = a ? Buffer.from(a.salt, 'hex') : Buffer.alloc(16);
     const h = await kdf(password, salt);
