@@ -366,3 +366,8 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
   #sale-modal th:nth-child(2), #sale-modal td:nth-child(2), #sale-modal th:nth-child(4), #sale-modal td:nth-child(4) { display: none; }
   #sale-modal th, #sale-modal td { padding: 3px 4px; font-size: 12px; }
 }
+
+/* ツールの設定ウィンドウ(駅・施設・撤去・信号)の閉じるボタン: 押すと、ツールを解除する */
+.optx { position: absolute; right: 6px; top: 6px; z-index: 1; width: 28px; height: 28px; padding: 0; background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; cursor: pointer; }
+#stationOpts, #facilityOpts, #bulldozeOpts, #signalOpts { padding-right: 40px; }
+@media (pointer: coarse), (max-width: 820px) { .optx { width: 36px; height: 36px; } }
