@@ -23,6 +23,7 @@ services:
       REGISTER_PER_HOUR: "300" # サーバー全体で、1時間に新規登録できる人数(ボット対策)
       # 招待コード: 設定すると、新規登録にこのコードが必要になる(公開するときは必ず設定する。ここに書かず、.env に INVITE_CODE=... と書いてもよい)
       INVITE_CODE: "${INVITE_CODE:-}"
+      ADMIN_KEY: "${ADMIN_KEY:-}"
     volumes:
       - multi-data:/data
 volumes:

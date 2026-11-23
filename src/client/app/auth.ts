@@ -120,6 +120,12 @@ export function initAuth(startGame: StartGame): void {
       location.reload();
       return;
     }
+    if (code === 4001 || code === 4005) {
+      alert(code === 4005 ? '利用停止または退会により、切断されました' : '運営により切断されました(パスワードの変更を含む)。もう一度ログインしてください');
+      net.logout();
+      location.reload();
+      return;
+    }
     // 回線の切り替え・スマホのバックグラウンド・サーバーの再起動などで切れたとき: 戻るまで待って自動で入り直す(ログインは保存済みなのでそのまま再開)
     const bar = document.createElement('div');
     bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:100;background:#b3261e;color:#fff;padding:10px;text-align:center;font-size:14px';

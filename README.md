@@ -28,6 +28,7 @@ docker compose up -d --build
 `http://<サーバーのアドレス>:8092` で遊べます。更新するときは、`git pull` のあと同じ `docker compose up -d --build`(世界のデータは残ります)。
 
 - **設定**(`docker-compose.yml` の `environment`): `WORLD_SIZE`(世界の一辺。既定 65535)・`MAX_ONLINE`(同時に接続できる人数。既定 100。登録できる人数に上限はありません)・`REGISTER_PER_HOUR`(1時間に新規登録できる人数。既定 300)・`INVITE_CODE`(空なら、新規登録は誰でもできる)。
+- **運営**: `ADMIN_KEY`(運営用の鍵。BAN・キック・通報の確認などに使う。手順は [docs/OPERATIONS.md](docs/OPERATIONS.md))。
 - **データ**: 世界(`world.sav`)・アカウント(`accounts.json`)・ログインの署名鍵(`token.secret`)は、Docker のボリューム `multi-data` の `/data` に保存されます。**バックアップを取ってください**(1つのファイルだけです)。
 - **公開するとき**: 暗号化なしの HTTP だと、パスワードが通信の途中で読めます。HTTPS の入口(リバースプロキシ)の後ろに置いてください。前段にプロキシがある場合は、利用者の IP アドレスを `X-Real-IP` で nginx に渡さないと、全員が1つの接続元として制限されます。
 - **開発中**: サーバーは `npm run server`(8091)、画面は `npm run dev`(5173。`/api` と `/ws` を 8091 に中継)。

@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage } from 'node:http';
-import { timingSafeEqual } from 'node:crypto';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { WebSocketServer } from 'ws';
 import { Simulation } from '../src/shared/sim/simulation';
@@ -7,6 +7,7 @@ import { calendarOf } from '../src/shared/sim/world/calendar';
 import { makeWorldMap } from '../src/shared/world/bigTerrain';
 import { applyLayers, decodeSave, encodeSave } from '../src/shared/save/serialize';
 import { Accounts } from './accounts';
+import { Reports } from './reports';
 import { execute } from './commands/index';
 import { Replicator, type Client } from './replicate';
 import type { ClientMsg } from '../src/shared/protocol';
@@ -31,6 +32,9 @@ const sameCode = (a: string, b: string): boolean => {
 
 mkdirSync(DATA, { recursive: true });
 const accounts = new Accounts(`${DATA}/accounts.json`);
+const reports = new Reports(`${DATA}/reports.json`);
+/** 運営用の鍵(設定しないと、運営用の API は使えない)。公開側の nginx は /api/admin を通さない */
+const ADMIN_KEY = process.env.ADMIN_KEY ?? '';
 
 /** 世界を作る(巨大マップ)。セーブがあれば続きから */
 async function loadWorld(): Promise<Simulation> {
@@ -132,13 +136,88 @@ const server = createServer(async (req, res) => {
       }
       const a = await accounts.verify(name, password);
       if (!a) return json(res, 401, { ok: false, reason: '名前またはパスワードが違います' });
+      if (a.banned) return json(res, 403, { ok: false, reason: `このアカウントは利用停止中です(理由: ${a.banned.reason})` });
       return json(res, 200, { ok: true, token: accounts.issueToken(a.id), name: a.name });
+    }
+    if (req.method === 'POST' && (url === '/api/password' || url === '/api/leave')) {
+      // 本人が、現在のパスワードを示して、パスワードを変える / 退会する(退会すると、会社と記録が消える)
+      if (throttled(clientIp(req))) return json(res, 429, { ok: false, reason: '試行回数が多すぎます。少し待ってください' });
+      const b = await readBody(req);
+      const a = await accounts.verify(String(b.name ?? ''), String(b.password ?? ''));
+      if (!a) return json(res, 401, { ok: false, reason: '名前またはパスワードが違います' });
+      if (url === '/api/leave') {
+        removeAccount(a.id);
+        return json(res, 200, { ok: true });
+      }
+      const why = await accounts.setPassword(a.id, String(b.newPassword ?? ''));
+      if (why) return json(res, 400, { ok: false, reason: why });
+      return json(res, 200, { ok: true, token: accounts.issueToken(a.id), name: a.name });
+    }
+    if (req.method === 'POST' && url === '/api/admin') {
+      // 運営用(鍵が必要。nginx は外からこの道を通さない)
+      if (!ADMIN_KEY) return json(res, 404, { ok: false });
+      const b = await readBody(req);
+      if (throttled(`admin:${clientIp(req)}`) || !sameCode(String(req.headers['x-admin-key'] ?? ''), ADMIN_KEY)) return json(res, 403, { ok: false, reason: '鍵が違います' });
+      return json(res, 200, await admin(String(b.action ?? ''), String(b.who ?? ''), String(b.text ?? '')));
     }
     json(res, 404, { ok: false });
   } catch {
     json(res, 400, { ok: false, reason: '不正なリクエスト' });
   }
 });
+
+/** 接続中のアカウントを切る(同じ接続が残らないように、閉じる理由の番号を付ける: 4001=切断された 4005=利用停止・退会) */
+function kick(id: number, code: number): boolean {
+  let any = false;
+  for (const c of clients) if (c.id === id) ((any = true), c.ws.close(code, code === 4005 ? 'banned' : 'kicked'));
+  return any;
+}
+/** アカウントと、その会社(施設・路線・車両・提携など)を消す */
+function removeAccount(id: number): void {
+  kick(id, 4005);
+  for (const c of [...clients]) if (c.id === id) clients.delete(c);
+  sim.removePlayer(id);
+  accounts.remove(id);
+  reports.dismiss({ target: id });
+  syncOnline();
+}
+/** 運営の操作。who は名前、または #ID */
+async function admin(action: string, who: string, text: string): Promise<{ ok: boolean; msg: string; data?: unknown }> {
+  if (action === 'reports') return { ok: true, msg: `${reports.all().length}件`, data: reports.all() };
+  if (action === 'dismiss') return { ok: true, msg: `${reports.dismiss({ id: Number(who) })}件を対応済みにしました` };
+  if (action === 'players')
+    return { ok: true, msg: `登録${accounts.count}人 / オンライン${clients.size}人`, data: [...clients].map((c) => ({ id: c.id, name: accounts.byId(c.id)?.name })) };
+  const a = accounts.find(who);
+  if (!a) return { ok: false, msg: `アカウントが見つかりません: ${who}` };
+  const label = `${a.name}(#${a.id})`;
+  switch (action) {
+    case 'kick':
+      return { ok: true, msg: kick(a.id, 4001) ? `${label} を切断しました` : `${label} は接続していません` };
+    case 'ban':
+      accounts.setBan(a.id, text || '規約違反');
+      kick(a.id, 4005);
+      reports.dismiss({ target: a.id });
+      return { ok: true, msg: `${label} を利用停止にしました` };
+    case 'unban':
+      accounts.setBan(a.id, null);
+      return { ok: true, msg: `${label} の利用停止を解除しました` };
+    case 'clear':
+      accounts.clearText(a.id);
+      return { ok: true, msg: `${label} の会社名・プロフィールを消しました` };
+    case 'resetpw': {
+      // 一時パスワードを発行する(これまでのログインは無効になる)。本人に、別の経路で伝える
+      const pw = randomBytes(9).toString('base64url');
+      await accounts.setPassword(a.id, pw);
+      kick(a.id, 4001);
+      return { ok: true, msg: `${label} の一時パスワード: ${pw}(ログイン後に変更してもらってください)` };
+    }
+    case 'delete':
+      removeAccount(a.id);
+      return { ok: true, msg: `${label} を削除しました` };
+    default:
+      return { ok: false, msg: `不明な操作: ${action}` };
+  }
+}
 
 const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
 server.on('upgrade', (req, socket, head) => {
@@ -178,6 +257,7 @@ server.on('upgrade', (req, socket, head) => {
     });
     ws.on('message', (data) => {
       // どの種類のメッセージも、毎秒の件数に上限(超えた分は捨て、あまりに多ければ切断)
+      if (!accounts.byId(c.id)) return; // 退会・削除されたアカウントの、閉じる前に届いた操作は捨てる(消した会社が作り直されないように)
       const verdict = limit();
       if (verdict === 'drop') return;
       if (verdict === 'close') return void ws.terminate(); // 洪水は、閉じる手続きを待たず、すぐ切る
@@ -209,6 +289,12 @@ server.on('upgrade', (req, socket, head) => {
         tokens -= 5; // 保存はディスクに書くので重めに数える
         const why = accounts.setProfile(c.id, m);
         ws.send(JSON.stringify({ type: 'res', req: m.req, res: why ? { ok: false, msg: why } : { ok: true, msg: '会社の情報を保存しました' } }));
+      } else if (m.type === 'report') {
+        if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: '操作が多すぎます。少し待ってください' } }));
+        tokens -= 5;
+        const t = typeof m.target === 'number' ? accounts.byId(m.target) : undefined;
+        const why = t ? reports.add({ id: c.id, name: a.name }, { id: t.id, name: t.name }, m.reason) : '相手が見つかりません';
+        ws.send(JSON.stringify({ type: 'res', req: m.req, res: why ? { ok: false, msg: why } : { ok: true, msg: '通報しました。運営が確認します' } }));
       } else if (m.type === 'cmd') {
         if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: '操作が多すぎます。少し待ってください' } }));
         tokens--;

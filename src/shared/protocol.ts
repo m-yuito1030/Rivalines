@@ -104,6 +104,7 @@ export interface CmdResult {
 export type ClientMsg =
   | { type: 'cmd'; req: number; cmd: Cmd }
   | { type: 'profile'; req: number; company: string; bio: string; color: number }
+  | { type: 'report'; req: number; target: number; reason: string }
   | { type: 'view'; x0: number; y0: number; x1: number; y1: number };
 
 /** 描画に必要な車両の軽量データ(経路 path は変わったときだけ別送) */

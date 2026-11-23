@@ -111,6 +111,28 @@ export class Net {
     });
   }
 
+  /** 他のプレイヤーを運営に通報する */
+  report(target: number, reason: string): Promise<CmdResult> {
+    return new Promise((resolve) => {
+      if (this.ws?.readyState !== 1) return resolve({ ok: false, msg: '接続が切れています' });
+      const req = ++this.req;
+      this.pending.set(req, resolve);
+      this.send({ type: 'report', req, target, reason });
+      setTimeout(() => {
+        if (this.pending.delete(req)) resolve({ ok: false, msg: 'サーバーの応答がありません' });
+      }, 15000);
+    });
+  }
+
+  /** パスワードの変更 / 退会(どちらも、現在のパスワードで確認する) */
+  async account(kind: 'password' | 'leave', name: string, password: string, newPassword = ''): Promise<{ ok: boolean; reason?: string }> {
+    const r = await fetch(`/api/${kind}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, password, newPassword }) });
+    const j = (await r.json()) as { ok: boolean; reason?: string; token?: string; name?: string };
+    if (j.ok && kind === 'password') localStorage.setItem(SESSION, JSON.stringify({ token: j.token, name: j.name }));
+    if (j.ok && kind === 'leave') localStorage.removeItem(SESSION);
+    return j;
+  }
+
   sendView(x0: number, y0: number, x1: number, y1: number): void {
     this.send({ type: 'view', x0, y0, x1, y1 });
   }
