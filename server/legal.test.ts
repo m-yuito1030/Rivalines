@@ -12,7 +12,7 @@ describe('利用規約・プライバシーポリシー', () => {
       // ログイン画面(#start)とメニュー(#menu)の両方にリンクがある
       expect(index.split(`./${page}`).length - 1, page).toBeGreaterThanOrEqual(2);
     }
-    expect(index).toContain('利用規約</a>に同意したものとみなします');
+    expect(index).toMatch(/利用規約<\/a><span[^>]*>に同意したものとみなします/);
   });
 
   it('規約に、決めた方針が書かれている(1人1アカウント・複数アカウント禁止・不適切な文字・運営者の対応・退会)', () => {
