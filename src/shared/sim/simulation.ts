@@ -86,6 +86,33 @@ export class Simulation {
     return c;
   }
 
+  /** マルチプレイ: 会社を消す(退会・削除)。施設は売り出し物件になり、路線・車両・停留所・車庫は撤去される */
+  removePlayer(id: number): void {
+    for (const r of [...this.transit.routes.values()]) if (r.owner === id) this.transit.removeRoute(r.id);
+    for (const s of [...this.transit.stops.values()]) if (s.owner === id) this.transit.removeStop(s.id);
+    for (const d of [...this.transit.depots.values()]) if (d.owner === id) this.transit.removeDepot(d.id);
+    for (const s of this.transit.stops.values()) if (s.allow?.includes(id)) s.allow = s.allow.filter((x) => x !== id);
+    this.transit.grants.delete(id);
+    for (const g of this.transit.grants.values()) g.delete(id);
+    let touched = false;
+    for (const f of this.map.facilities) {
+      if (f.playerId !== id) continue;
+      f.owner = 'city';
+      f.ownerId = undefined;
+      f.playerId = undefined;
+      f.listedDay = this.day;
+      touched = true;
+    }
+    if (touched) this.map.facilityVer++;
+    this.pacts.pacts = this.pacts.pacts.filter((p) => p.a !== id && p.b !== id);
+    this.pacts.proposals = this.pacts.proposals.filter((p) => p.from !== id && p.to !== id);
+    for (const l of this.auctions.lots) if (l.bid?.who === id) l.bid = undefined;
+    this.auctions.rights = this.auctions.rights.filter((r) => r.owner !== id);
+    this.players.delete(id);
+    this.online.delete(id);
+    this.transit.frozen.delete(id);
+  }
+
   /** マルチプレイ: ログイン中の会社を更新する。切断中の会社の路線は止まる */
   setOnline(ids: Iterable<number>): void {
     this.online.clear();

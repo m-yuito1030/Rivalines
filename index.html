@@ -154,6 +154,14 @@
           <label>会社の色 <input id="profColor" type="color"></label>
           <button type="button" id="profSave">保存</button>
         </details>
+        <details id="accountBox">
+          <summary>🔑 パスワードの変更・退会</summary>
+          <label>現在のパスワード <input id="accPw" type="password" autocomplete="current-password" maxlength="72"></label>
+          <label>新しいパスワード(6文字以上) <input id="accNewPw" type="password" autocomplete="new-password" maxlength="72"></label>
+          <button type="button" id="accChange">パスワードを変更</button>
+          <p class="muted">退会すると、アカウントと会社が消えます(施設は売り出し物件になり、路線・車両は撤去されます)。元に戻せません。現在のパスワードを入れて押してください。</p>
+          <button type="button" id="accLeave">退会する</button>
+        </details>
         <div class="row">
           <button type="button" id="logoutBtn">ログアウト</button>
           <button type="button" id="menuClose">閉じる</button>
