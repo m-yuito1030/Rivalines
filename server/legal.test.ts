@@ -33,7 +33,7 @@ describe('利用規約・プライバシーポリシー', () => {
     expect(read('nginx.conf')).toMatch(/^\s*access_log off;/m);
     // サーバーは、IP を永続化しない(試行回数の制限は、メモリ上の Map だけ)
     const server = read('server/index.ts');
-    expect(server).toContain("const attempts = new Map<string, number[]>()");
+    expect(server).toContain('const attempts = new Map<string, number[]>()');
     expect(server).not.toMatch(/writeFileSync\([^)]*(ip|addr)/i);
     // 画面が外部のサービスに接続しない(CSP の default-src が自分自身だけ)
     expect(read('security-headers.conf')).toContain("default-src 'self'");
