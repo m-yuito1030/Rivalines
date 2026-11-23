@@ -1,17 +1,26 @@
+# Rivalines の構成: 本稼働(live)と次期バージョン(next)を並べて動かす。
+#   web         … 入り口(ポータル + /live/ + /next/)。:8092 で公開する
+#   server      … 本稼働の世界(本稼働のコード。LIVE_SRC に置く)。アカウントの持ち主
+#   server-next … 次期バージョンの世界(このリポジトリのコード)。データは消えてよい。アカウントは本稼働側を読み取り専用で使う
+# 手順は docs/ENVIRONMENTS.md。LIVE_SRC は、本稼働のコードを置いたフォルダ(scripts/live-checkout.sh が用意する)。
 services:
   web:
-    build: { context: ., target: web }
-    container_name: simulator-multi-web
+    build:
+      context: .
+      target: gateway
+      additional_contexts:
+        live: ${LIVE_SRC:-../rivalines-live}
+    container_name: ${PROJECT:-simulator-multi}-web
     restart: unless-stopped
-    depends_on: [server]
+    depends_on: [server, server-next]
     mem_limit: 256m
     pids_limit: 200
     security_opt: [no-new-privileges:true]
     ports:
-      - "8092:80"
+      - "${GATEWAY_PORT:-8092}:80"
   server:
-    build: { context: ., target: server }
-    container_name: simulator-multi-server
+    build: { context: "${LIVE_SRC:-../rivalines-live}", target: server }
+    container_name: ${PROJECT:-simulator-multi}-server
     restart: unless-stopped
     stop_grace_period: 30s # 終了の合図を受けたら世界を保存してから終わる
     mem_limit: 3g
@@ -21,10 +30,34 @@ services:
       WORLD_SIZE: "65535"
       MAX_ONLINE: "100" # 同時に接続できる人数(登録できる人数に上限はない)
       REGISTER_PER_HOUR: "300" # サーバー全体で、1時間に新規登録できる人数(ボット対策)
-      # 招待コード: 設定すると、新規登録にこのコードが必要になる(公開するときは必ず設定する。ここに書かず、.env に INVITE_CODE=... と書いてもよい)
+      # 招待コード: 設定すると、新規登録にこのコードが必要になる(公開するときは必ず設定する。.env に INVITE_CODE=... と書く)
       INVITE_CODE: "${INVITE_CODE:-}"
       ADMIN_KEY: "${ADMIN_KEY:-}"
+      ENV_NAME: live
+      ENV_LABEL: 本稼働
+      APP_VERSION: "${LIVE_VERSION:-dev}"
     volumes:
       - multi-data:/data
+  server-next:
+    build: { context: ., target: server }
+    container_name: ${PROJECT:-simulator-multi}-server-next
+    restart: unless-stopped
+    stop_grace_period: 30s
+    mem_limit: 3g
+    pids_limit: 200
+    security_opt: [no-new-privileges:true]
+    environment:
+      WORLD_SIZE: "65535"
+      MAX_ONLINE: "30" # テスト用の世界なので、同時接続は少なめ
+      ADMIN_KEY: "${ADMIN_KEY:-}"
+      ENV_NAME: next
+      ENV_LABEL: 次期バージョン
+      APP_VERSION: "${NEXT_VERSION:-dev}"
+      # 本稼働側のアカウントを読み取り専用で使う(下の /shared は読み取り専用で mount する)
+      ACCOUNTS_FROM: /shared
+    volumes:
+      - next-data:/data
+      - multi-data:/shared:ro
 volumes:
-  multi-data:
+  multi-data: # 本稼働の世界とアカウント(消さない)
+  next-data: # 次期バージョンの世界(消えてよい)
