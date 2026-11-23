@@ -1,5 +1,6 @@
 import { type Container, Text } from 'pixi.js';
 import { Camera } from '../render/camera';
+import { tr } from '../i18n';
 import { LEVEL_PX } from '../../shared/world/constants';
 import type { Facility } from '../../shared/world/facilities';
 import type { GameMap } from '../../shared/world/gameMap';
@@ -36,7 +37,7 @@ export class ForSaleLabels {
           label.visible = false;
           continue;
         }
-        const text = `売出 ${yen(askingPrice(f))} あと${listingLeft(f, day)}日`;
+        const text = tr('売出 {price} あと{days}日', { price: yen(askingPrice(f)), days: listingLeft(f, day) });
         if (label.text !== text) label.text = text;
         label.visible = true;
         label.position.set(x, y);

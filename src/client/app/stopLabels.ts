@@ -1,5 +1,6 @@
 import { type Container, Text } from 'pixi.js';
 import { Camera } from '../render/camera';
+import { onLangChange, tr } from '../i18n';
 import type { Mode } from '../../shared/data/models';
 import type { Transit } from '../../shared/sim/network/transit';
 import type { GameMap } from '../../shared/world/gameMap';
@@ -26,6 +27,7 @@ export class StopLabels {
   ) {
     this.on = localStorage.getItem(KEY) !== '0';
     this.sync();
+    onLangChange(() => this.sync());
     button.addEventListener('click', () => this.toggle());
   }
 
@@ -41,7 +43,7 @@ export class StopLabels {
 
   private sync(): void {
     this.button.classList.toggle('on', this.on);
-    this.button.textContent = this.on ? '🚏 駅名を隠す' : '🚏 駅名を表示';
+    this.button.textContent = this.on ? tr('🚏 駅名を隠す') : tr('🚏 駅名を表示');
     if (!this.on) for (const t of this.texts.values()) t.visible = false;
   }
 

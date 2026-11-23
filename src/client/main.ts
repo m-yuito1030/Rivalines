@@ -1,6 +1,7 @@
 import { StopLabels } from './app/stopLabels';
 import { $, isTouch } from './app/dom';
 import { initAuth } from './app/auth';
+import { initI18n, locale, onLangChange, tr } from './i18n';
 import { Toast } from './app/toast';
 import { StationPicker } from './app/stationPicker';
 import { BulldozeOptions } from './app/bulldozeOptions';
@@ -31,7 +32,6 @@ import { RankingPanel } from './ui/rankingPanel';
 import { DiagramPanel } from './ui/diagramPanel';
 import { ListPanel } from './ui/listPanel';
 import type { CompanyRow } from '../shared/sim/economy/ranking';
-import { WEEKDAYS } from '../shared/sim/world/calendar';
 import { WEATHER_ICON, WEATHER_NAME, eventsToday, isHoliday, weatherOf } from '../shared/sim/world/events';
 import { START_TOD, DAY_TICKS } from '../shared/sim/network/transit';
 import { yen } from '../shared/sim/economy/economy';
@@ -44,6 +44,7 @@ import { TIERS, townTier } from '../shared/world/town';
 import { placeAirport } from '../shared/world/airports';
 import type { GameMap } from '../shared/world/gameMap';
 
+initI18n();
 initAuth(startGame);
 
 /** 時刻(0〜24)ごとの乗算色: 夜は青く暗く、朝夕は暖色 */
@@ -182,9 +183,10 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   const applyMap = () => {
     mapEl.style.display = showMap ? '' : 'none';
     mapBtn.classList.toggle('on', showMap);
-    mapBtn.textContent = showMap ? '🗺 マップを隠す (M)' : '🗺 マップを表示 (M)';
+    mapBtn.textContent = showMap ? tr('🗺 マップを隠す (M)') : tr('🗺 マップを表示 (M)');
   };
   applyMap();
+  onLangChange(applyMap);
   const toggleMap = () => {
     showMap = !showMap;
     localStorage.setItem('simulator-minimap', showMap ? '1' : '0');
@@ -228,6 +230,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   };
 
   const toolbar = new Toolbar();
+  // 言語が変わったら、ドロップダウンのボタンの名前も付け直す
+  onLangChange(() => toolbar.highlight(tools.tool));
   const setTool = (t: Tool) => {
     tools.setTool(t);
     stationPicker.setVisible(t === 'station');
@@ -382,11 +386,20 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   );
   $('finBtn').addEventListener('click', () => finPanel.toggle());
   sim.onFiscalClose = (r) => {
-    tools.onMessage?.(`第${r.period}期決算(${r.from}〜${r.to}): 当期純利益 ${yen(r.netIncome)}、法人税 ${yen(r.tax)}、配当 ${yen(r.dividend)}。経営画面(F)で決算書を確認できます`);
+    tools.onMessage?.(
+      tr('第{period}期決算({from}〜{to}): 当期純利益 {net}、法人税 {tax}、配当 {dividend}。経営画面(F)で決算書を確認できます', {
+        period: r.period,
+        from: r.from,
+        to: r.to,
+        net: yen(r.netIncome),
+        tax: yen(r.tax),
+        dividend: yen(r.dividend),
+      }),
+    );
   };
   const companyRows = (): CompanyRow[] => {
     const rows: CompanyRow[] = mirror.players.map((p) => ({
-      name: p.id === net.id ? `自社(${p.company})` : p.company,
+      name: p.id === net.id ? tr('自社({name})', { name: p.company }) : p.company,
       marketCap: p.marketCap,
       price: p.price,
       netWorth: p.netWorth,
@@ -625,7 +638,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
         labels.addChild(label);
         labelTexts.set(town.id, label);
       }
-      const text = `${town.name} 【${TIERS[townTier(town)].name}】${town.pop}`;
+      const text = `${town.name} 【${tr(TIERS[townTier(town)].name)}】${town.pop}`;
       if (label.text !== text) label.text = text;
       label.visible = true;
       label.position.set(x, y);
@@ -642,7 +655,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     const d = sim.date;
     const rt = sim.rating;
     const rname = ratingName(rt.score);
-    const rtext = rt.locked ? `評価 ${rname}(${Math.round(rt.score)}) 開発不可` : `評価 ${rname}(${Math.round(rt.score)})`;
+    const rtext = tr(rt.locked ? '評価 {rating}({score}) 開発不可' : '評価 {rating}({score})', { rating: tr(rname), score: Math.round(rt.score) });
     if (ratingEl.textContent !== rtext) {
       ratingEl.textContent = rtext;
       ratingEl.className = rt.locked || rt.score < 35 ? 'bad' : rt.score >= 75 ? 'good' : '';
@@ -651,12 +664,12 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     if (uiTick) {
       const rows = companyRows();
       const rk = rows.findIndex((p) => p.isPlayer) + 1;
-      const rtxt = `🏆 ${rk}位/${rows.length}社`;
+      const rtxt = tr('🏆 {rank}位/{total}社', { rank: rk, total: rows.length });
       if (rankEl.textContent !== rtxt) rankEl.textContent = rtxt;
     }
     const cashEl = $('cash');
     const narrow = window.matchMedia('(max-width: 820px)').matches; // 狭い画面では借入を短く表示(長いとバッジが縦に積み上がって地図の上を塞ぐ)
-    const cashText = `💴 ${yen(sim.company.cash)}${sim.company.loan > 0 ? (narrow ? ` 借${Math.round(sim.company.loan / 10000).toLocaleString()}万` : ` (借入 ${yen(sim.company.loan)})`) : ''}`;
+    const cashText = `💴 ${yen(sim.company.cash)}${sim.company.loan > 0 ? (narrow ? tr(' 借{amount}', { amount: locale().compactMoney(sim.company.loan) }) : tr(' (借入 {amount})', { amount: yen(sim.company.loan) })) : ''}`;
     if (cashEl.textContent !== cashText) {
       cashEl.textContent = cashText;
       cashEl.className = sim.company.cash < 0 ? 'neg' : '';
@@ -666,12 +679,21 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     if (dayNo !== lastEventDay) {
       if (lastEventDay >= 0) {
         const mine = eventsToday(map.seed, map.facilities, dayNo, (f) => (f.owner ?? 'player') === 'player' && f.playerId === net.id);
-        const ev = mine.map((e) => `${e.facility.name}で${e.event.name}(需要${e.event.mul}倍)`).join('、');
-        tools.onMessage?.(`今日は${WEATHER_NAME[wx]}${isHoliday(dayNo) ? '・休日' : ''}${ev ? `。${ev}` : ''}`);
+        const ev = mine.map((e) => tr('{facility}で{event}(需要{mul}倍)', { facility: e.facility.name, event: tr(e.event.name), mul: e.event.mul })).join(tr('、'));
+        tools.onMessage?.(
+          tr('今日は{weather}{holiday}{events}', { weather: tr(WEATHER_NAME[wx]), holiday: isHoliday(dayNo) ? tr('・休日') : '', events: ev ? tr('。') + ev : '' }),
+        );
       }
       lastEventDay = dayNo;
     }
-    const ctext = `${d.year}年${d.month}月${d.day}日(${WEEKDAYS[d.weekday]})${isHoliday(dayNo) ? '祝' : ''}${WEATHER_ICON[wx]} ${pad(d.hour)}:${pad(d.minute)} 第${d.period}期Q${d.quarter}`;
+    const ctext = tr('{date}{holiday}{weather} {time} 第{period}期Q{quarter}', {
+      date: locale().date(d.year, d.month, d.day, d.weekday),
+      holiday: isHoliday(dayNo) ? tr('祝') : '',
+      weather: WEATHER_ICON[wx],
+      time: `${pad(d.hour)}:${pad(d.minute)}`,
+      period: d.period,
+      quarter: d.quarter,
+    });
     if (clock.textContent !== ctext) clock.textContent = ctext;
 
     if (!uiTick) return;
@@ -683,15 +705,30 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       const town = map.towns[map.owner.get(i) - 1];
       const stop = transit.stopAtTile(tile.x, tile.y);
       info =
-        `tile (${tile.x}, ${tile.y})  ${hgt <= SEA_LEVEL ? '海' : '陸'} 高度 ${hgt}` +
+        tr('tile ({x}, {y})  {terrain} 高度 {height}', { x: tile.x, y: tile.y, terrain: tr(hgt <= SEA_LEVEL ? '海' : '陸'), height: hgt }) +
         (town ? `  [${town.name}]` : '') +
-        (stop ? `  🚏${stop.name} 待ち${Math.floor(stop.waiting)} 圏人口${stop.pop}` : '');
+        (stop ? tr('  🚏{name} 待ち{waiting} 圏人口{pop}', { name: stop.name, waiting: Math.floor(stop.waiting), pop: stop.pop }) : '');
     }
     const pop = map.towns.reduce((s, t) => s + t.pop, 0);
     stats.textContent =
-      `FPS ${fps}  zoom ${camera.zoom.toFixed(2)}  LOD ${lodForZoom(camera.zoom)}  sim ${perfSim.toFixed(1)}ms 描画準備 ${perfChunk.toFixed(1)}ms 車両 ${perfLayer.toFixed(1)}ms\n` +
-      `map ${map.size}² seed ${map.seed}  街 ${map.towns.length} 総人口 ${pop}\n` +
-      `chunks ${chunks.chunksVisible} (待ち ${chunks.pendingCount}) cache ${chunks.cacheMB.toFixed(0)}MB  tick/日 ${TICKS_PER_DAY}\n` +
+      tr('FPS {fps}  zoom {zoom}  LOD {lod}  sim {sim}ms 描画準備 {chunk}ms 車両 {layer}ms', {
+        fps,
+        zoom: camera.zoom.toFixed(2),
+        lod: lodForZoom(camera.zoom),
+        sim: perfSim.toFixed(1),
+        chunk: perfChunk.toFixed(1),
+        layer: perfLayer.toFixed(1),
+      }) +
+      '\n' +
+      tr('map {size}² seed {seed}  街 {towns} 総人口 {pop}', { size: map.size, seed: map.seed, towns: map.towns.length, pop }) +
+      '\n' +
+      tr('chunks {chunks} (待ち {pending}) cache {cache}MB  tick/日 {ticks}', {
+        chunks: chunks.chunksVisible,
+        pending: chunks.pendingCount,
+        cache: chunks.cacheMB.toFixed(0),
+        ticks: TICKS_PER_DAY,
+      }) +
+      '\n' +
       info;
   });
 }

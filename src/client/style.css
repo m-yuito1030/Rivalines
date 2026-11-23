@@ -371,3 +371,7 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 .optx { position: absolute; right: 6px; top: 6px; z-index: 1; width: 28px; height: 28px; padding: 0; background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; cursor: pointer; }
 #stationOpts, #facilityOpts, #bulldozeOpts, #signalOpts { padding-right: 40px; }
 @media (pointer: coarse), (max-width: 820px) { .optx { width: 36px; height: 36px; } }
+
+/* 言語の選択 */
+.langrow { display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 12px; }
+.langrow select { flex: 1; min-width: 0; background: #1a2638; color: #eee; border: 1px solid #456; border-radius: 6px; padding: 5px; }

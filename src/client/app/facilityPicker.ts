@@ -3,6 +3,7 @@ import type { GameMap } from '../../shared/world/gameMap';
 import sheetInfo from '../../shared/data/facilitySprites.json';
 import { drawFacilityPreview } from '../render/buildingSprites';
 import { $ } from './dom';
+import { onLangChange, tr } from '../i18n';
 
 /** 施設(ホテル・公園・百貨店・モール)を建てる前に、デザインと大きさを選ぶ入力欄と見本 */
 export class FacilityPicker {
@@ -12,6 +13,12 @@ export class FacilityPicker {
   private readonly designEl = $<HTMLSelectElement>('facDesign');
 
   constructor() {
+    // 言語が変わったら、名前の一覧を作り直す
+    onLangChange(() => {
+      const tool = this.type;
+      this.type = null;
+      if (tool) this.setTool(tool);
+    });
     this.designEl.addEventListener('input', () => this.refresh());
     $('facRand').addEventListener('click', () => {
       this.designEl.value = String(Math.floor(Math.random() * (DESIGN_COUNT[this.type ?? 'hotel'] ?? 1)));
@@ -40,13 +47,13 @@ export class FacilityPicker {
     }
     if (this.type !== tool) {
       this.type = tool;
-      $('facTitle').textContent = `${FACILITY_SPECS[tool].icon} ${FACILITY_SPECS[tool].name}を建てる`;
+      $('facTitle').textContent = tr('{icon} {name}を建てる', { icon: FACILITY_SPECS[tool].icon, name: tr(FACILITY_SPECS[tool].name) });
       this.designEl.innerHTML = '';
       const names = (sheetInfo as Record<string, { names: string[] }>)[tool]?.names ?? [];
       for (let i = 0; i < (DESIGN_COUNT[tool] ?? 1); i++) {
         const op = document.createElement('option');
         op.value = String(i);
-        op.textContent = `${String(i + 1).padStart(2, '0')} ${names[i] ?? ''}`;
+        op.textContent = `${String(i + 1).padStart(2, '0')} ${tr(names[i] ?? '')}`;
         this.designEl.appendChild(op);
       }
       this.designEl.value = '0';
@@ -65,7 +72,12 @@ export class FacilityPicker {
     this.sel.design = Math.min(Number(this.designEl.value) || 0, (DESIGN_COUNT[type] ?? 1) - 1);
     document.querySelectorAll<HTMLButtonElement>('#facSizes [data-fsize]').forEach((b) => b.classList.toggle('on', b.dataset.fsize === this.sel.size));
     const d = facilityDims(type, this.sel.size);
-    $('facInfo').textContent = `${FACILITY_SPECS[type].name} ${d.w}×${d.h} タイル・建設費 ${facilityCost(type, this.sel.size).toLocaleString()}円 ・ クリックした位置が中心`;
+    $('facInfo').textContent = tr('{name} {w}×{h} タイル・建設費 {cost}円 ・ クリックした位置が中心', {
+      name: tr(FACILITY_SPECS[type].name),
+      w: d.w,
+      h: d.h,
+      cost: facilityCost(type, this.sel.size).toLocaleString(),
+    });
     drawFacilityPreview($<HTMLCanvasElement>('facPreview'), type, this.sel.design, this.sel.size);
   }
 }
