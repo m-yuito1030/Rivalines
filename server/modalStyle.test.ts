@@ -22,4 +22,9 @@ describe('全画面ウィンドウのスマホ用スタイル', () => {
       expect(mobile, `#${id} h2(タイトルと閉じるボタンの固定)`).toContain(`#${id} h2`);
     }
   });
+
+  it('メニュー(#menu)は、パソコンでも画面に収まり(縦にスクロール)、タイトル行に ✕ がある', () => {
+    expect(css).toMatch(/^#menu \.box \{[^}]*max-height: 92vh; overflow: auto/m);
+    expect(readFileSync('index.html', 'utf8')).toMatch(/<h2>プレイヤー <button[^>]*id="menuX"/);
+  });
 });

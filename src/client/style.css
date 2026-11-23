@@ -42,7 +42,8 @@ html, body { margin: 0; overscroll-behavior: none; -webkit-user-select: none; us
 
 #menu { position: fixed; inset: 0; background: #0009; display: grid; place-items: center; z-index: 20; }
 #menu[hidden] { display: none; }
-#menu .box { width: 560px; max-width: 94vw; background: #15283f; border-radius: 12px; padding: 18px; display: grid; gap: 12px; }
+#menu .box { width: 560px; max-width: 94vw; background: #15283f; border-radius: 12px; padding: 18px; display: grid; gap: 12px; max-height: 92vh; overflow: auto; }
+#menu h2 { position: sticky; top: -18px; background: #15283f; padding: 4px 0; z-index: 1; display: flex; justify-content: space-between; align-items: center; }
 #menu h2 { margin: 0; font-size: 18px; }
 .slots { display: grid; gap: 6px; }
 .slot { display: flex; gap: 6px; align-items: center; background: #0e1b2c; border-radius: 6px; padding: 6px 8px; font-size: 12px; }
