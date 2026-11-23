@@ -101,7 +101,7 @@ describe('サーバーの返事は、接続した言語で返る', () => {
     const { execute } = await import('./commands');
     const { Simulation } = await import('../src/shared/sim/simulation');
     const { GameMap } = await import('../src/shared/world/gameMap');
-    const sim = new Simulation(new GameMap(64, 1), undefined, { multi: true });
+    const sim = new Simulation(new GameMap(64, 1, new Uint8Array(64 * 64).fill(20)), undefined, { multi: true });
     const bad = { t: 'nope' } as never;
     expect(execute(sim, 1, bad, 'en').msg).toBe('Invalid action.');
     expect(execute(sim, 1, bad, 'ja').msg).toBe('不正な操作です');
