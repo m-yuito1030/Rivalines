@@ -85,6 +85,10 @@ describe('訳の抜けがない', () => {
     }
     expect(missing).toEqual([]);
   });
+  it('英訳の {名前} は、日本語の文と同じ(差し込みの取りこぼしがない)', () => {
+    const names = (s: string) => (s.match(/\{(\w+)\}/g) ?? []).sort().join(',');
+    for (const [k, v] of Object.entries(EN)) if (k.startsWith('ja:')) expect(names(v), k).toBe(names(k.slice(3)));
+  });
   it('英語のカタログに、日本語のキーがないものが混ざっていない(typo の検出)', () => {
     for (const k of Object.keys(EN)) if (!k.startsWith('ja:')) expect(JA[k], `日本語にない英語のキー: ${k}`).toBeDefined();
   });

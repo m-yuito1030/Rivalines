@@ -1,3 +1,4 @@
+import { tr } from '../i18n';
 import { Graphics } from 'pixi.js';
 import type { Camera } from '../render/camera';
 import { LEVEL_PX } from '../../shared/world/constants';
@@ -113,7 +114,7 @@ export class ToolController {
         return;
       }
       if (BUILD.includes(this.tool) && !this.canBuild()) {
-        this.onMessage?.('会社の評価が最悪のため、新規の開発はできません。待ち人数や渋滞を減らして評価を上げてください(撤去・路線編集・車両購入は可能です)');
+        this.onMessage?.(tr('会社の評価が最悪のため、新規の開発はできません。待ち人数や渋滞を減らして評価を上げてください(撤去・路線編集・車両購入は可能です)'));
         this.start = null;
         return;
       }

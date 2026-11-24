@@ -1,3 +1,4 @@
+import { tr } from '../i18n';
 import { ModalPanel } from './modalPanel';
 import type { AuctionState, Lot } from '../../shared/sim/economy/auctions';
 import { yen } from '../../shared/sim/economy/economy';
@@ -45,7 +46,7 @@ export class AuctionPanel extends ModalPanel {
         const id = Number(b.dataset.bid);
         const typed = Number(this.inputs.get(id));
         const amount = Number.isFinite(typed) && typed > 0 ? Math.round(typed * 10_000) : Number(b.dataset.min);
-        void net.cmd({ t: 'bid', lotId: id, amount }).then((r) => this.onMessage(r.msg ?? (r.ok ? '入札しました' : '失敗しました')));
+        void net.cmd({ t: 'bid', lotId: id, amount }).then((r) => this.onMessage(r.msg ?? (r.ok ? tr('入札しました') : tr('失敗しました'))));
       }
     });
   }
@@ -55,27 +56,26 @@ export class AuctionPanel extends ModalPanel {
     const st = this.state();
     const towns = this.towns();
     const ps = this.players();
-    const nameOf = (id: number) => esc(ps.find((p) => p.id === id)?.name ?? `会社${id}`);
+    const nameOf = (id: number) => esc(ps.find((p) => p.id === id)?.name ?? tr('会社{id}', { id }));
     const townOf = (id: number) => towns[id - 1];
     const townLink = (id: number) => {
       const t = townOf(id);
-      return t ? `<a href="#" data-jx="${t.x}" data-jy="${t.y}">${esc(t.name)}</a>` : `街${id}`;
+      return t ? `<a href="#" data-jx="${t.x}" data-jy="${t.y}">${esc(t.name)}</a>` : tr('街{id}', { id });
     };
     const row = (l: Lot) => {
       const min = l.bid ? Math.ceil((l.bid.amount * 1.05) / 10_000) * 10_000 : l.minBid;
       const mine = l.bid?.who === net.id;
-      return `<tr><td>${townLink(l.townId)}</td><td>${FACILITY_SPECS[l.type].icon} ${FACILITY_SPECS[l.type].name}</td><td>${l.bid ? `${yen(l.bid.amount)}(${mine ? '<b>自社</b>' : nameOf(l.bid.who)})` : '入札なし'}</td><td>${yen(min)}</td><td>あと${l.left}日</td><td>${mine ? '最高額' : `<input type="number" data-lotin="${l.id}" min="${Math.ceil(min / 10_000)}" step="1" value="${this.inputs.get(l.id) ?? Math.ceil(min / 10_000)}" style="width:80px">万円 <button data-bid="${l.id}" data-min="${min}">入札</button>`}</td></tr>`;
+      return `<tr><td>${townLink(l.townId)}</td><td>${FACILITY_SPECS[l.type].icon} ${FACILITY_SPECS[l.type].name}</td><td>${l.bid ? `${yen(l.bid.amount)}(${mine ? `<b>${tr('自社')}</b>` : nameOf(l.bid.who)})` : tr('入札なし')}</td><td>${yen(min)}</td><td>${tr('あと{left}日', { left: l.left })}</td><td>${mine ? tr('最高額') : `<input type="number" data-lotin="${l.id}" min="${Math.ceil(min / 10_000)}" step="1" value="${this.inputs.get(l.id) ?? Math.ceil(min / 10_000)}" style="width:80px">${tr('万円')} <button data-bid="${l.id}" data-min="${min}">${tr('入札')}</button>`}</td></tr>`;
     };
-    let h =
-      '<div class="muted">街ごとの独占権を競りにかけます。落札すると、その街の範囲(街の規模で決まる半径)に、その種類の施設を建てられるのは自社だけになります。入札額は落札した時点で支払います(現金が足りないと流札)。</div>';
-    h += '<h3>開催中の競り(締め切りまで3日・2日ごとに新規)</h3>';
+    let h = `<div class="muted">${tr('街ごとの独占権を競りにかけます。落札すると、その街の範囲(街の規模で決まる半径)に、その種類の施設を建てられるのは自社だけになります。入札額は落札した時点で支払います(現金が足りないと流札)。')}</div>`;
+    h += `<h3>${tr('開催中の競り(締め切りまで3日・2日ごとに新規)')}</h3>`;
     h += st.lots.length
-      ? `<table><tr><th>街</th><th>独占権</th><th>現在の最高額</th><th>次の最低額</th><th>残り</th><th>入札</th></tr>${st.lots.map(row).join('')}</table>`
-      : '<div>開催中の競りはありません</div>';
-    h += '<h3>独占権を持つ会社</h3>';
+      ? `<table><tr><th>${tr('街')}</th><th>${tr('独占権')}</th><th>${tr('現在の最高額')}</th><th>${tr('次の最低額')}</th><th>${tr('残り')}</th><th>${tr('入札')}</th></tr>${st.lots.map(row).join('')}</table>`
+      : `<div>${tr('開催中の競りはありません')}</div>`;
+    h += `<h3>${tr('独占権を持つ会社')}</h3>`;
     h += st.rights.length
-      ? `<table><tr><th>街</th><th>独占権</th><th>持ち主</th><th>落札額</th></tr>${st.rights.map((r) => `<tr><td>${townLink(r.townId)}</td><td>${FACILITY_SPECS[r.type].icon} ${FACILITY_SPECS[r.type].name}</td><td>${r.owner === net.id ? '<b>自社</b>' : nameOf(r.owner)}</td><td>${yen(r.paid)}</td></tr>`).join('')}</table>`
-      : '<div>まだありません</div>';
+      ? `<table><tr><th>${tr('街')}</th><th>${tr('独占権')}</th><th>${tr('持ち主')}</th><th>${tr('落札額')}</th></tr>${st.rights.map((r) => `<tr><td>${townLink(r.townId)}</td><td>${FACILITY_SPECS[r.type].icon} ${FACILITY_SPECS[r.type].name}</td><td>${r.owner === net.id ? `<b>${tr('自社')}</b>` : nameOf(r.owner)}</td><td>${yen(r.paid)}</td></tr>`).join('')}</table>`
+      : `<div>${tr('まだありません')}</div>`;
     this.body.innerHTML = h;
   }
 }
