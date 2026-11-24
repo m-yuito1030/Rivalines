@@ -47,21 +47,22 @@ describe('登録', () => {
     const dir = mkdtempSync(join(tmpdir(), 'many-'));
     const file = join(dir, 'a.json');
     const acc = new Accounts(file);
-    for (let i = 0; i < 150; i++) expect((await acc.register(`user${i}`, 'secret12')).ok).toBe(true); // 以前の上限(100人)を超えても登録できる
-    expect(acc.count).toBe(150);
-    expect(acc.byId(150)?.name).toBe('user149');
+    for (let i = 0; i < 101; i++) expect((await acc.register(`user${i}`, 'secret12')).ok).toBe(true); // 以前の上限(100人)を超えても登録できる
+    expect(acc.count).toBe(101);
+    expect(acc.byId(101)?.name).toBe('user100');
     expect(acc.byId(0)).toBeUndefined();
     // 名前の重複(大文字小文字を区別しない)
     expect((await acc.register('USER5', 'secret12')).ok).toBe(false);
     // 同時に同じ名前で登録しても、1つだけ成功する
     const results = await Promise.all([acc.register('same', 'secret12'), acc.register('SAME', 'secret12'), acc.register('Same', 'secret12')]);
     expect(results.filter((r) => r.ok)).toHaveLength(1);
-    expect(acc.count).toBe(151);
+    expect(acc.count).toBe(102);
     // 再読み込みしても索引が作られ、名前でログインできる
     const again = new Accounts(file);
     expect((await again.verify('USER7', 'secret12'))?.id).toBe(8);
     expect(await again.verify('user7', 'wrong-password')).toBeNull();
-  });
+    // パスワードのハッシュ(scrypt)を百回以上計算するので、他のテストと同時に走ると遅くなる。30秒では足りないことがあった
+  }, 120_000);
 });
 
 describe('追随モード(次期バージョンが本稼働側のアカウントを読み取り専用で使う)', () => {
