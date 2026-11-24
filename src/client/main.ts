@@ -5,6 +5,7 @@ import { initI18n, locale, onLangChange, tr } from './i18n';
 import { Toast } from './app/toast';
 import { StationPicker } from './app/stationPicker';
 import { BulldozeOptions } from './app/bulldozeOptions';
+import { MoneyFloat } from './app/moneyFloat';
 import { bulldozeTargets } from './app/bulldozeTargets';
 import { confirmDialog } from './ui/confirm';
 import { FacilityPicker } from './app/facilityPicker';
@@ -205,6 +206,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     if (e.key.toLowerCase() === 'm' && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLSelectElement)) toggleMap();
   });
   const stats = $('stats');
+  const moneyFloat = new MoneyFloat($('cash'), yen);
   // 開発用の表示(FPS・描画の状態など)は、ふだんは隠す。Ctrl+Shift+D、または URL に ?debug=1 を付けると出る。
   // スマホ用に、画面上部の時計を 5 回すばやくタップしても切り替わる。選んだ状態は覚えておく
   const DEBUG_KEY = 'rivalines-debug';
@@ -730,6 +732,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       cashEl.textContent = cashText;
       cashEl.className = sim.company.cash < 0 ? 'neg' : '';
     }
+    if (uiTick) moneyFloat.update(sim.company.total);
     const dayNo = Math.floor((sim.tick + START_TOD) / DAY_TICKS);
     const wx = weatherOf(map.seed, dayNo);
     if (dayNo !== lastEventDay) {

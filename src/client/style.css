@@ -388,3 +388,10 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 .confirm-modal button { background: #26384f; color: #eee; border: 1px solid #456; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 14px; min-height: 40px; }
 .confirm-modal button.danger { background: #7a2630; border-color: #b04050; }
 .confirm-modal button:focus-visible { outline: 2px solid #8cf; outline-offset: 2px; }
+
+/* お金の増減の一瞬の表示(収入は緑のプラス、建設などの費用は赤のマイナス) */
+.money-float { position: fixed; z-index: 30; pointer-events: none; font: 600 14px/1.2 monospace; padding: 2px 8px; border-radius: 6px; background: #000a; white-space: nowrap; animation: money-float 1.8s ease-out forwards; }
+.money-float.up { color: #7dffa0; }
+.money-float.down { color: #ff7b7b; }
+@keyframes money-float { 0% { opacity: 0; transform: translateY(6px); } 12% { opacity: 1; transform: translateY(0); } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-22px); } }
+@media (prefers-reduced-motion: reduce) { .money-float { animation-duration: 1.2s; } }
