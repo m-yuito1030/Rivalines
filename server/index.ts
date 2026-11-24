@@ -1,3 +1,4 @@
+import { LOCALES, isLangCode, type LangCode } from '../src/shared/i18n';
 import { createServer, type IncomingMessage } from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
@@ -223,6 +224,8 @@ const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
 server.on('upgrade', (req, socket, head) => {
   const token = new URL(req.url ?? '', 'http://x').searchParams.get('token') ?? '';
   const a = accounts.fromToken(token);
+  const langParam = new URL(req.url ?? '', 'http://x').searchParams.get('lang');
+  const lang: LangCode = isLangCode(langParam) ? langParam : 'ja';
   if (!a) {
     socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
     return socket.destroy();
@@ -285,33 +288,33 @@ server.on('upgrade', (req, socket, head) => {
           }, wait);
         }
       } else if (m.type === 'profile') {
-        if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: '操作が多すぎます。少し待ってください' } }));
+        if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: LOCALES[lang].tr('操作が多すぎます。少し待ってください') } }));
         tokens -= 5; // 保存はディスクに書くので重めに数える
         const why = accounts.setProfile(c.id, m);
         ws.send(JSON.stringify({ type: 'res', req: m.req, res: why ? { ok: false, msg: why } : { ok: true, msg: '会社の情報を保存しました' } }));
       } else if (m.type === 'report') {
-        if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: '操作が多すぎます。少し待ってください' } }));
+        if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: LOCALES[lang].tr('操作が多すぎます。少し待ってください') } }));
         tokens -= 5;
         const t = typeof m.target === 'number' ? accounts.byId(m.target) : undefined;
         const why = t ? reports.add({ id: c.id, name: a.name }, { id: t.id, name: t.name }, m.reason) : '相手が見つかりません';
         ws.send(JSON.stringify({ type: 'res', req: m.req, res: why ? { ok: false, msg: why } : { ok: true, msg: '通報しました。運営が確認します' } }));
       } else if (m.type === 'cmd') {
-        if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: '操作が多すぎます。少し待ってください' } }));
+        if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: LOCALES[lang].tr('操作が多すぎます。少し待ってください') } }));
         tokens--;
         let res;
         try {
           // 重い操作(長距離の自動敷設など)は、サーバー全体で間隔をあける(全員の画面が固まらないように)
           const heavy = isHeavy(m.cmd);
           const busy = heavy && governor.busy();
-          if (busy) res = { ok: false, msg: '重い操作が混み合っています。数秒おいて、もう一度お試しください' };
+          if (busy) res = { ok: false, msg: LOCALES[lang].tr('重い操作が混み合っています。数秒おいて、もう一度お試しください') };
           else {
             const t0 = performance.now();
-            res = execute(sim, c.id, m.cmd);
+            res = execute(sim, c.id, m.cmd, lang);
             if (heavy) governor.used(performance.now() - t0);
           }
         } catch (e) {
           console.warn('[cmd]', (e as Error).message);
-          res = { ok: false, msg: 'サーバーエラー' };
+          res = { ok: false, msg: LOCALES[lang].tr('サーバーエラー') };
         }
         ws.send(JSON.stringify({ type: 'res', req: m.req, res }));
       }

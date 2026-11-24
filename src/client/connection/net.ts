@@ -1,4 +1,4 @@
-import { tr } from '../i18n';
+import { lang, tr } from '../i18n';
 import type { ClientMsg, Cmd, CmdResult, ServerMsg } from '../../shared/protocol';
 
 const SESSION = 'simulator-multi-session';
@@ -42,7 +42,7 @@ export class Net {
   connect(token: string): Promise<Extract<ServerMsg, { type: 'init' }>> {
     return new Promise((resolve, reject) => {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-      const ws = new WebSocket(`${proto}://${location.host}/ws?token=${token}`);
+      const ws = new WebSocket(`${proto}://${location.host}/ws?token=${token}&lang=${lang()}`);
       this.ws = ws;
       let inited = false;
       ws.onmessage = (e) => {

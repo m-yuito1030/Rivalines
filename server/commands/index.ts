@@ -4,6 +4,7 @@
  */
 import type { Cmd, CmdResult } from '../../src/shared/protocol';
 import type { Simulation } from '../../src/shared/sim/simulation';
+import { LOCALES, type LangCode } from '../../src/shared/i18n';
 import { CommandContext } from './context';
 import { fail } from './util';
 import { bulldoze, build, signalLine } from './build';
@@ -58,10 +59,10 @@ function touchChanged(cmd: Cmd, ctx: CommandContext): void {
 }
 
 /** プレイヤー who の操作を検証して実行する */
-export function execute(sim: Simulation, who: number, cmd: Cmd): CmdResult {
+export function execute(sim: Simulation, who: number, cmd: Cmd, lang: LangCode = 'ja'): CmdResult {
   const handler = cmd && Object.hasOwn(handlers, cmd.t) ? (handlers[cmd.t] as (c: Cmd, x: CommandContext) => CmdResult) : null;
-  if (!handler) return fail('不正な操作です');
-  const ctx = new CommandContext(sim, who);
+  if (!handler) return fail(LOCALES[lang].tr('不正な操作です'));
+  const ctx = new CommandContext(sim, who, lang);
   ctx.t.actor = who; // TODO: Transit に「誰の操作か」を引数で渡すようにして、この書き込みをなくす
   try {
     const res = handler(cmd, ctx);
