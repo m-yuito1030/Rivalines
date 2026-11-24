@@ -23,7 +23,7 @@ export class PassengerFlow {
         if (!m.inBounds(x, y)) continue;
         const i = m.idx(x, y);
         const b = m.building.get(i);
-        if (!b) continue;
+        if (!b || m.construction.get(i)) continue; // 工事中の建物は、まだ人が使わない
         const tid = m.owner.get(i);
         const p = POP_PER_LEVEL[b & 3] * popMul(m.towns[tid - 1]);
         pop += p;

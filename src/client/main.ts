@@ -42,6 +42,7 @@ import { ratingName } from '../shared/sim/economy/rating';
 import { InfoPanel, type Selection, findSelection } from './ui/infoPanel';
 import { findVehicle } from './ui/vehicleSelect';
 import { TransitLayer } from './render/transitLayer';
+import { ConstructionFx } from './render/constructionFx';
 import { LEVEL_PX, SEA_LEVEL } from '../shared/world/constants';
 import { TIERS, townTier } from '../shared/world/town';
 import { placeAirport } from '../shared/world/airports';
@@ -129,6 +130,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   const transit = sim.transit;
   const transitLayer = new TransitLayer(map, transit, app.renderer);
   worldRoot.addChild(transitLayer.g);
+  const constructionFx = new ConstructionFx(map);
+  worldRoot.addChild(constructionFx.g);
 
   let setToolRef: (t: Tool) => void = () => {};
   const panel = new RoutePanel(
@@ -590,6 +593,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       }
     }
     transitLayer.draw(view, new Set(panel.building?.stops ?? []));
+    constructionFx.draw(view, performance.now());
     const tD = performance.now();
     perfSim = perfSim * 0.9 + (tB - tA) * 0.1;
     perfChunk = perfChunk * 0.9 + (tC - tB) * 0.1;

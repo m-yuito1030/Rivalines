@@ -49,7 +49,11 @@ function isFree(map: GameMap, x: number, y: number): boolean {
   return map.levelAt(x, y) > 0 && map.road.get(i) === 0 && map.building.get(i) === 0 && map.rail.get(i) === 0 && map.air.get(i) === 0;
 }
 
-export const GROWTH_BASE_TICKS = 150;
+/** 街が1軒ぶん成長するまでの基準(tick)。大きいほどゆっくり育つ */
+export const GROWTH_BASE_TICKS = 600;
+/** 建物の工事にかかる日数(最低〜最長。この範囲でランダム) */
+export const BUILD_DAYS_MIN = 2;
+export const BUILD_DAYS_MAX = 3;
 /** 道路タイル検索用(街の道路が数万になっても includes の総当たりにならないように) */
 const roadSets = new WeakMap<Town, Set<number>>();
 const roadSet = (t: Town): Set<number> => {
@@ -162,6 +166,8 @@ export interface PlaceOpts {
   filter?: (x: number, y: number) => boolean;
   /** 段階を指定(1〜3)。2x2 が確保できなければ 2 になる */
   level?: number;
+  /** 工事中として置く(完成は 2〜3日後)。now=今の tick、ticksPerDay=1日の tick 数 */
+  site?: { now: number; ticksPerDay: number };
 }
 
 export function tryPlaceHouse(map: GameMap, town: Town, rng: () => number, opts: PlaceOpts = {}): boolean {
@@ -227,6 +233,10 @@ export function tryPlaceHouse(map: GameMap, town: Town, rng: () => number, opts:
     }
     town.pop += POP_PER_LEVEL[level] * popMul(town);
     town.houses++;
+    if (opts.site) {
+      map.construction.set(i, 1);
+      map.sites.set(i, opts.site.now + Math.round(opts.site.ticksPerDay * (BUILD_DAYS_MIN + rng() * (BUILD_DAYS_MAX - BUILD_DAYS_MIN))));
+    }
     map.touch(ax, ay);
     return true;
   }
@@ -265,9 +275,9 @@ function tryExtendRoad(map: GameMap, town: Town, rng: () => number): boolean {
 }
 
 /** 街を1段階成長させる */
-export function growTown(map: GameMap, town: Town, now: number, rng: () => number): void {
-  // 段階の上限に達したらそれ以上は成長しない(村は村、都市は都市のまま)
-  if (town.pop < TIERS[townTier(town)].max && !tryPlaceHouse(map, town, rng)) tryExtendRoad(map, town, rng);
+export function growTown(map: GameMap, town: Town, now: number, rng: () => number, ticksPerDay = 0): void {
+  // 段階の上限に達したらそれ以上は成長しない(村は村、都市は都市のまま)。ticksPerDay を渡すと、建物は工事中から始まる
+  if (town.pop < TIERS[townTier(town)].max && !tryPlaceHouse(map, town, rng, ticksPerDay ? { site: { now, ticksPerDay } } : {})) tryExtendRoad(map, town, rng);
   scheduleNext(town, now, rng, hospitalGrowth(map, town).bonus);
 }
 

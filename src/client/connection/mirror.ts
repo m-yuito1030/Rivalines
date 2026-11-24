@@ -31,7 +31,7 @@ export class Mirror {
 
   private setTile(rec: number[]): void {
     const m = this.map;
-    const [i, road, rail, span, air, building, owner, infra, h] = rec;
+    const [i, road, rail, span, air, building, owner, infra, h, con] = rec;
     m.road.set(i, road);
     m.rail.set(i, rail);
     m.span.set(i, span);
@@ -39,6 +39,9 @@ export class Mirror {
     m.building.set(i, building);
     m.owner.set(i, owner);
     m.infraOwner.set(i, infra);
+    m.construction.set(i, con ?? 0);
+    if (con && building) m.sites.set(i, 0);
+    else m.sites.delete(i);
     if (h !== undefined && h >= 0) m.restoreEdit(i, h);
     const x = i % m.size;
     m.touch(x, (i - x) / m.size);
@@ -50,11 +53,11 @@ export class Mirror {
       case 'chunk': {
         const x0 = msg.cx << CHUNK_SHIFT;
         const y0 = msg.cy << CHUNK_SHIFT;
-        for (const layer of [map.road, map.rail, map.span, map.air, map.building, map.owner, map.infraOwner]) layer.clearRect(x0, y0, CHUNK, CHUNK);
-        for (const [l, road, rail, span, air, building, owner, infra] of msg.tiles) {
+        for (const layer of [map.road, map.rail, map.span, map.air, map.building, map.owner, map.infraOwner, map.construction]) layer.clearRect(x0, y0, CHUNK, CHUNK);
+        for (const [l, road, rail, span, air, building, owner, infra, con] of msg.tiles) {
           const x = x0 + (l % CHUNK);
           const y = y0 + Math.floor(l / CHUNK);
-          this.setTile([map.idx(x, y), road, rail, span, air, building, owner, infra, -1]);
+          this.setTile([map.idx(x, y), road, rail, span, air, building, owner, infra, -1, con ?? 0]);
         }
         for (const [i, h] of msg.edits) map.restoreEdit(i, h);
         // 描画の更新(チャンク内の全タイル)

@@ -3,7 +3,7 @@ import { LEVEL_PX, MAX_LEVEL, TILE_H, TILE_W } from '../../shared/world/constant
 import type { GameMap } from '../../shared/world/gameMap';
 import { FACILITY_TILE, facilityAnchor, facilityTileMap, isSpriteFacility } from '../../shared/world/facilities';
 import { drawFacilitySprite } from './buildingSprites';
-import { drawAirTile, drawBridgeTile, drawBuilding, drawRail, drawRamp, drawRoad, drawTunnelPortal } from './drawTile';
+import { drawAirTile, drawBridgeTile, drawBuilding, drawConstruction, drawRail, drawRamp, drawRoad, drawTunnelPortal } from './drawTile';
 import { drawTerrainTile, hash2, lodCellColor } from './terrainDraw';
 
 /** 1チャンク = CELLS x CELLS セル。LODが上がるとセル1つが step x step タイルになる */
@@ -252,7 +252,8 @@ export class ChunkRenderer {
             // 学校・市役所・百貨店・モールはスプライト(敷地の手前のタイルで描く)。スタジアムなどは別レイヤーで描く
             const f = facilityTileMap(map).get(k);
             if (f && isSpriteFacility(f) && facilityAnchor(map, f) === k) drawFacilitySprite(ctx, px, py, f);
-          } else if (map.building.get(k)) drawBuilding(ctx, px, py, map.building.get(k), hash2(tx, ty, seed + 17), detail);
+          } else if (map.building.get(k) && map.construction.get(k)) drawConstruction(ctx, px, py, map.building.get(k) & 3, hash2(tx, ty, seed + 19));
+          else if (map.building.get(k)) drawBuilding(ctx, px, py, map.building.get(k), hash2(tx, ty, seed + 17), detail);
         } else {
           const color = this.blockBuilt(tx, ty, step) ? '#9b9a96' : lodCellColor(map, sx, sy, lvl, h);
           drawTerrainTile(ctx, map, sx, sy, px, py, lvl, h, nb, false, true, color);
