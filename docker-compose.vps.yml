@@ -1,16 +1,19 @@
 # さくら VPS(Ubuntu 24.04・メモリ 4GB)で公開するための構成。
 # 使い方は docs/DEPLOY_VPS.md。 docker compose -f docker-compose.vps.yml up -d --build
+# 既存のサービスと 80/443 がぶつからないよう、ふだんは別のポート(WEB_PORT、既定 8092)だけを開ける。
+# Caddy(HTTPS)は、他に 80/443 を使うものがないときだけ: docker compose -f docker-compose.vps.yml --profile https up -d --build
 services:
   caddy:
     image: caddy:2-alpine
     container_name: rivalines-caddy
+    profiles: [https] # 既定では起動しない
     restart: unless-stopped
     depends_on: [web]
     ports:
       - "80:80"
       - "443:443"
     environment:
-      DOMAIN: "${DOMAIN:?.env に DOMAIN=ドメイン名 を書いてください}"
+      DOMAIN: "${DOMAIN:-localhost}"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data # 取得した証明書(消すと取り直しになる)
@@ -25,7 +28,8 @@ services:
     mem_limit: 256m
     pids_limit: 200
     security_opt: [no-new-privileges:true]
-    # ポートは外に出さない(Caddy からだけ届く)
+    ports:
+      - "${WEB_PORT:-8092}:80"
   server:
     build: { context: ., target: server }
     container_name: rivalines-server
