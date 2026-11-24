@@ -413,6 +413,101 @@ function windows(
   }
 }
 
+/**
+ * 建設中の建物(工事現場): 土の基礎・足場・シート・仮囲い。動く部分(砂ぼこり・火花)は constructionFx が毎フレーム重ねる。
+ * level は完成後の段階(高いほど足場が高い)。hv=個体差
+ */
+export function drawConstruction(ctx: CanvasRenderingContext2D, px: number, py: number, level: number, hv = 0): void {
+  const h = level === 1 ? 14 : level === 2 ? 26 : 40;
+  // 土の基礎
+  ctx.fillStyle = '#8a7358';
+  poly(ctx, px, py, [
+    [0.06, 0.06],
+    [0.94, 0.06],
+    [0.94, 0.94],
+    [0.06, 0.94],
+  ]);
+  ctx.fillStyle = '#a58b6a';
+  poly(ctx, px, py, [
+    [0.14, 0.14],
+    [0.86, 0.14],
+    [0.86, 0.86],
+    [0.14, 0.86],
+  ]);
+  // 建物の骨組み(コンクリートの箱を、途中の高さまで)
+  const done = h * (0.35 + 0.3 * hv);
+  ctx.fillStyle = '#9aa0a6';
+  wallQuad(ctx, px, py, 'L', 0.8, 0.2, 0.8, 0, done);
+  ctx.fillStyle = '#7b8186';
+  wallQuad(ctx, px, py, 'R', 0.8, 0.2, 0.8, 0, done);
+  ctx.fillStyle = '#b7bcc1';
+  poly(
+    ctx,
+    px,
+    py,
+    [
+      [0.2, 0.2],
+      [0.8, 0.2],
+      [0.8, 0.8],
+      [0.2, 0.8],
+    ],
+    done,
+  );
+  // 足場(柱と横木)と、青いシート
+  ctx.fillStyle = 'rgba(70,130,200,0.55)';
+  wallQuad(ctx, px, py, 'L', 0.9, 0.1, 0.9, 2, h * 0.8);
+  ctx.fillStyle = 'rgba(50,100,170,0.55)';
+  wallQuad(ctx, px, py, 'R', 0.9, 0.1, 0.9, 2, h * 0.8);
+  ctx.strokeStyle = '#d9a21b';
+  ctx.lineWidth = 1.5;
+  for (const [u, v] of [
+    [0.1, 0.9],
+    [0.5, 0.9],
+    [0.9, 0.9],
+    [0.9, 0.5],
+    [0.9, 0.1],
+  ]) {
+    ctx.beginPath();
+    ctx.moveTo(sx(px, u, v), sy(py, u, v));
+    ctx.lineTo(sx(px, u, v), sy(py, u, v) - h);
+    ctx.stroke();
+  }
+  for (let z = 6; z <= h; z += 10) {
+    ctx.beginPath();
+    ctx.moveTo(sx(px, 0.1, 0.9), sy(py, 0.1, 0.9) - z);
+    ctx.lineTo(sx(px, 0.9, 0.9), sy(py, 0.9, 0.9) - z);
+    ctx.lineTo(sx(px, 0.9, 0.1), sy(py, 0.9, 0.1) - z);
+    ctx.stroke();
+  }
+  // 仮囲いの黄黒のコーン代わりの印
+  ctx.fillStyle = '#ffb300';
+  poly(
+    ctx,
+    px,
+    py,
+    [
+      [0.02, 0.98],
+      [0.12, 0.98],
+      [0.12, 0.88],
+      [0.02, 0.88],
+    ],
+    3,
+  );
+  ctx.fillStyle = '#222';
+  poly(
+    ctx,
+    px,
+    py,
+    [
+      [0.05, 0.95],
+      [0.09, 0.95],
+      [0.09, 0.91],
+      [0.05, 0.91],
+    ],
+    6,
+  );
+}
+
 /** 建物。b = level | variant<<2(level 1=戸建て 2=集合住宅 3=ビル)。hv=個体差(0..1) */
 export function drawBuilding(ctx: CanvasRenderingContext2D, px: number, py: number, b: number, hv = 0, detail = true): void {
   if (drawBuildingSprite(ctx, px, py, b, hv)) return;

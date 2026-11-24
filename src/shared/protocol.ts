@@ -134,8 +134,8 @@ export interface VehMsg {
   path?: number[];
 }
 
-/** タイル1つ: [index, road, rail, span, air, building, owner, infraOwner, 整地の高度(-1=なし)] */
-export type TileRec = [number, number, number, number, number, number, number, number, number];
+/** タイル1つ: [index, road, rail, span, air, building, owner, infraOwner, 整地の高度(-1=なし), 工事中(1=工事中)] */
+export type TileRec = [number, number, number, number, number, number, number, number, number, number];
 
 /** 自社の車両の一覧用の概要(視界の外の車両も含む)。[id, routeId, modelId, mode, x, y, state(0走行 1停車 2経路なし 3待機), 積載%, 両数] */
 export type MyVeh = [number, number, string, Mode, number, number, number, number, number];

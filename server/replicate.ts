@@ -77,7 +77,7 @@ export class Replicator {
 
   private tileRec(i: number): TileRec {
     const m = this.sim.map;
-    return [i, m.road.get(i), m.rail.get(i), m.span.get(i), m.air.get(i), m.building.get(i), m.owner.get(i), m.infraOwner.get(i), m.edits.get(i) ?? -1];
+    return [i, m.road.get(i), m.rail.get(i), m.span.get(i), m.air.get(i), m.building.get(i), m.owner.get(i), m.infraOwner.get(i), m.edits.get(i) ?? -1, m.construction.get(i)];
   }
 
   private chunkMsg(cx: number, cy: number): ServerMsg {
@@ -95,8 +95,9 @@ export class Replicator {
           d = m.air.get(i),
           e = m.building.get(i),
           f = m.owner.get(i),
-          g = m.infraOwner.get(i);
-        if (a | b | c | d | e | f | g) tiles.push([ly * CHUNK + lx, a, b, c, d, e, f, g]);
+          g = m.infraOwner.get(i),
+          k = m.construction.get(i);
+        if (a | b | c | d | e | f | g) tiles.push([ly * CHUNK + lx, a, b, c, d, e, f, g, k]);
       }
     }
     const edits: [number, number][] = [];

@@ -107,6 +107,8 @@ export function removeBuilding(map: GameMap, x: number, y: number): boolean {
     const k = map.idx(cx, cy);
     map.building.set(k, 0);
     map.owner.set(k, 0);
+    map.construction.set(k, 0);
+    map.sites.delete(k);
     map.touch(cx, cy);
   };
   clear(x, y);

@@ -27,6 +27,8 @@ export interface SimState {
   towns: Town[];
   /** 巨大マップ: 街を生成済みの区画 */
   townRegions?: number[];
+  /** 工事中の建物 [タイルindex, 完成する tick](なければ全部完成済み) */
+  sites?: [number, number][];
   /** マルチプレイ: 提携(乗り入れ契約)・入札と独占権 */
   pacts?: PactState;
   auctions?: AuctionState;
@@ -84,6 +86,19 @@ export class Simulation {
       this.players.set(id, c);
     }
     return c;
+  }
+
+  /** 工事が終わった建物を完成させる(取り壊されたものは、記録だけ消す) */
+  private finishSites(): void {
+    const m = this.map;
+    for (const [i, at] of m.sites) {
+      if (this.tick < at) continue;
+      m.sites.delete(i);
+      if (!m.construction.get(i)) continue;
+      m.construction.set(i, 0);
+      const x = i % m.size;
+      m.touch(x, (i - x) / m.size);
+    }
   }
 
   /** マルチプレイ: 会社を消す(退会・削除)。施設は売り出し物件になり、路線・車両・停留所・車庫は撤去される */
@@ -176,6 +191,10 @@ export class Simulation {
       for (const [id, c] of restore.players ?? []) this.players.set(id, Company.from(c));
       if (restore.pacts) this.pacts.load(restore.pacts);
       if (restore.auctions) this.auctions.load(restore.auctions);
+      for (const [i, at] of restore.sites ?? []) {
+        this.map.sites.set(i, at);
+        this.map.construction.set(i, 1);
+      }
       if (restore.weekly) this.weekly.load(restore.weekly);
       this.rivals = restore.rivals ?? createRivals(this.rivalRng, this.multi ? 20 : 4);
       if (restore.rivalRng !== undefined) this.rivalRng.setState(restore.rivalRng);
@@ -220,6 +239,7 @@ export class Simulation {
       rng: this.rng.getState(),
       pacts: this.pacts.toJSON(),
       auctions: this.auctions.toJSON(),
+      sites: [...this.map.sites],
       weekly: this.weekly.toJSON(),
       players: [...this.players].map(([id, c]) => [id, c.toJSON()] as [number, CompanyState]),
       towns: this.map.towns,
@@ -269,7 +289,8 @@ export class Simulation {
 
   step(): void {
     this.tick++;
-    for (const t of this.map.towns) if (this.tick >= t.nextGrowth) growTown(this.map, t, this.tick, this.rng);
+    if (this.tick % 100 === 0) this.finishSites();
+    for (const t of this.map.towns) if (this.tick >= t.nextGrowth) growTown(this.map, t, this.tick, this.rng, TICKS_PER_DAY);
     this.transit.step(this.tick);
     if (this.tick % MIGRATE_EVERY === 0) this.migrated += migrateStep(this.map, this.transit, this.rng);
     if (this.tick % RATING_EVERY === 0) stepRating(this.rating, this.map, this.transit, Math.min(20, Math.max(0, this.multi ? 0 : -this.company.cash) / 1_000_000));

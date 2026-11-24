@@ -28,6 +28,10 @@ export class GameMap {
   readonly air: TileLayer;
   /** 建物: 0=なし, bit0-1=レベル(1..3), bit2-5=見た目バリエーション */
   readonly building: TileLayer;
+  /** 建設中の建物: 1=工事中(建物は置かれているが、まだ使えない)。セーブは SimState.sites から復元する */
+  readonly construction: TileLayer;
+  /** サーバー: 工事中のタイル(index) → 完成する時刻(tick) */
+  readonly sites = new Map<number, number>();
   /** 建物の所属する街ID(0=なし) */
   readonly owner: TileLayer<Uint16Array>;
   /** マルチプレイ: 道路・線路を敷いた会社(アカウントID)。0=なし/無所有 */
@@ -74,6 +78,7 @@ export class GameMap {
     this.air = u8Layer(size);
     this.span = u8Layer(size);
     this.building = u8Layer(size);
+    this.construction = u8Layer(size);
     this.owner = u16Layer(size);
     this.infraOwner = u16Layer(size);
   }
