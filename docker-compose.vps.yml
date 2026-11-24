@@ -1,0 +1,48 @@
+# さくら VPS(Ubuntu 24.04・メモリ 4GB)で公開するための構成。
+# 使い方は docs/DEPLOY_VPS.md。 docker compose -f docker-compose.vps.yml up -d --build
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: rivalines-caddy
+    restart: unless-stopped
+    depends_on: [web]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: "${DOMAIN:?.env に DOMAIN=ドメイン名 を書いてください}"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data # 取得した証明書(消すと取り直しになる)
+      - caddy-config:/config
+    mem_limit: 128m
+    security_opt: [no-new-privileges:true]
+  web:
+    build: { context: ., target: web }
+    container_name: rivalines-web
+    restart: unless-stopped
+    depends_on: [server]
+    mem_limit: 256m
+    pids_limit: 200
+    security_opt: [no-new-privileges:true]
+    # ポートは外に出さない(Caddy からだけ届く)
+  server:
+    build: { context: ., target: server }
+    container_name: rivalines-server
+    restart: unless-stopped
+    stop_grace_period: 30s # 終了の合図を受けたら世界を保存してから終わる
+    mem_limit: 2800m # メモリ 4GB のうち、OS と Caddy・nginx の分を残す
+    pids_limit: 200
+    security_opt: [no-new-privileges:true]
+    environment:
+      WORLD_SIZE: "65535"
+      MAX_ONLINE: "${MAX_ONLINE:-100}"
+      REGISTER_PER_HOUR: "${REGISTER_PER_HOUR:-300}"
+      INVITE_CODE: "${INVITE_CODE:-}"
+      ADMIN_KEY: "${ADMIN_KEY:?.env に ADMIN_KEY=長いランダムな文字列 を書いてください}"
+    volumes:
+      - rivalines-data:/data
+volumes:
+  rivalines-data:
+  caddy-data:
+  caddy-config:
