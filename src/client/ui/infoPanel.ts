@@ -108,7 +108,8 @@ export class InfoPanel {
       }
       if (t.dataset.rename) {
         const n = (t as unknown as HTMLInputElement).value.trim();
-        if (n) void net.cmd({ t: 'rename', kind: 'stop', id: Number(t.dataset.id), name: n }).then((r) => !r.ok && r.msg && this.onMessage(r.msg));
+        const kind = t.dataset.rename === 'facility' ? 'facility' : 'stop';
+        if (n) void net.cmd({ t: 'rename', kind, id: Number(t.dataset.id), name: n }).then((r) => !r.ok && r.msg && this.onMessage(r.msg));
         return;
       }
       if (t.dataset.allow) {
@@ -579,7 +580,7 @@ export class InfoPanel {
     const cur = tabs.some(([k]) => k === this.facTab) ? this.facTab : 'overview';
     const content = cur === 'econ' ? sec.econ : cur === 'ads' ? sec.ads : cur === 'design' ? design : sec.overview;
     return [
-      `<div class="ih"><b>${spec.icon} ${esc(f.name)}</b><span><button data-focus data-x="${f.x0}" data-y="${f.y0}" title="${tr('この場所へ移動')}">⌖</button><button data-close>✕</button></span></div>
+      `<div class="ih"><b>${spec.icon} ${sec.own ? `<input data-rename="facility" data-id="${f.id}" type="text" maxlength="24" value="${esc(f.name)}" title="${tr('名前を変えられます')}" style="width:9em">` : esc(f.name)}</b><span><button data-focus data-x="${f.x0}" data-y="${f.y0}" title="${tr('この場所へ移動')}">⌖</button><button data-close>✕</button></span></div>
       <div class="im">${tr('{desc}。需要は周辺の停留所の集客圏の人口 {attract}人ぶんに相当します。', { desc: spec.desc, attract: spec.attract })}</div>
       ${tabs.length > 1 ? `<div class="ftabs">${tabs.map(([k, l]) => `<button data-ftab="${k}" class="${k === cur ? 'on' : ''}">${l}</button>`).join('')}</div>` : ''}`,
       content,

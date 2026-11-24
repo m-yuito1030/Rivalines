@@ -500,4 +500,5 @@ export const EN_PANELS: Catalog = {
   'ja:資金支援(送金)': 'Funds sent',
   'ja:広告費': 'Advertising',
   'ja:従業員の研修費': 'Staff training',
+  'ja:名前を変えられます': 'You can rename it',
 };
