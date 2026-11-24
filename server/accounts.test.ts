@@ -63,3 +63,56 @@ describe('登録', () => {
     expect(await again.verify('user7', 'wrong-password')).toBeNull();
   });
 });
+
+describe('追随モード(次期バージョンが本稼働側のアカウントを読み取り専用で使う)', () => {
+  const setup = async () => {
+    const owner = mkdtempSync(join(tmpdir(), 'own-'));
+    const mine = mkdtempSync(join(tmpdir(), 'fol-'));
+    const live = new Accounts(join(owner, 'accounts.json'));
+    await live.register('taro', 'secret12');
+    live.flush();
+    const next = new Accounts(join(mine, 'accounts.json'), { followFrom: owner, refreshMs: 0 });
+    return { owner, mine, live, next };
+  };
+  it('同じ名前・パスワード・ログイン用トークンで使える。トークンは相互に有効', async () => {
+    const { live, next } = await setup();
+    expect((await next.verify('taro', 'secret12'))?.id).toBe(1);
+    expect(await next.verify('taro', 'wrong-pass')).toBeNull();
+    expect(next.fromToken(live.issueToken(1))?.name).toBe('taro'); // 本稼働のトークンで入れる
+    expect(live.fromToken(next.issueToken(1))?.name).toBe('taro');
+  });
+  it('新規登録・停止・パスワード変更・退会は、追随側ではできない', async () => {
+    const { next } = await setup();
+    expect(next.readOnly).toBe(true);
+    expect((await next.register('hanako', 'secret12')).ok).toBe(false);
+    expect(next.setBan(1, 'x')).toBe(false);
+    expect(next.clearText(1)).toBe(false);
+    expect(await next.setPassword(1, 'newsecret12')).toMatch(/本稼働/);
+    expect(next.remove(1)).toBe(false);
+    expect(next.byId(1)).toBeDefined();
+  });
+  it('本稼働側の登録・停止がすぐ反映され、世界ごとの会社名・色・場所は本稼働側を変えない', async () => {
+    const { owner, mine, live, next } = await setup();
+    expect((await live.register('hanako', 'secret12')).ok).toBe(true);
+    live.flush();
+    expect(next.byName('hanako')?.id).toBe(2); // あとから登録された人も入れる
+    expect(live.setBan(2, '規約違反')).toBe(true);
+    expect(next.byId(2)?.banned?.reason).toBe('規約違反');
+    expect(next.fromToken(live.issueToken(1))).not.toBeNull();
+    // この世界だけの会社名・色・最後の場所
+    expect(next.setProfile(1, { company: '次期鉄道', bio: 'テスト', color: 0x123456 })).toBeNull();
+    next.setLast(1, 10, 20);
+    next.flush();
+    expect(next.byId(1)?.company).toBe('次期鉄道');
+    expect(new Accounts(join(owner, 'accounts.json')).byId(1)?.company).toBeUndefined(); // 本稼働側は変わらない
+    // 作り直しても残る
+    const again = new Accounts(join(mine, 'accounts.json'), { followFrom: owner, refreshMs: 0 });
+    expect(again.byId(1)?.company).toBe('次期鉄道');
+    expect(again.byId(1)?.last).toEqual({ x: 10, y: 20 });
+    expect(again.byId(1)?.color).toBe(0x123456);
+  });
+  it('本稼働側の token.secret がなければ起動しない', () => {
+    const empty = mkdtempSync(join(tmpdir(), 'nos-'));
+    expect(() => new Accounts(join(mkdtempSync(join(tmpdir(), 'fol-')), 'a.json'), { followFrom: empty })).toThrow(/token\.secret/);
+  });
+});

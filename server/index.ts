@@ -31,8 +31,18 @@ const sameCode = (a: string, b: string): boolean => {
   return x.length === y.length && timingSafeEqual(x, y);
 };
 
+/**
+ * この世界の名前: live=本稼働 / next=次期バージョン(テスト用。データは消えてよい)。画面の選択に出る。
+ * ACCOUNTS_FROM を指定すると、そのディレクトリ(本稼働側のデータ置き場)のアカウントを読み取り専用で使う。
+ * 同じ名前・パスワードでどちらの世界にも入れて、世界ごとの会社のデータは別になる。
+ */
+const ENV_NAME = process.env.ENV_NAME ?? 'live';
+const ENV_LABEL = process.env.ENV_LABEL ?? (ENV_NAME === 'live' ? '本稼働' : '次期バージョン');
+const APP_VERSION = process.env.APP_VERSION ?? 'dev';
+const ACCOUNTS_FROM = process.env.ACCOUNTS_FROM || undefined;
+
 mkdirSync(DATA, { recursive: true });
-const accounts = new Accounts(`${DATA}/accounts.json`);
+const accounts = new Accounts(`${DATA}/accounts.json`, { followFrom: ACCOUNTS_FROM });
 const reports = new Reports(`${DATA}/reports.json`);
 /** 運営用の鍵(設定しないと、運営用の API は使えない)。公開側の nginx は /api/admin を通さない */
 const ADMIN_KEY = process.env.ADMIN_KEY ?? '';
@@ -129,6 +139,7 @@ const server = createServer(async (req, res) => {
       const name = String(b.name ?? '');
       const password = String(b.password ?? '');
       if (url === '/api/register') {
+        if (accounts.readOnly) return json(res, 403, { ok: false, reason: '新規登録は本稼働側で行ってください(同じ名前とパスワードで、こちらでも遊べます)' });
         if (INVITE_CODE && !sameCode(String(b.code ?? ''), INVITE_CODE)) return json(res, 403, { ok: false, reason: '招待コードが違います' });
         if (!registrations.tryTake()) return json(res, 429, { ok: false, reason: '新規登録が混み合っています。しばらくしてからもう一度お試しください' });
         const r = await accounts.register(name, password);
@@ -334,6 +345,7 @@ server.on('upgrade', (req, socket, head) => {
 function status() {
   const d = calendarOf(Math.floor((sim.tick + 18000 / 4) / 18000));
   return {
+    env: { name: ENV_NAME, label: ENV_LABEL, version: APP_VERSION, accountsFollowed: accounts.readOnly },
     tick: sim.tick,
     date: `${d.year}/${d.month}/${d.day}`,
     world: { size: SIZE, seed: SEED },
@@ -402,4 +414,6 @@ for (const sig of ['SIGINT', 'SIGTERM'] as const)
       .finally(() => process.exit(0));
   });
 
-server.listen(PORT, () => console.log(`[server] http/ws :${PORT} (同時接続の上限 ${MAX_ONLINE}人)`));
+server.listen(PORT, () =>
+  console.log(`[server] ${ENV_LABEL}(${ENV_NAME}) ${APP_VERSION} http/ws :${PORT} (同時接続の上限 ${MAX_ONLINE}人${accounts.readOnly ? '・アカウントは本稼働側を使用' : ''})`),
+);
