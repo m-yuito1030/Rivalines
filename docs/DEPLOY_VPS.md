@@ -45,6 +45,14 @@
 
 サーバーは終了の合図を受けると世界を保存してから止まる。
 
+## 5b. 次期バージョンのお試し環境
+同じアドレスで、本稼働と次期バージョンの2つの世界に入れる。入口(`http://アドレス/`)でログインして、世界を選ぶ。直接開くなら、本稼働は `/live/`、次期バージョンは `/next/`。
+
+- 次期バージョンは小さな世界(2048×2048)で、データは消えてよい。同時接続は30人まで。メモリは 150MB ほど。
+- アカウントは本稼働のものをそのまま使う(次期バージョンでの登録・BAN・パスワード変更は、本稼働側に効く)。
+- 更新: `git pull` のあと `docker compose -f docker-compose.vps.yml up -d --build`。次期バージョンの世界だけ作り直す(データを消す)なら、`docker compose -f docker-compose.vps.yml stop server-next && docker volume rm rivalines_rivalines-next && docker compose -f docker-compose.vps.yml up -d server-next`(volume 名は `docker volume ls` で確認)。
+- 本稼働と次期バージョンで版を分けたいとき: `scripts/live-checkout.sh v0.2.0` で本稼働のコードを `../rivalines-live` に取り出し、`.env` に `LIVE_SRC=../rivalines-live` と書く。書かなければ、両方とも今のコード(`git pull` した版)になる。詳しくは docs/ENVIRONMENTS.md。
+
 ## 6. バックアップ(毎日)
 
     crontab -e
@@ -59,4 +67,4 @@
 ## メモ
 - 接続元の IP は、手前のプロキシ → nginx → サーバーの順に X-Forwarded-For で渡る(登録・ログインの回数制限に使う)。
 - アクセスログは残さない設定。IP アドレスは保存しない。
-- メモリ: server 2.8GB・web 256MB・caddy 128MB。OS に約 800MB 残る。
+- メモリ: 本稼働 server 2.8GB・次期 server 0.4GB(実際は 150MB ほど)・web 256MB・caddy 128MB。OS に約 500MB 残る。

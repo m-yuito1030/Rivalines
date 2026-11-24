@@ -20,23 +20,29 @@ services:
       - caddy-config:/config
     mem_limit: 128m
     security_opt: [no-new-privileges:true]
+  # 入り口(ゲートウェイ): ポータル(/)・本稼働(/live/)・次期バージョン(/next/)を、1つのポートで配る。
   # 名前は rivalines- 付き(他のサービスと同じネットワークにつないでも、名前がぶつからないように)
   rivalines-web:
-    build: { context: ., target: web }
+    build:
+      context: .
+      target: gateway
+      additional_contexts:
+        live: ${LIVE_SRC:-.} # 本稼働のコード。既定は、この場所(次期と同じ版)。版を分けるときは scripts/live-checkout.sh で用意した場所を指す
     container_name: rivalines-web
     restart: unless-stopped
-    depends_on: [server]
+    depends_on: [server, server-next]
     mem_limit: 256m
     pids_limit: 200
     security_opt: [no-new-privileges:true]
     ports:
       - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8092}:80"
+  # 本稼働の世界(アカウントの持ち主)。サービス名 server は、入り口の設定が参照するので変えない
   server:
-    build: { context: ., target: server }
+    build: { context: "${LIVE_SRC:-.}", target: server }
     container_name: rivalines-server
     restart: unless-stopped
     stop_grace_period: 30s # 終了の合図を受けたら世界を保存してから終わる
-    mem_limit: 2800m # メモリ 4GB のうち、OS と Caddy・nginx の分を残す
+    mem_limit: 2800m # メモリ 4GB のうち、OS と Caddy・nginx・次期バージョンの分を残す
     pids_limit: 200
     security_opt: [no-new-privileges:true]
     environment:
@@ -46,9 +52,35 @@ services:
       REGISTER_PER_HOUR: "${REGISTER_PER_HOUR:-300}"
       INVITE_CODE: "${INVITE_CODE:-}"
       ADMIN_KEY: "${ADMIN_KEY:?.env に ADMIN_KEY=長いランダムな文字列 を書いてください}"
+      ENV_NAME: live
+      ENV_LABEL: 本稼働
+      APP_VERSION: "${LIVE_VERSION:-dev}"
     volumes:
       - rivalines-data:/data
+  # 次期バージョンのお試しの世界(2048×2048 で固定・データは消えてよい)。アカウントは本稼働側を読み取り専用で使う
+  server-next:
+    build: { context: ., target: server }
+    container_name: rivalines-server-next
+    restart: unless-stopped
+    stop_grace_period: 30s
+    mem_limit: 400m # 小さな世界(メモリ 150MB ほど)。同時接続は 30 人まで
+    pids_limit: 200
+    security_opt: [no-new-privileges:true]
+    environment:
+      WORLD_SIZE: "2048"
+      WORLD_PREGEN: "1"
+      SPEED: "${SPEED:-0.5}"
+      MAX_ONLINE: "30"
+      ADMIN_KEY: "${ADMIN_KEY:?.env に ADMIN_KEY=長いランダムな文字列 を書いてください}"
+      ENV_NAME: next
+      ENV_LABEL: 次期バージョン
+      APP_VERSION: "${NEXT_VERSION:-dev}"
+      ACCOUNTS_FROM: /shared
+    volumes:
+      - rivalines-next:/data
+      - rivalines-data:/shared:ro
 volumes:
   rivalines-data:
+  rivalines-next: # 次期バージョンの世界(消えてよい)
   caddy-data:
   caddy-config:

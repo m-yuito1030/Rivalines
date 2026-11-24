@@ -3,7 +3,7 @@
 	encode gzip
 	header Strict-Transport-Security "max-age=31536000"
 	# 画面・API・WebSocket(/ws)をすべて web(nginx)へ渡す。接続元の IP は X-Forwarded-For で伝わる
-	reverse_proxy web:80
+	reverse_proxy rivalines-web:80
 }
 
 www.{$DOMAIN} {
