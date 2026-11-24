@@ -31,6 +31,13 @@
   WebSocket(`/ws`)を通すため、`Upgrade` / `Connection` ヘッダーの転送も入れる。接続元の IP は `X-Forwarded-For` で渡す。
 - 80/443 を使うものが他になければ、Caddy が証明書を自動で取る: `docker compose -f docker-compose.vps.yml --profile https up -d`
 
+### 同じ VPS の別の Caddy に HTTPS を任せる場合
+起動を次のコマンドに替える(`PROXY_NETWORK` は相手のネットワーク名。既定は trailpin_default)。
+
+    docker compose -f docker-compose.vps.yml -f docker-compose.proxy.yml up -d --build
+
+相手の Caddy の sites フォルダに、`deploy/rivalines.caddy.example` を `rivalines.caddy` として置き、`caddy validate` のあとで再読み込みする。
+
 ## 5. 更新
 
     git pull

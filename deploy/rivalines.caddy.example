@@ -1,0 +1,10 @@
+# 既存の Caddy の sites フォルダに rivalines.caddy として置く例(HTTPS の証明書は自動で取れる)
+rivalines.com {
+	encode zstd gzip
+	header Strict-Transport-Security "max-age=31536000"
+	reverse_proxy rivalines-web:80
+}
+
+www.rivalines.com {
+	redir https://rivalines.com{uri} permanent
+}

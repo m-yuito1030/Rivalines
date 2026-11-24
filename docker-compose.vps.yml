@@ -8,7 +8,7 @@ services:
     container_name: rivalines-caddy
     profiles: [https] # 既定では起動しない
     restart: unless-stopped
-    depends_on: [web]
+    depends_on: [rivalines-web]
     ports:
       - "80:80"
       - "443:443"
@@ -20,7 +20,8 @@ services:
       - caddy-config:/config
     mem_limit: 128m
     security_opt: [no-new-privileges:true]
-  web:
+  # 名前は rivalines- 付き(他のサービスと同じネットワークにつないでも、名前がぶつからないように)
+  rivalines-web:
     build: { context: ., target: web }
     container_name: rivalines-web
     restart: unless-stopped
@@ -29,7 +30,7 @@ services:
     pids_limit: 200
     security_opt: [no-new-privileges:true]
     ports:
-      - "${WEB_PORT:-8092}:80"
+      - "${WEB_BIND:-0.0.0.0}:${WEB_PORT:-8092}:80"
   server:
     build: { context: ., target: server }
     container_name: rivalines-server
