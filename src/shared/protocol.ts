@@ -130,6 +130,9 @@ export interface VehMsg {
   cars: number;
   hold: boolean;
   resTo: number;
+  /** 今回の停車で乗った人数・降りた人数 */
+  on: number;
+  off: number;
   /** 経路が変わった(初回含む)ときだけ付く */
   path?: number[];
 }
@@ -159,7 +162,8 @@ export interface PlayerInfo {
 
 export type ServerMsg =
   | { type: 'init'; you: string; id: number; world: { size: number; seed: number }; tick: number; start: Pt | null; version?: string }
-  | { type: 'frame'; tick: number; veh: VehMsg[]; gone: number[]; tiles: TileRec[] }
+  /** earn: 自社の車両が稼いだ額 [車両 id, 円]、facEarn: 自社の施設が稼いだ額 [施設 id, 円](画面に、稼いだものの上へ出す用) */
+  | { type: 'frame'; tick: number; veh: VehMsg[]; gone: number[]; tiles: TileRec[]; earn?: [number, number][]; facEarn?: [number, number][] }
   | { type: 'chunk'; cx: number; cy: number; tiles: number[][]; edits: [number, number][] }
   | { type: 'struct'; nextId: number; routes: unknown[]; stops: unknown[]; depots: unknown[]; signals: [number, number][]; grants?: [number, number[]][] }
   | {

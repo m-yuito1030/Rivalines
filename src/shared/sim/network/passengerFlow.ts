@@ -151,7 +151,8 @@ export class PassengerFlow {
         boarded += take;
       }
       if (boarded > 0) {
-        this.t.onFare?.(v.mode, boarded * FARE[v.mode].base * fareMulOf(route), v.routeId); // 乗車時の基本運賃
+        this.t.onFare?.(v.mode, boarded * FARE[v.mode].base * fareMulOf(route), v.routeId, v.id); // 乗車時の基本運賃
+        v.on = (v.on ?? 0) + boarded;
         stop.traffic = (stop.traffic ?? 0) + boarded;
         v.load += boarded;
         stop.waiting -= boarded;

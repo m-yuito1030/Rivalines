@@ -5,7 +5,8 @@ import { initI18n, locale, onLangChange, tr } from './i18n';
 import { Toast } from './app/toast';
 import { StationPicker } from './app/stationPicker';
 import { BulldozeOptions } from './app/bulldozeOptions';
-import { MoneyFloat } from './app/moneyFloat';
+import { MoneyFloat, type ToScreen } from './app/moneyFloat';
+import { PaxBadges } from './app/paxBadges';
 import { bulldozeTargets } from './app/bulldozeTargets';
 import { confirmDialog } from './ui/confirm';
 import { FacilityPicker } from './app/facilityPicker';
@@ -37,7 +38,7 @@ import { ListPanel } from './ui/listPanel';
 import type { CompanyRow } from '../shared/sim/economy/ranking';
 import { WEATHER_ICON, WEATHER_NAME, eventsToday, isHoliday, weatherOf } from '../shared/sim/world/events';
 import { START_TOD, DAY_TICKS } from '../shared/sim/network/transit';
-import { yen } from '../shared/sim/economy/economy';
+import { CAT_LABEL, yen } from '../shared/sim/economy/economy';
 import { ratingName } from '../shared/sim/economy/rating';
 import { InfoPanel, type Selection, findSelection } from './ui/infoPanel';
 import { findVehicle } from './ui/vehicleSelect';
@@ -146,6 +147,9 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   const toast = new Toast();
   /** 操作をサーバーへ送り、結果のメッセージを表示する */
   const run = async (cmd: Cmd): Promise<CmdResult> => {
+    // 建てたときの費用(赤のマイナス)を、建てた場所の上に出すため、場所を覚えておく
+    if (cmd.t === 'place' || cmd.t === 'ensureStop') moneyFloat.setSpendAt(cmd.x + 0.5, cmd.y + 0.5);
+    else if (cmd.t === 'build') moneyFloat.setSpendAt((cmd.a.x + cmd.b.x) / 2 + 0.5, (cmd.a.y + cmd.b.y) / 2 + 0.5);
     const r = await net.cmd(cmd);
     if (r.msg) tools.onMessage?.(r.msg);
     return r;
@@ -206,7 +210,33 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     if (e.key.toLowerCase() === 'm' && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLSelectElement)) toggleMap();
   });
   const stats = $('stats');
-  const moneyFloat = new MoneyFloat($('cash'), yen);
+  // タイル座標 → 画面の座標(お金の浮かぶ数字・乗降客数の表示を、車両や施設の上に出すため)
+  const toScreen: ToScreen = (tx, ty) => {
+    const w = Camera.tileToWorld(tx, ty);
+    const W = app.canvas.clientWidth;
+    const H = app.canvas.clientHeight;
+    const x = (w.x - camera.x) * camera.zoom + W / 2;
+    const y = (w.y - camera.y) * camera.zoom + H / 2;
+    return x < -80 || y < -80 || x > W + 80 || y > H + 80 ? null : { x, y };
+  };
+  const moneyFloat = new MoneyFloat($('cash'), yen, toScreen);
+  const paxBadges = new PaxBadges(transit, toScreen, () => camera.zoom);
+  // 自社の車両・施設が稼いだお金は、稼いだものの上に緑のプラスで出す
+  mirror.onEarn = (kind, id, amount) => {
+    if (kind === 'veh') {
+      const v = transit.vehicles.find((x) => x.id === id);
+      if (!v) return;
+      moneyFloat.earn(`v:${id}`, amount, tr(CAT_LABEL[`fare-${v.mode}`] ?? '運賃'), () => {
+        const cur = transit.vehicles.find((x) => x.id === id);
+        if (!cur) return null;
+        const p = transit.position(cur);
+        return { x: p.x + 0.5, y: p.y + 0.5 };
+      });
+    } else {
+      const f = map.facilities.find((x) => x.id === id);
+      if (f) moneyFloat.earn(`f:${id}`, amount, tr(CAT_LABEL.facility), () => ({ x: f.x0 + f.w / 2, y: f.y0 + f.h / 2 }));
+    }
+  };
   // 開発用の表示(FPS・描画の状態など)は、ふだんは隠す。Ctrl+Shift+D、または URL に ?debug=1 を付けると出る。
   // スマホ用に、画面上部の時計を 5 回すばやくタップしても切り替わる。選んだ状態は覚えておく
   const DEBUG_KEY = 'rivalines-debug';
@@ -263,7 +293,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
 
   // 路線パネルの開閉(スマホでは下からのシート)
   const routesEl = $('routes');
-  if (!isTouch) routesEl.classList.add('open');
+  // 路線パネルは、最初は閉じておく(「📋 路線」で開く)。パソコンでも、画面を広く使えるように
   $('routesBtn').addEventListener('click', () => (routesWin.isOpen ? routesWin.close() : routesWin.open()));
   const routesWin = {
     get isOpen() {
@@ -573,6 +603,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     const tA = performance.now();
     const tB = performance.now();
     transit.smoothMirror(); // サーバーの10Hzの状態を、60fpsになめらかに補間する
+    paxBadges.update();
+    moneyFloat.tick();
     const view = camera.update(dt);
     chunks.update(view);
     const tC = performance.now();

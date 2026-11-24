@@ -23,6 +23,8 @@ export class Mirror {
   /** 最初の構造・経営データが届いたか */
   ready = { struct: false, misc: false, towns: false };
   onFirst: (() => void) | null = null;
+  /** 自社の車両・施設が稼いだ額が届いたとき(kind: 'veh' = 車両、'fac' = 施設)。画面が、稼いだものの上に出す */
+  onEarn: ((kind: 'veh' | 'fac', id: number, amount: number) => void) | null = null;
 
   constructor(
     private map: GameMap,
@@ -65,6 +67,8 @@ export class Mirror {
         sim.tick = msg.tick;
         for (const r of msg.tiles) this.setTile(r);
         sim.transit.mirrorVehicles(msg.veh as unknown as (Omit<Vehicle, 'path' | 'cargo'> & { path?: number[] })[], msg.gone);
+        for (const [id, amt] of msg.earn ?? []) this.onEarn?.('veh', id, amt);
+        for (const [id, amt] of msg.facEarn ?? []) this.onEarn?.('fac', id, amt);
         break;
       case 'struct':
         sim.transit.mirrorStruct({
