@@ -50,13 +50,13 @@ describe('運営・公式を連想させる名前', () => {
     const acc = new Accounts(join(mkdtempSync(join(tmpdir(), 'rsv-')), 'a.json'));
     const bad = await acc.register('admin', 'secret12');
     expect(bad.ok).toBe(false);
-    expect(bad.ok === false && bad.reason).toMatch(/運営や公式/);
+    expect(bad.ok === false && bad.reason).toBe('その名前は使われています');
     expect((await acc.register('Adm1n', 'secret12')).ok).toBe(false);
     const ok = await acc.register('taro', 'secret12');
     expect(ok.ok).toBe(true);
     const id = acc.byId(1)!.id;
-    expect(acc.setProfile(id, { company: '公式鉄道', bio: '', color: 0 })).toMatch(/運営や公式/);
-    expect(acc.setProfile(id, { company: 'Official Line', bio: '', color: 0 })).toMatch(/運営や公式/);
+    expect(acc.setProfile(id, { company: '公式鉄道', bio: '', color: 0 })).toBe('その名前は使われています');
+    expect(acc.setProfile(id, { company: 'Official Line', bio: '', color: 0 })).toBe('その名前は使われています');
     expect(acc.setProfile(id, { company: '白見急行', bio: '', color: 0 })).toBeNull();
   });
 });
