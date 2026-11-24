@@ -5,6 +5,7 @@ import { removeAirport } from '../../src/shared/world/airports';
 import { DRAG_TOOLS, applyBuild } from '../../src/shared/world/buildApply';
 import { disconnectRail, railLineTiles } from '../../src/shared/world/rails';
 import { disconnect, removeBuilding } from '../../src/shared/world/roads';
+import { FACILITY_TILE, facilityAt } from '../../src/shared/world/facilities';
 import { removeSpansAround } from '../../src/shared/world/spans';
 import { PRICES, yen } from '../economyApi';
 
@@ -73,7 +74,10 @@ export function bulldoze(cmd: Extract<Cmd, { t: 'bulldoze' }>, ctx: CommandConte
         const d = t.depotAtTile(x, y);
         if (d && (!d.owner || d.owner === who)) (t.removeDepot(d.id), count.depot++, (hit = true));
       }
-      if (k.building && map.building.get(i) && removeBuilding(map, x, y)) (count.building++, (hit = true));
+      // 他のプレイヤーの施設は撤去できない(街・自社の施設と、街の建物だけ)
+      const fac = map.building.get(i) === FACILITY_TILE ? facilityAt(map, x, y) : undefined;
+      const others = !!fac && (fac.owner ?? 'player') === 'player' && fac.playerId !== undefined && fac.playerId !== who;
+      if (k.building && map.building.get(i) && !others && removeBuilding(map, x, y)) (count.building++, (hit = true));
       if (k.airport && map.air.get(i)) (removeAirport(map, x, y), count.airport++, (hit = true));
       if (hit) {
         changed.push([x, y]);

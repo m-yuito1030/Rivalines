@@ -5,6 +5,8 @@ import { initI18n, locale, onLangChange, tr } from './i18n';
 import { Toast } from './app/toast';
 import { StationPicker } from './app/stationPicker';
 import { BulldozeOptions } from './app/bulldozeOptions';
+import { bulldozeTargets } from './app/bulldozeTargets';
+import { confirmDialog } from './ui/confirm';
 import { FacilityPicker } from './app/facilityPicker';
 import { Toolbar } from './app/toolbar';
 import { PlayerMenu } from './app/playerMenu';
@@ -164,8 +166,14 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       void run({ t: 'place', tool: tool as PlaceTool, x: tile.x, y: tile.y, ...(FacilityPicker.choosable(tool) ? { fac: { ...facilityPicker.sel } } : {}) });
   });
   tools.remoteBuild = (tool, a, b) => {
-    if ((tool as string) === 'bulldoze') void run({ t: 'bulldoze', a, b, kinds: bulldozeOptions.kinds() });
-    else if ((tool as string) === 'signalline') void run({ t: 'signalLine', a, b, interval: Number($<HTMLInputElement>('optSigInt').value) || 3 });
+    if ((tool as string) === 'bulldoze') {
+      const kinds = bulldozeOptions.kinds();
+      const what = bulldozeTargets(map, transit, a, b, kinds, net.id);
+      const go = () => void run({ t: 'bulldoze', a, b, kinds });
+      // 駅・停留所・車両基地・施設・空港など、お金や路線に関わるものを含むときは、実行する前に確かめる
+      if (what.length === 0) go();
+      else void confirmDialog(tr('次のものを撤去します: {parts}', { parts: what.join(tr('、')) }) + '\n' + tr('元に戻せません。よろしいですか?')).then((ok) => ok && go());
+    } else if ((tool as string) === 'signalline') void run({ t: 'signalLine', a, b, interval: Number($<HTMLInputElement>('optSigInt').value) || 3 });
     else void run({ t: 'build', tool, a, b });
   };
   tools.onMessage = (msg) => toast.show(msg);

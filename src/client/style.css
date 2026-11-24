@@ -379,3 +379,12 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 /* 本稼働以外の世界(次期バージョン)で遊んでいるときの印 */
 #envBadge { position: absolute; left: 8px; bottom: 44px; max-width: 70vw; padding: 4px 10px; border-radius: 6px; background: #b36a00cc; color: #fff; font-size: 12px; font-weight: 600; pointer-events: none; }
 @media (pointer: coarse), (max-width: 820px) { #envBadge { bottom: auto; top: calc(6px + env(safe-area-inset-top)); left: calc(6px + env(safe-area-inset-left)); font-size: 10px; max-width: 48vw; } }
+
+/* 撤去などの確認ウィンドウ */
+.confirm-modal { position: fixed; inset: 0; background: #000a; display: grid; place-items: center; z-index: 40; padding: 12px; }
+.confirm-modal .box { width: 420px; max-width: 94vw; background: #15283f; border: 1px solid #456; border-radius: 12px; padding: 18px; display: grid; gap: 14px; font-size: 14px; line-height: 1.6; }
+.confirm-modal p { margin: 0; white-space: pre-wrap; }
+.confirm-modal .row { display: flex; gap: 10px; justify-content: flex-end; }
+.confirm-modal button { background: #26384f; color: #eee; border: 1px solid #456; border-radius: 8px; padding: 8px 16px; cursor: pointer; font-size: 14px; min-height: 40px; }
+.confirm-modal button.danger { background: #7a2630; border-color: #b04050; }
+.confirm-modal button:focus-visible { outline: 2px solid #8cf; outline-offset: 2px; }
