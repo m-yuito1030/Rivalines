@@ -1,3 +1,4 @@
+import { tr } from '../i18n';
 import type { ClientMsg, Cmd, CmdResult, ServerMsg } from '../../shared/protocol';
 
 const SESSION = 'simulator-multi-session';
@@ -60,20 +61,20 @@ export class Net {
         this.onMessage(m);
       };
       ws.onerror = () => {
-        if (!inited) reject(new Error('サーバーに接続できません'));
+        if (!inited) reject(new Error(tr('サーバーに接続できません')));
       };
       ws.onclose = (e) => {
-        for (const f of this.pending.values()) f({ ok: false, msg: '接続が切れました' });
+        for (const f of this.pending.values()) f({ ok: false, msg: tr('接続が切れました') });
         this.pending.clear();
         if (!inited) {
           // セッションは消さない(サーバーが一時的に落ちているだけかもしれない)。無効かどうかは呼び出し側が判断する
           reject(
             new Error(
               e.code === 4003
-                ? '満員です(同時に遊べる人数の上限に達しています)。しばらくしてからもう一度お試しください'
+                ? tr('満員です(同時に遊べる人数の上限に達しています)。しばらくしてからもう一度お試しください')
                 : e.code === 1006
-                  ? 'ログインの有効期限が切れたか、サーバーに接続できません'
-                  : '接続が切れました',
+                  ? tr('ログインの有効期限が切れたか、サーバーに接続できません')
+                  : tr('接続が切れました'),
             ),
           );
         } else this.onClose(e.code);
@@ -88,12 +89,12 @@ export class Net {
   /** 操作をサーバーへ送り、結果を待つ */
   cmd(cmd: Cmd): Promise<CmdResult> {
     return new Promise((resolve) => {
-      if (this.ws?.readyState !== 1) return resolve({ ok: false, msg: '接続が切れています' });
+      if (this.ws?.readyState !== 1) return resolve({ ok: false, msg: tr('接続が切れています') });
       const req = ++this.req;
       this.pending.set(req, resolve);
       this.send({ type: 'cmd', req, cmd });
       setTimeout(() => {
-        if (this.pending.delete(req)) resolve({ ok: false, msg: 'サーバーの応答がありません' });
+        if (this.pending.delete(req)) resolve({ ok: false, msg: tr('サーバーの応答がありません') });
       }, 15000);
     });
   }
@@ -101,12 +102,12 @@ export class Net {
   /** 会社名・プロフィール・色を保存する */
   profile(company: string, bio: string, color: number): Promise<CmdResult> {
     return new Promise((resolve) => {
-      if (this.ws?.readyState !== 1) return resolve({ ok: false, msg: '接続が切れています' });
+      if (this.ws?.readyState !== 1) return resolve({ ok: false, msg: tr('接続が切れています') });
       const req = ++this.req;
       this.pending.set(req, resolve);
       this.send({ type: 'profile', req, company, bio, color });
       setTimeout(() => {
-        if (this.pending.delete(req)) resolve({ ok: false, msg: 'サーバーの応答がありません' });
+        if (this.pending.delete(req)) resolve({ ok: false, msg: tr('サーバーの応答がありません') });
       }, 15000);
     });
   }
@@ -114,12 +115,12 @@ export class Net {
   /** 他のプレイヤーを運営に通報する */
   report(target: number, reason: string): Promise<CmdResult> {
     return new Promise((resolve) => {
-      if (this.ws?.readyState !== 1) return resolve({ ok: false, msg: '接続が切れています' });
+      if (this.ws?.readyState !== 1) return resolve({ ok: false, msg: tr('接続が切れています') });
       const req = ++this.req;
       this.pending.set(req, resolve);
       this.send({ type: 'report', req, target, reason });
       setTimeout(() => {
-        if (this.pending.delete(req)) resolve({ ok: false, msg: 'サーバーの応答がありません' });
+        if (this.pending.delete(req)) resolve({ ok: false, msg: tr('サーバーの応答がありません') });
       }, 15000);
     });
   }

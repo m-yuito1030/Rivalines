@@ -4,6 +4,7 @@ import type { GameMap } from '../../shared/world/gameMap';
 import { net } from '../connection/net';
 import { Mirror } from '../connection/mirror';
 import { $, sleep } from './dom';
+import { tr } from '../i18n';
 
 /** 世界に入ったあとの処理(ゲーム画面の起動)。main から渡す */
 export type StartGame = (map: GameMap, sim: Simulation, mirror: Mirror, startAt: { x: number; y: number }, cam?: { x: number; y: number; zoom: number }) => Promise<void>;
@@ -27,7 +28,7 @@ export function initAuth(startGame: StartGame): void {
 
   /** ログイン後、世界に入る */
   async function enterWorld(token: string): Promise<void> {
-    note.textContent = 'サーバーに接続中...';
+    note.textContent = tr('サーバーに接続中...');
     const init = await net.connect(token);
     const map = makeWorldMap(init.world.size, init.world.seed);
     const sim = new Simulation(map, emptyState(), { multi: true });
@@ -36,7 +37,7 @@ export function initAuth(startGame: StartGame): void {
     const start = init.start ?? { x: map.size / 2, y: map.size / 2 };
     const R = 48;
     net.sendView(start.x - R, start.y - R, start.x + R, start.y + R);
-    note.textContent = '世界を受信中...';
+    note.textContent = tr('世界を受信中...');
     await new Promise<void>((res) => {
       mirror.onFirst = res;
       setTimeout(res, 8000);
@@ -65,7 +66,7 @@ export function initAuth(startGame: StartGame): void {
     try {
       const r = await net.auth(kind, $<HTMLInputElement>('uname').value, $<HTMLInputElement>('upw').value, $<HTMLInputElement>('ucode').value.trim());
       if (!r.ok) {
-        errEl.textContent = r.reason ?? '失敗しました';
+        errEl.textContent = r.reason ?? tr('失敗しました');
         return authBusy(false);
       }
       await enterWorld(r.token!);
@@ -84,10 +85,15 @@ export function initAuth(startGame: StartGame): void {
   void fetch('/api/status')
     .then((r) => r.json())
     .then((s: { world: { size: number }; accounts: number; maxOnline: number; online: number; invite?: boolean }) => {
-      note.textContent = `サーバー稼働中: ${s.world.size}² / 登録${s.accounts}人 / オンライン${s.online}/${s.maxOnline}人`;
+      note.textContent = tr('サーバー稼働中: {size}² / 登録{accounts}人 / オンライン{online}/{max}人', {
+        size: s.world.size,
+        accounts: s.accounts,
+        online: s.online,
+        max: s.maxOnline,
+      });
       $('codeRow').hidden = !s.invite; // 招待コードが必要なサーバーだけ、入力欄を出す
     })
-    .catch(() => (note.textContent = 'サーバーに接続できません'));
+    .catch(() => (note.textContent = tr('サーバーに接続できません')));
   const serverUp = () =>
     fetch('/api/status')
       .then((r) => r.ok)
@@ -104,11 +110,11 @@ export function initAuth(startGame: StartGame): void {
           note.textContent = '';
           return;
         }
-        note.textContent = 'サーバーに再接続しています…';
+        note.textContent = tr('サーバーに再接続しています…');
         await sleep(2000);
       }
     }
-    note.textContent = 'サーバーに接続できません。しばらくしてから再読み込みしてください';
+    note.textContent = tr('サーバーに接続できません。しばらくしてから再読み込みしてください');
   }
   {
     const saved = net.saved();
@@ -116,12 +122,12 @@ export function initAuth(startGame: StartGame): void {
   }
   net.onClose = (code) => {
     if (code === 4000) {
-      alert('別の場所でログインされたため切断されました');
+      alert(tr('別の場所でログインされたため切断されました'));
       location.reload();
       return;
     }
     if (code === 4001 || code === 4005) {
-      alert(code === 4005 ? '利用停止または退会により、切断されました' : '運営により切断されました(パスワードの変更を含む)。もう一度ログインしてください');
+      alert(tr(code === 4005 ? '利用停止または退会により、切断されました' : '運営により切断されました(パスワードの変更を含む)。もう一度ログインしてください'));
       net.logout();
       location.reload();
       return;
@@ -129,7 +135,7 @@ export function initAuth(startGame: StartGame): void {
     // 回線の切り替え・スマホのバックグラウンド・サーバーの再起動などで切れたとき: 戻るまで待って自動で入り直す(ログインは保存済みなのでそのまま再開)
     const bar = document.createElement('div');
     bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:100;background:#b3261e;color:#fff;padding:10px;text-align:center;font-size:14px';
-    bar.textContent = '接続が切れました。再接続しています…';
+    bar.textContent = tr('接続が切れました。再接続しています…');
     document.body.appendChild(bar);
     void (async () => {
       while (!(await serverUp())) await sleep(2000);

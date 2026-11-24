@@ -25,7 +25,7 @@ describe('全画面ウィンドウのスマホ用スタイル', () => {
 
   it('メニュー(#menu)は、パソコンでも画面に収まり(縦にスクロール)、タイトル行に ✕ がある', () => {
     expect(css).toMatch(/^#menu \.box \{[^}]*max-height: 92vh; overflow: auto/m);
-    expect(readFileSync('index.html', 'utf8')).toMatch(/<h2>プレイヤー <button[^>]*id="menuX"/);
+    expect(readFileSync('index.html', 'utf8')).toMatch(/<h2><span[^>]*>プレイヤー<\/span> <button[^>]*id="menuX"/);
   });
 
   it('ツールの設定ウィンドウ(駅・施設・撤去・信号)にも、閉じるボタン(✕)がある', () => {
