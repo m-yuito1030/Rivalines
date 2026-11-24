@@ -28,6 +28,7 @@ services:
     security_opt: [no-new-privileges:true]
     environment:
       WORLD_SIZE: "65535"
+      SPEED: "${SPEED:-0.5}" # ゲームの進む速さ。1 で実時間30分=ゲーム内1日、0.5 で60分=1日
       MAX_ONLINE: "100" # 同時に接続できる人数(登録できる人数に上限はない)
       REGISTER_PER_HOUR: "300" # サーバー全体で、1時間に新規登録できる人数(ボット対策)
       # 招待コード: 設定すると、新規登録にこのコードが必要になる(公開するときは必ず設定する。.env に INVITE_CODE=... と書く)
