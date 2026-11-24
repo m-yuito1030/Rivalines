@@ -502,4 +502,16 @@ export const EN_PANELS: Catalog = {
   'ja:従業員の研修費': 'Staff training',
   'ja:名前を変えられます': 'You can rename it',
   'ja:閉じる': 'Close',
+  'ja:撤去する': 'Remove',
+  'ja:キャンセル': 'Cancel',
+  'ja:売却する': 'Sell',
+  'ja:「{name}」を売却します(評価額の60%で、他の持ち主の物件になります)。よろしいですか?':
+    'Sell "{name}"? You get 60% of its appraised value and it becomes available to other owners.',
+  'ja:車両基地「{name}」を撤去します。元に戻せません。よろしいですか?': 'Remove depot "{name}"? This cannot be undone.',
+  'ja:この路線の車両(#{id})を1台撤去します。よろしいですか?': 'Remove one vehicle (#{id}) from this route?',
+  'ja:路線「{name}」を削除します。元に戻せません。よろしいですか?': 'Delete route "{name}"? This cannot be undone.',
+  'ja:この路線の車両 {n} 台も撤去されます。': 'Its {n} vehicles will also be removed.',
+  'ja:次のものを撤去します: {parts}': 'Remove the following: {parts}',
+  'ja:元に戻せません。よろしいですか?': 'This cannot be undone. Continue?',
+  'ja:、': ', ',
 };

@@ -1,4 +1,5 @@
 import { tr } from '../i18n';
+import { confirmDialog } from './confirm';
 import { net } from '../connection/net';
 import { GRADE_MAX, fairPrice, freshness, gradeCapMul, gradeOf, gradeSpendMul, gradeUpkeepMul, renovateCost, repMul, repOf, upgradeCost } from '../../shared/world/facilityQuality';
 import { PRICE_LEVELS, bestLevel, demandMul, elasticity, priceLevel, revenueIndex } from '../../shared/sim/facility/pricing';
@@ -247,15 +248,26 @@ export class InfoPanel {
     else if (act === 'renovate') say(net.cmd({ t: 'facRenovate', facilityId: Number(b.dataset.id) }));
     else if (act === 'redesign') say(net.cmd({ t: 'facRedesign', facilityId: Number(b.dataset.id), design: Number(b.dataset.design) }));
     else if (act === 'price') say(net.cmd({ t: 'facPrice', facilityId: Number(b.dataset.id), level: Number(b.dataset.level) }));
-    else if (act === 'buyfac' || act === 'sellfac') say(net.cmd({ t: 'fin', op: act === 'buyfac' ? 'acquire' : 'sell', id: Number(b.dataset.id) }));
-    else if (act === 'buy' && this.sel?.kind === 'depot') {
+    else if (act === 'buyfac') say(net.cmd({ t: 'fin', op: 'acquire', id: Number(b.dataset.id) }));
+    else if (act === 'sellfac') {
+      const f = this.map.facilities.find((x) => x.id === Number(b.dataset.id));
+      const id = Number(b.dataset.id);
+      void confirmDialog(tr('「{name}」を売却します(評価額の60%で、他の持ち主の物件になります)。よろしいですか?', { name: f?.name ?? '' }), tr('売却する')).then((ok) => {
+        if (ok) say(net.cmd({ t: 'fin', op: 'sell', id }));
+      });
+    } else if (act === 'buy' && this.sel?.kind === 'depot') {
       const d = this.transit.depots.get(this.sel.id);
       const st = d && this.buyState(d.kind);
       if (!d || !st) return;
       say(net.cmd({ t: 'buyVehicle', depotId: d.id, routeId: st.routeId, modelId: st.modelId, cars: st.cars }));
     } else if (act === 'rmdepot' && this.sel?.kind === 'depot') {
-      void net.cmd({ t: 'tx', m: 'removeDepot', a: [this.sel.id] }).then((r) => !r.ok && r.msg && this.onMessage(r.msg));
-      this.close();
+      const sel = this.sel;
+      const d = this.transit.depots.get(sel.id);
+      void confirmDialog(tr('車両基地「{name}」を撤去します。元に戻せません。よろしいですか?', { name: d?.name ?? '' })).then((ok) => {
+        if (!ok) return;
+        void net.cmd({ t: 'tx', m: 'removeDepot', a: [sel.id] }).then((r) => !r.ok && r.msg && this.onMessage(r.msg));
+        this.close();
+      });
       return;
     } else if (act === 'split') say(net.cmd({ t: 'tx', m: 'splitTrain', a: [vid, this.splitCount.get(vid) ?? 1] }), tr('編成 #{vid} を分割しました(待機中)', { vid }));
     else if (act === 'depart') say(net.cmd({ t: 'tx', m: 'departHeld', a: [vid] }), tr('編成 #{vid} を出発させます', { vid }));

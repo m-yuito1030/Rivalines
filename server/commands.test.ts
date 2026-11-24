@@ -934,6 +934,18 @@ describe('他社の停留所の使用許可', () => {
     expect(execute(sim, 2, { t: 'routeCreate', stops: [a, b] }).ok).toBe(false);
   });
 
+  it('撤去ツールで、他のプレイヤーの施設は撤去されない(自社の施設は撤去できる)', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    sim.playerCompany(1);
+    sim.playerCompany(2);
+    expect(execute(sim, 1, { t: 'place', tool: 'cinema', x: 40, y: 40, fac: { design: 0, size: 'S' } }).ok).toBe(true);
+    const kinds = { road: false, rail: false, signal: false, stop: false, depot: false, waypoint: false, span: false, building: true, airport: false };
+    execute(sim, 2, { t: 'bulldoze', a: { x: 38, y: 38 }, b: { x: 43, y: 43 }, kinds });
+    expect(sim.map.facilities.some((f) => f.type === 'cinema')).toBe(true); // 他社の撤去では残る
+    execute(sim, 1, { t: 'bulldoze', a: { x: 38, y: 38 }, b: { x: 43, y: 43 }, kinds });
+    expect(sim.map.facilities.some((f) => f.type === 'cinema')).toBe(false); // 自社なら撤去できる
+  });
   it('施設の名前を変えられる(自社の施設だけ)。空・紛らわしい名前・他社の施設は不可。変えたら施設の一覧が送り直される', () => {
     const sim = world();
     sim.setOnline([1, 2]);

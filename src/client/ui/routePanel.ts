@@ -1,4 +1,5 @@
 import { tr } from '../i18n';
+import { confirmDialog } from './confirm';
 import { type Mode, clampCars, kindsFor, modelOf, modelsFor } from '../../shared/data/models';
 import type { Order, Route, Transit } from '../../shared/sim/network/transit';
 import { FARE_MUL_MAX, FARE_MUL_MIN, fareDemand, fareMulOf } from '../../shared/sim/network/fares';
@@ -331,10 +332,15 @@ export class RoutePanel {
       void this.send({ t: 'buyVehicle', routeId: rid, modelId: route.modelId, cars: route.cars ?? m.defaultCars });
     } else if (act === 'delveh') {
       const last = [...this.transit.vehicles].reverse().find((v) => v.routeId === rid);
-      if (last) tx('removeVehicle', [last.id]);
+      if (last) void confirmDialog(tr('この路線の車両(#{id})を1台撤去します。よろしいですか?', { id: last.id })).then((ok) => ok && tx('removeVehicle', [last.id]));
     } else if (act === 'replace') void this.send({ t: 'routeReplace', routeId: rid });
-    else if (act === 'delroute') tx('removeRoute', [rid]);
-    else if (act === 'omove') tx('moveOrder', [rid, Number(b.dataset.o), Number(b.dataset.d)]);
+    else if (act === 'delroute') {
+      const r = this.transit.routes.get(rid);
+      const n = this.transit.vehicles.filter((v) => v.routeId === rid).length;
+      void confirmDialog(
+        tr('路線「{name}」を削除します。元に戻せません。よろしいですか?', { name: r?.name ?? '' }) + (n ? '\n' + tr('この路線の車両 {n} 台も撤去されます。', { n }) : ''),
+      ).then((ok) => ok && tx('removeRoute', [rid]));
+    } else if (act === 'omove') tx('moveOrder', [rid, Number(b.dataset.o), Number(b.dataset.d)]);
     else if (act === 'odel') tx('removeOrder', [rid, Number(b.dataset.o)]);
     else if (act === 'oins') this.startInsert(rid, Number(b.dataset.o));
     else if (act === 'share') tx('shareRoute', [rid]);
