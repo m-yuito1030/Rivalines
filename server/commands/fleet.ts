@@ -3,6 +3,7 @@ import type { CommandContext } from './context';
 import { MINT, clampName, fail } from './util';
 import { clampCars, modelOf } from '../../src/shared/data/models';
 import { vehiclePrice, yen } from '../economyApi';
+import { isReservedName } from '../reservedNames';
 
 /** rename */
 export function rename(cmd: Extract<Cmd, { t: 'rename' }>, ctx: CommandContext): CmdResult {
@@ -10,6 +11,16 @@ export function rename(cmd: Extract<Cmd, { t: 'rename' }>, ctx: CommandContext):
   const { t, who } = ctx;
   const name = clampName(cmd.name);
   if (!name) return fail(tr('名前を入力してください'));
+  if (cmd.kind === 'facility') {
+    // 施設: 自社の施設だけ。運営や公式と紛らわしい名前は使えない
+    const f = ctx.map.facilities.find((x) => x.id === cmd.id);
+    if (!f) return fail(tr('見つかりません'));
+    if ((f.owner ?? 'player') !== 'player' || f.playerId !== who) return fail(tr('自社の施設ではありません'));
+    if (isReservedName(name)) return fail(tr('運営や公式と紛らわしい名前は使えません'));
+    f.name = name;
+    ctx.map.facilityVer++; // 施設の一覧を、接続中の全員に送り直す
+    return { ok: true };
+  }
   const e = cmd.kind === 'stop' ? t.stops.get(cmd.id) : t.depots.get(cmd.id);
   if (!e) return fail(tr('見つかりません'));
   if (e.owner && e.owner !== who) return fail(tr('他社のものは名前を変えられません'));

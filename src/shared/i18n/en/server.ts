@@ -170,4 +170,5 @@ export const EN_SERVER: Catalog = {
   'ja:名前は2〜16文字(文字・数字・_-)です': 'Names must be 2–16 characters (letters, digits, _ and -).',
   'ja:パスワードは6文字以上です': 'Passwords must be at least 6 characters.',
   'ja:その名前は使われています': 'That name is already taken.',
+  'ja:運営や公式と紛らわしい名前は使えません': 'Names that look like staff or official accounts are not allowed.',
 };

@@ -934,6 +934,26 @@ describe('他社の停留所の使用許可', () => {
     expect(execute(sim, 2, { t: 'routeCreate', stops: [a, b] }).ok).toBe(false);
   });
 
+  it('施設の名前を変えられる(自社の施設だけ)。空・紛らわしい名前・他社の施設は不可。変えたら施設の一覧が送り直される', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    sim.playerCompany(1);
+    sim.playerCompany(2);
+    expect(execute(sim, 1, { t: 'place', tool: 'cinema', x: 40, y: 40, fac: { design: 0, size: 'S' } }).ok).toBe(true);
+    const f = sim.map.facilities.find((x) => x.type === 'cinema')!;
+    const ver = sim.map.facilityVer;
+    expect(execute(sim, 1, { t: 'rename', kind: 'facility', id: f.id, name: '  みなと映画館  ' }).ok).toBe(true);
+    expect(f.name).toBe('みなと映画館');
+    expect(sim.map.facilityVer).toBe(ver + 1);
+    expect(execute(sim, 1, { t: 'rename', kind: 'facility', id: f.id, name: '   ' }).ok).toBe(false);
+    expect(execute(sim, 1, { t: 'rename', kind: 'facility', id: f.id, name: '公式シネマ' }).ok).toBe(false);
+    expect(execute(sim, 1, { t: 'rename', kind: 'facility', id: f.id, name: 'Official Cinema' }).ok).toBe(false);
+    expect(execute(sim, 2, { t: 'rename', kind: 'facility', id: f.id, name: 'のっとり' }).ok).toBe(false); // 他社
+    expect(execute(sim, 1, { t: 'rename', kind: 'facility', id: 9999, name: 'x' }).ok).toBe(false);
+    expect(f.name).toBe('みなと映画館');
+    expect(execute(sim, 1, { t: 'rename', kind: 'facility', id: f.id, name: 'あ'.repeat(40) }).ok).toBe(true);
+    expect([...f.name].length).toBe(24); // 長い名前は24文字まで
+  });
   it('新しい施設: デザインと大きさを選んで建てられる。立地の条件を満たさないと建てられない', () => {
     const sim = world();
     sim.setOnline([1]);

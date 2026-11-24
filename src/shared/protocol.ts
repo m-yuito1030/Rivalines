@@ -53,7 +53,7 @@ export type Cmd =
   | { t: 'tx'; m: TxMethod; a: number[] }
   | { t: 'routeSet'; routeId: number; patch: { name?: string; modelId?: string; cars?: number; period?: number; fareMul?: number } }
   | { t: 'orderSet'; routeId: number; index: number; patch: Record<string, unknown> }
-  | { t: 'rename'; kind: 'stop' | 'depot'; id: number; name: string }
+  | { t: 'rename'; kind: 'stop' | 'depot' | 'facility'; id: number; name: string }
   | { t: 'buyVehicle'; depotId?: number; routeId: number; modelId: string; cars: number }
   | { t: 'gift'; to: number; amount: number }
   /** 停留所の使用許可: 駅ごと(stopAllow)/会社単位(companyAllow)。持ち主だけが設定できる */
