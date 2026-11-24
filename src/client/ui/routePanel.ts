@@ -62,6 +62,8 @@ export class RoutePanel {
   private openRoute = -1;
   private seen = -1;
   private seenBuild = '';
+  /** 閉じるボタンを押したとき(main が、パネルを閉じる処理を入れる) */
+  onClose: () => void = () => {};
 
   constructor(
     private el: HTMLElement,
@@ -148,7 +150,7 @@ export class RoutePanel {
     let html = `<div class="ph">${tr('路線')} <span>
       <button data-act="build" data-kind="road" title="${tr('バス路線を作成')}">${tr('＋🚌')}</button>
       <button data-act="build" data-kind="rail" title="${tr('鉄道路線を作成')}">${tr('＋🚆')}</button>
-      <button data-act="build" data-kind="air" title="${tr('航空路線を作成')}">${tr('＋✈')}</button></span></div>`;
+      <button data-act="build" data-kind="air" title="${tr('航空路線を作成')}">${tr('＋✈')}</button> <button data-act="close" title="${tr('閉じる')}">✕</button></span></div>`;
     if (this.building) {
       const b = this.building;
       html += `<div class="build">${tr('{kind} {kind2}路線: {kind3}', { kind: MODE_ICON[b.kind], kind2: MODE_LABEL[b.kind], kind3: KIND_HINT[b.kind] })}<ol>${b.stops.map((id) => `<li>${this.stopName(id)}</li>`).join('')}</ol>
@@ -306,6 +308,7 @@ export class RoutePanel {
     const b = (e.target as HTMLElement).closest('button');
     if (!b) return;
     const act = b.dataset.act;
+    if (act === 'close') return this.onClose();
     const rid = Number(b.dataset.r);
     const tx = (m: 'removeRoute' | 'moveOrder' | 'removeOrder' | 'shareRoute' | 'unshareRoute' | 'autoTimetable' | 'removeVehicle', a: number[]) =>
       void this.send({ t: 'tx', m, a });

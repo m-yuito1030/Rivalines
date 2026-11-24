@@ -262,6 +262,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     open: () => routesEl.classList.add('open'),
     close: () => routesEl.classList.remove('open'),
   };
+  panel.onClose = () => routesWin.close();
 
   const toolbar = new Toolbar();
   // 言語が変わったら、ドロップダウンのボタンの名前も付け直す
