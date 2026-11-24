@@ -197,6 +197,40 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     if (e.key.toLowerCase() === 'm' && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLSelectElement)) toggleMap();
   });
   const stats = $('stats');
+  // 開発用の表示(FPS・描画の状態など)は、ふだんは隠す。Ctrl+Shift+D、または URL に ?debug=1 を付けると出る。
+  // スマホ用に、画面上部の時計を 5 回すばやくタップしても切り替わる。選んだ状態は覚えておく
+  const DEBUG_KEY = 'rivalines-debug';
+  const setDebug = (on: boolean) => {
+    document.body.classList.toggle('debug', on);
+    try {
+      localStorage.setItem(DEBUG_KEY, on ? '1' : '0');
+    } catch {
+      /* 保存できなくても動く */
+    }
+  };
+  const qDebug = new URLSearchParams(location.search).get('debug');
+  let saved: string | null = null;
+  try {
+    saved = localStorage.getItem(DEBUG_KEY);
+  } catch {
+    /* 読めなくても動く */
+  }
+  setDebug(qDebug !== null ? qDebug !== '0' : saved === '1');
+  window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
+      e.preventDefault();
+      setDebug(!document.body.classList.contains('debug'));
+    }
+  });
+  let clockTaps: number[] = [];
+  $('clock').addEventListener('click', () => {
+    const now = performance.now();
+    clockTaps = [...clockTaps.filter((t) => now - t < 2000), now];
+    if (clockTaps.length >= 5) {
+      clockTaps = [];
+      setDebug(!document.body.classList.contains('debug'));
+    }
+  });
   let mmVersion = 0;
   let mmTime = 0;
   const clock = $('clock');
@@ -722,6 +756,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
         (town ? `  [${town.name}]` : '') +
         (stop ? tr('  🚏{name} 待ち{waiting} 圏人口{pop}', { name: stop.name, waiting: Math.floor(stop.waiting), pop: stop.pop }) : '');
     }
+    if (!document.body.classList.contains('debug')) return;
     const pop = map.towns.reduce((s, t) => s + t.pop, 0);
     stats.textContent =
       tr('FPS {fps}  zoom {zoom}  LOD {lod}  sim {sim}ms 描画準備 {chunk}ms 車両 {layer}ms', {
