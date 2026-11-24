@@ -69,6 +69,12 @@ async function loadWorld(): Promise<Simulation> {
 }
 
 const sim = await loadWorld();
+// 小さな世界(次期バージョンなど)は、起動のときに、すべての区画の街を作っておく(遊びながら生まれるのを待たない)
+if (process.env.WORLD_PREGEN === '1') {
+  const t0 = performance.now();
+  sim.discoverNear(SIZE / 2, SIZE / 2, Math.ceil(SIZE / 1024));
+  console.log(`[world] 全区画の街を生成 ${sim.map.towns.length}か所 ${(performance.now() - t0).toFixed(0)}ms`);
+}
 // ゲームの進む速さ(1 = 実時間30分でゲーム内1日)。既定は 0.5(実時間60分で1日)。環境変数 SPEED で変えられる
 sim.speed = Number(process.env.SPEED ?? 0.5);
 

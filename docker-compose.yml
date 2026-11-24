@@ -48,7 +48,8 @@ services:
     pids_limit: 200
     security_opt: [no-new-privileges:true]
     environment:
-      WORLD_SIZE: "65535"
+      WORLD_SIZE: "2048" # 次期バージョンは小さな世界で固定(データは消えてよい)
+      WORLD_PREGEN: "1" # 起動のとき、すべての区画の街を作る
       MAX_ONLINE: "30" # テスト用の世界なので、同時接続は少なめ
       ADMIN_KEY: "${ADMIN_KEY:-}"
       ENV_NAME: next
