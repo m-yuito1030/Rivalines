@@ -158,7 +158,7 @@ export interface PlayerInfo {
 }
 
 export type ServerMsg =
-  | { type: 'init'; you: string; id: number; world: { size: number; seed: number }; tick: number; start: Pt | null }
+  | { type: 'init'; you: string; id: number; world: { size: number; seed: number }; tick: number; start: Pt | null; version?: string }
   | { type: 'frame'; tick: number; veh: VehMsg[]; gone: number[]; tiles: TileRec[] }
   | { type: 'chunk'; cx: number; cy: number; tiles: number[][]; edits: [number, number][] }
   | { type: 'struct'; nextId: number; routes: unknown[]; stops: unknown[]; depots: unknown[]; signals: [number, number][]; grants?: [number, number[]][] }

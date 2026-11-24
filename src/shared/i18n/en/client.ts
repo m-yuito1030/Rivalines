@@ -68,4 +68,6 @@ export const EN_CLIENT: Catalog = {
   'ja:{icon} {name}を建てる': '{icon} Build: {name}',
   'ja:{name} {w}×{h} タイル・建設費 {cost}円 ・ クリックした位置が中心': '{name} · {w}×{h} tiles · cost ¥{cost} · The clicked tile is the center.',
   'ja:{label}(テスト・データは消えることがあります)': '{label} (test; data may be erased)',
+  'ja:新しい版({version})が出ました。画面を再読み込みしてください。': 'A new version ({version}) is out. Please reload the page.',
+  'ja:再読み込み': 'Reload',
 };
