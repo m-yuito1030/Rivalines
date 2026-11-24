@@ -201,4 +201,6 @@ export const JA_UI: Catalog = {
   'ui.dd.terrain': '⛰ 地形 ▾',
   'ui.dd.facility': '🏟 施設 ▾',
   'ui.dd.menu': '☰ メニュー ▾',
+  'ui.switchWorld': '🌐 世界を選ぶ',
+  'ui.switchWorld.title': '本稼働と次期バージョンを選び直します',
 };

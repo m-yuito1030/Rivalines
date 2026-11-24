@@ -1,7 +1,7 @@
 import { Simulation, type SimState } from '../../shared/sim/simulation';
 import { makeWorldMap } from '../../shared/world/bigTerrain';
 import type { GameMap } from '../../shared/world/gameMap';
-import { net } from '../connection/net';
+import { BASE, net } from '../connection/net';
 import { Mirror } from '../connection/mirror';
 import { $, sleep } from './dom';
 import { tr } from '../i18n';
@@ -82,7 +82,7 @@ export function initAuth(startGame: StartGame): void {
     void doAuth('login');
   });
   $('register').addEventListener('click', () => void doAuth('register'));
-  void fetch('/api/status')
+  void fetch(`${BASE}api/status`)
     .then((r) => r.json())
     .then((s: { world: { size: number }; accounts: number; maxOnline: number; online: number; invite?: boolean }) => {
       note.textContent = tr('サーバー稼働中: {size}² / 登録{accounts}人 / オンライン{online}/{max}人', {
@@ -95,7 +95,7 @@ export function initAuth(startGame: StartGame): void {
     })
     .catch(() => (note.textContent = tr('サーバーに接続できません')));
   const serverUp = () =>
-    fetch('/api/status')
+    fetch(`${BASE}api/status`)
       .then((r) => r.ok)
       .catch(() => false);
   /** 保存済みのログインで入り直す。サーバーが落ちている間は待って再試行し、トークンが無効なときだけログイン画面に戻す */
