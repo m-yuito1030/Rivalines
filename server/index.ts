@@ -67,7 +67,8 @@ async function loadWorld(): Promise<Simulation> {
 }
 
 const sim = await loadWorld();
-sim.speed = Number(process.env.SPEED ?? 1);
+// ゲームの進む速さ(1 = 実時間30分でゲーム内1日)。既定は 0.5(実時間60分で1日)。環境変数 SPEED で変えられる
+sim.speed = Number(process.env.SPEED ?? 0.5);
 
 async function saveWorld(): Promise<void> {
   const bytes = await encodeSave(sim.map, sim.state());

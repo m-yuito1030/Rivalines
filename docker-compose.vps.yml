@@ -41,6 +41,7 @@ services:
     security_opt: [no-new-privileges:true]
     environment:
       WORLD_SIZE: "65535"
+      SPEED: "${SPEED:-0.5}" # ゲームの進む速さ。1 で実時間30分=ゲーム内1日、0.5 で60分=1日
       MAX_ONLINE: "${MAX_ONLINE:-100}"
       REGISTER_PER_HOUR: "${REGISTER_PER_HOUR:-300}"
       INVITE_CODE: "${INVITE_CODE:-}"
