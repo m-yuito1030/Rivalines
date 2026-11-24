@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { isReservedName } from './reservedNames';
 
 export interface Account {
   id: number;
@@ -166,6 +167,7 @@ export class Accounts {
     const company = clean(p.company, 20);
     const bio = clean(p.bio, 120);
     if (company === null) return '会社名は20文字までです';
+    if (company && isReservedName(company)) return '運営や公式と紛らわしい名前は使えません';
     if (bio === null) return 'プロフィールは120文字までです';
     if (!Number.isInteger(p.color) || (p.color as number) < 0 || (p.color as number) > 0xffffff) return '色が正しくありません';
     a.company = company || undefined;
@@ -202,6 +204,7 @@ export class Accounts {
   async register(name: string, password: string): Promise<{ ok: true; account: Account } | { ok: false; reason: string }> {
     if (this.followDir) return { ok: false, reason: '新規登録は本稼働側で行ってください(同じ名前とパスワードで、こちらでも遊べます)' };
     if (!validName(name)) return { ok: false, reason: '名前は2〜16文字(文字・数字・_-)です' };
+    if (isReservedName(name)) return { ok: false, reason: '運営や公式と紛らわしい名前は使えません' };
     if (!validPassword(password)) return { ok: false, reason: 'パスワードは6文字以上です' };
     if (this.byNameMap.has(name.toLowerCase())) return { ok: false, reason: 'その名前は使われています' };
     const salt = randomBytes(16);

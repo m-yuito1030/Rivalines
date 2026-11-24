@@ -66,7 +66,7 @@ export function initAuth(startGame: StartGame): void {
     try {
       const r = await net.auth(kind, $<HTMLInputElement>('uname').value, $<HTMLInputElement>('upw').value, $<HTMLInputElement>('ucode').value.trim());
       if (!r.ok) {
-        errEl.textContent = r.reason ?? tr('失敗しました');
+        errEl.textContent = r.reason ? tr(r.reason) : tr('失敗しました');
         return authBusy(false);
       }
       await enterWorld(r.token!);

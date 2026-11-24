@@ -1,0 +1,5 @@
+{
+  "_説明": "運営や公式だと誤解される名前の一覧。ユーザー名と会社名に使えない。比べるときは、全角・半角の違い、大文字小文字、_ - スペース、数字による文字の置き換え(例: adm1n)をならしてから見る。",
+  "contains": ["admin", "administrator", "official", "moderator", "rivalines", "運営", "公式", "管理者", "管理人", "事務局", "サポート", "ゲームマスター", "オフィシャル", "アドミン", "モデレーター", "リバラインズ"],
+  "exact": ["root", "staff", "gm", "mod", "system", "support", "operator", "owner", "dev", "developer", "server", "bot", "null", "undefined", "anonymous", "sysadmin", "supervisor", "team", "info", "help", "スタッフ", "システム", "開発者", "運営者", "サーバー", "ヘルプ"]
+}

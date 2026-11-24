@@ -167,4 +167,8 @@ export const EN_SERVER: Catalog = {
   'ja:操作が多すぎます。少し待ってください': 'Too many actions. Please wait a moment.',
   'ja:重い操作が混み合っています。数秒おいて、もう一度お試しください': 'Heavy actions are backed up. Wait a few seconds and try again.',
   'ja:サーバーエラー': 'Server error.',
+  'ja:運営や公式と紛らわしい名前は使えません': 'Names that look like staff or official accounts are not allowed.',
+  'ja:名前は2〜16文字(文字・数字・_-)です': 'Names must be 2–16 characters (letters, digits, _ and -).',
+  'ja:パスワードは6文字以上です': 'Passwords must be at least 6 characters.',
+  'ja:その名前は使われています': 'That name is already taken.',
 };
