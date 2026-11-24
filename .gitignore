@@ -60,3 +60,6 @@ Thumbs.db
 handover/
 tools/facility-sprites/*_out/
 __pycache__/
+
+# 運用: 本稼働のバックアップ
+/backups/

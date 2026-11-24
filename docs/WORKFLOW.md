@@ -35,15 +35,14 @@ GitHub で PR を作る(テンプレートの項目を埋める)。**CI(自動�
 - 取り込んだ枝は削除する。
 - 自分の PC も更新する: `git switch main && git pull`
 
-## 5. リリース(公開版の区切り)
-遊べる状態で区切りたいときは、`main` にタグを付ける(番号は `v主.副.修正`)。
+## 5. リリース(次期バージョン → 本稼働)
+`main` は、まず**次期バージョン**として動かして試す(`scripts/up.sh next`)。遊べる状態になったら、正式リリースして本稼働にする。
 
 ```
 git switch main && git pull
-git tag v0.1.0
-git push origin v0.1.0
+scripts/release.sh v0.2.0
 ```
-GitHub の Releases で、変更点を書いて公開する。サーバーへの反映は `docker compose up -d --build`(そのときの `main` を使う)。
+タグ付け・本稼働のバックアップ・本稼働の切り替え・次期バージョンのデータ消去までを行う。詳しくは `docs/ENVIRONMENTS.md`。GitHub の Releases に、変更点を書いて公開する。
 
 ## ルール
 - **`main` に直接コミットしない**(最初の設定だけは例外)。必ず PR 経由。

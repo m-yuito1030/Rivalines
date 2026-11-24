@@ -23,9 +23,9 @@ npm test
 ```bash
 git clone https://github.com/m-yuito1030/rivalines.git && cd rivalines
 echo 'INVITE_CODE=好きな文字列' > .env      # 招待コード。公開するときは必ず設定する(新規登録に必要になる)
-docker compose up -d --build
+LIVE_SRC=. docker compose up -d --build     # 本稼働も次期バージョンも、いま取り出したコードで起動する(初めて試すとき)
 ```
-`http://<サーバーのアドレス>:8092` で遊べます。更新するときは、`git pull` のあと同じ `docker compose up -d --build`(世界のデータは残ります)。
+`http://<サーバーのアドレス>:8092` で遊べます(ポータルで、本稼働と次期バージョンを選びます)。本稼働と次期バージョンで別の版を動かす運用は、[docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md)。更新するときは、`git pull` のあと同じコマンド(世界のデータは残ります)。
 
 - **設定**(`docker-compose.yml` の `environment`): `WORLD_SIZE`(世界の一辺。既定 65535)・`MAX_ONLINE`(同時に接続できる人数。既定 100。登録できる人数に上限はありません)・`REGISTER_PER_HOUR`(1時間に新規登録できる人数。既定 300)・`INVITE_CODE`(空なら、新規登録は誰でもできる)。
 - **運営**: `ADMIN_KEY`(運営用の鍵。BAN・キック・通報の確認などに使う。手順は [docs/OPERATIONS.md](docs/OPERATIONS.md))。
@@ -113,7 +113,13 @@ Ubuntu のサーバーで、Node.js の導入から起動までまとめて行�
 
 ## マルチプレイ
 サーバー権威型のマルチプレイです。詳細は docs/MULTIPLAYER.md、コードの構成は docs/ARCHITECTURE.md。
-`docker compose up -d --build` で :8092 に公開します(ブラウザでログイン/新規登録)。
+
+ログインしたあと、**本稼働**と**次期バージョン**(新機能を先に試せる、データの消える世界)のどちらで遊ぶかを選べます。仕組みと運用は [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md)。
+
+```bash
+scripts/live-checkout.sh v0.1.0   # 本稼働のコードを取り出す(初回のみ。版は本稼働のタグ)
+scripts/up.sh                     # 入口・本稼働・次期バージョンを起動(:8092)
+```
 
 ## ライセンス・クレジット
 
