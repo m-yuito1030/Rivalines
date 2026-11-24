@@ -389,14 +389,11 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 .confirm-modal button.danger { background: #7a2630; border-color: #b04050; }
 .confirm-modal button:focus-visible { outline: 2px solid #8cf; outline-offset: 2px; }
 
-/* お金の増減の一瞬の表示(収入は緑のプラス、建設などの費用は赤のマイナス) */
-.money-float { position: fixed; z-index: 30; pointer-events: none; font: 600 14px/1.2 monospace; padding: 2px 8px; border-radius: 6px; background: #000a; white-space: nowrap; animation: money-float 1.8s ease-out forwards; }
+/* お金の増減の一瞬の表示(収入は緑のプラス、建設などの費用は赤のマイナス)。位置と透明度は、スクリプトが毎フレーム動かす */
+.money-float { position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none; font: 600 14px/1.2 monospace; padding: 2px 8px; border-radius: 6px; background: #000a; white-space: nowrap; will-change: transform, opacity; }
 .money-float.up { color: #7dffa0; }
 .money-float.down { color: #ff7b7b; }
-@keyframes money-float { 0% { opacity: 0; transform: translateY(6px); } 12% { opacity: 1; transform: translateY(0); } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-22px); } }
-@media (prefers-reduced-motion: reduce) { .money-float { animation-duration: 1.2s; } }
-
-/* 新しい版が出たときの案内(古い画面を開いたままの人へ) */
-#updateBar { position: fixed; left: 50%; top: 8px; transform: translateX(-50%); z-index: 50; background: #1d4f7a; color: #fff; border: 1px solid #7fb8e8; border-radius: 10px; padding: 8px 12px; font-size: 13px; display: flex; gap: 10px; align-items: center; max-width: 94vw; }
-#updateBar[hidden] { display: none; }
-#updateBar button { background: #2f7fc4; color: #fff; border: 1px solid #9ccdf2; border-radius: 6px; padding: 4px 12px; cursor: pointer; }
+/* 停車中の車両の上に出す、乗った人数・降りた人数 */
+.pax-badge { position: fixed; left: 0; top: 0; z-index: 25; pointer-events: none; font: 600 11px/1.2 monospace; padding: 1px 6px; border-radius: 6px; background: #000b; color: #fff; white-space: nowrap; will-change: transform; }
+.pax-badge .off { color: #ffb36b; }
+.pax-badge .on { color: #7fd0ff; }

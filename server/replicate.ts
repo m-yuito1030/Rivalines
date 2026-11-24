@@ -133,6 +133,8 @@ export class Replicator {
       cars: v.cars,
       hold: v.hold,
       resTo: v.resTo,
+      on: v.on ?? 0,
+      off: v.off ?? 0,
     };
     if (c.paths.get(v.id) !== pid) {
       out.path = Array.from(v.path);
@@ -192,7 +194,18 @@ export class Replicator {
       const gone: number[] = [];
       for (const id of c.paths.keys()) if (!present.has(id)) gone.push(id);
       for (const id of gone) c.paths.delete(id);
-      this.send(c, { type: 'frame', tick: sim.tick, veh, gone, tiles });
+      // 自社の車両・施設が稼いだ額(稼いだものの上に、画面が出す)
+      const earn: [number, number][] = [];
+      for (const [vid, amt] of sim.vehicleEarn) {
+        const v = sim.transit.vehicles.find((x) => x.id === vid);
+        if (v && sim.transit.routes.get(v.routeId)?.owner === c.id && amt >= 1) earn.push([vid, Math.round(amt)]);
+      }
+      const facEarn: [number, number][] = [];
+      for (const [fid, amt] of sim.facilityEarn) {
+        const f = sim.map.facilities.find((x) => x.id === fid);
+        if (f && f.playerId === c.id && amt >= 1) facEarn.push([fid, Math.round(amt)]);
+      }
+      this.send(c, { type: 'frame', tick: sim.tick, veh, gone, tiles, ...(earn.length ? { earn } : {}), ...(facEarn.length ? { facEarn } : {}) });
       // 視界の周辺に街を生み出す
       const now = Date.now();
       if (now - c.lastDiscover > 1000) {
@@ -200,6 +213,8 @@ export class Replicator {
         sim.discoverNear((x0 + x1) / 2, (y0 + y1) / 2, 1);
       }
     }
+    sim.vehicleEarn.clear();
+    sim.facilityEarn.clear();
   }
 
   /** 構造(停留所・路線・基地・信号・街・施設)。変化があったクライアントにだけ送る */

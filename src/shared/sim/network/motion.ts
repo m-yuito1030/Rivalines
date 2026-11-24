@@ -136,7 +136,7 @@ export class Motion {
   alight(v: Vehicle, stop: Stop, route: Route, tick: number): void {
     // 乗っていた全員の、前の停留所からここまでの距離運賃
     const prev = v.lastStop !== undefined ? this.t.stops.get(v.lastStop) : undefined;
-    if (prev && v.load > 0) this.t.onFare?.(v.mode, v.load * FARE[v.mode].perTile * fareMulOf(route) * (Math.abs(prev.x - stop.x) + Math.abs(prev.y - stop.y)), v.routeId);
+    if (prev && v.load > 0) this.t.onFare?.(v.mode, v.load * FARE[v.mode].perTile * fareMulOf(route) * (Math.abs(prev.x - stop.x) + Math.abs(prev.y - stop.y)), v.routeId, v.id);
     const tbl = this.t.router.table(stop.id, this.t.version);
     for (const [d, n] of v.cargo) {
       if (d === stop.id) {
@@ -147,9 +147,11 @@ export class Motion {
         this.t.flow.credit(stop, n);
         v.cargo.delete(d);
         v.load -= n;
+        v.off = (v.off ?? 0) + n;
       } else if (tbl.next.get(d) !== route.id) {
         v.cargo.delete(d);
         v.load -= n;
+        v.off = (v.off ?? 0) + n;
         if (tbl.next.has(d)) {
           this.t.flow.addWaiting(stop, d, n);
           this.t.transfers += n;
@@ -172,6 +174,8 @@ export class Motion {
     v.from = undefined;
     v.state = 'load';
     v.arrived = tick;
+    v.on = 0;
+    v.off = 0;
     if (stop) {
       this.alight(v, stop, route, tick);
       v.lastStop = stop.id;

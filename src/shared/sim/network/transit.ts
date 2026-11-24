@@ -84,7 +84,7 @@ export class Transit {
   /** 乗り換えた人数 */
   transfers = 0;
   /** 運賃が支払われた(経営用)。mode, 金額 */
-  onFare?: (mode: Mode, amount: number, routeId: number) => void;
+  onFare?: (mode: Mode, amount: number, routeId: number, vehicleId?: number) => void;
   /** 停留所の持ち主の接客の質(乗客の発生にかかる倍率)。設定されていなければ 1 */
   serviceMul?: (owner: number | undefined) => number;
   /** n 人が停留所 stop に到着して降りた(施設の来場者の集計用) */

@@ -56,6 +56,9 @@ export const MIGRATE_EVERY = 300;
 export const CITY_EVERY = 1800;
 
 export class Simulation {
+  /** 直近の送信から今までに、車両・施設が稼いだ額(画面に「どれが稼いだか」を出すため。送信のたびに空にする) */
+  readonly vehicleEarn = new Map<number, number>();
+  readonly facilityEarn = new Map<number, number>();
   tick = 0;
   /** 0=一時停止 */
   speed = 1;
@@ -159,8 +162,9 @@ export class Simulation {
     this.rivalRng = makeRng(map.seed ^ 0x2545f491);
     this.pubRng = makeRng(map.seed ^ 0x7f4a7c15);
     this.facRng = makeRng(map.seed ^ 0x3c6ef372);
-    this.transit.onFare = (mode, amount, routeId) => {
+    this.transit.onFare = (mode, amount, routeId, vehicleId) => {
       const r = this.transit.routes.get(routeId);
+      if (vehicleId !== undefined && this.multi && r?.owner) this.vehicleEarn.set(vehicleId, (this.vehicleEarn.get(vehicleId) ?? 0) + amount);
       (this.multi && r?.owner ? this.playerCompany(r.owner) : this.company).fare(mode, amount);
       if (r) r.dayRevenue = (r.dayRevenue ?? 0) + amount;
     };
@@ -304,7 +308,10 @@ export class Simulation {
       // 施設の来場者(周辺の人口・停留所・競合・広告で決まる)。売上は今日の分として計上してから日を締める
       dailyVisitors(this.map, this.transit, ended, this.facRng, (f, amount) => {
         const c = this.multi ? (f.playerId ? this.playerCompany(f.playerId) : null) : this.company;
-        if (c && (!this.multi || this.online.has(f.playerId!))) c.earn('facility', amount);
+        if (c && (!this.multi || this.online.has(f.playerId!))) {
+          c.earn('facility', amount);
+          if (this.multi) this.facilityEarn.set(f.id, (this.facilityEarn.get(f.id) ?? 0) + amount);
+        }
       });
       if (this.multi) {
         let first = true;
