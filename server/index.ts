@@ -385,8 +385,12 @@ function tickLoop() {
     last = now;
     return;
   }
+  const tick0 = sim.tick;
   sim.advance((now - last) / 1000, 60);
   last = now;
+  // 世界が1tickも進まなかったときは、何も送らない。同じ位置の状態を送ると、画面の側が「動かなかった区間」と「ジャンプした区間」を
+  // 交互に受け取って、車両がカクカク動いて見える(ゲームの速さを 0.5 にしたあと、100ms ごとのループで2回に1回は進まない)
+  if (sim.tick === tick0) return;
   const t1 = performance.now();
   repl.frame(clients);
   if (++frameN % 5 === 0) repl.structure(clients);
