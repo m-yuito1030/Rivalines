@@ -39,6 +39,8 @@ const sameCode = (a: string, b: string): boolean => {
 const ENV_NAME = process.env.ENV_NAME ?? 'live';
 const ENV_LABEL = process.env.ENV_LABEL ?? (ENV_NAME === 'live' ? '本稼働' : '次期バージョン');
 const APP_VERSION = process.env.APP_VERSION ?? 'dev';
+/** ゲームの版番号(package.json)。接続のたびに画面へ伝え、古い画面が開いたままのときに再読み込みを促す */
+const GAME_VERSION = (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version;
 const ACCOUNTS_FROM = process.env.ACCOUNTS_FROM || undefined;
 
 mkdirSync(DATA, { recursive: true });
@@ -254,7 +256,9 @@ server.on('upgrade', (req, socket, head) => {
     clients.add(c);
     sim.playerCompany(a.id);
     syncOnline();
-    ws.send(JSON.stringify({ type: 'init', you: a.name, id: a.id, world: { size: SIZE, seed: SEED }, tick: sim.tick, start: accounts.byId(a.id)?.last ?? null }));
+    ws.send(
+      JSON.stringify({ type: 'init', you: a.name, id: a.id, world: { size: SIZE, seed: SEED }, tick: sim.tick, start: accounts.byId(a.id)?.last ?? null, version: GAME_VERSION }),
+    );
     let tokens = 30;
     const refill = setInterval(() => (tokens = Math.min(30, tokens + 10)), 1000); // 操作は毎秒10回まで(瞬間30回)
     const limit = messageLimit();

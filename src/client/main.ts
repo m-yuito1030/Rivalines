@@ -540,10 +540,12 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
 
   const playerMenu = new PlayerMenu({ transit, players: () => mirror.players, notify: (m) => tools.onMessage?.(m), beforeOpen: () => closeWindows('menu') });
 
+  $('verLine').textContent = `Rivalines v${__APP_VERSION__}`;
   // 本稼働以外の世界(次期バージョン)で遊んでいるときは、画面に目立つ印を出す(データが消えることがあるため)
   void fetch(`${BASE}api/status`)
     .then((r) => r.json())
     .then((s: { env?: { name: string; label: string; version: string } }) => {
+      if (s.env && s.env.name !== 'live') $('verLine').textContent = `Rivalines v${__APP_VERSION__}-${s.env.name}`;
       if (!s.env || s.env.name === 'live') return;
       const b = $('envBadge');
       b.textContent = `🧪 ${tr('{label}(テスト・データは消えることがあります)', { label: s.env.label })}`;

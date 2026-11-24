@@ -30,6 +30,14 @@ export function initAuth(startGame: StartGame): void {
   async function enterWorld(token: string): Promise<void> {
     note.textContent = tr('サーバーに接続中...');
     const init = await net.connect(token);
+    // サーバーの版と、いま開いている画面の版が違うとき(更新のあとも古い画面を開いたままのとき)は、再読み込みを促す
+    if (init.version && init.version !== __APP_VERSION__) {
+      $('updateText').textContent = tr('新しい版({version})が出ました。画面を再読み込みしてください。', { version: init.version });
+      const btn = $<HTMLButtonElement>('updateReload');
+      btn.textContent = tr('再読み込み');
+      btn.onclick = () => location.reload();
+      $('updateBar').hidden = false;
+    }
     const map = makeWorldMap(init.world.size, init.world.seed);
     const sim = new Simulation(map, emptyState(), { multi: true });
     const mirror = new Mirror(map, sim);
