@@ -1,0 +1,11 @@
+# HTTPS の証明書は Caddy が自動で取得・更新する(DNS が VPS に向いていて、80/443 が開いていること)
+{$DOMAIN} {
+	encode gzip
+	header Strict-Transport-Security "max-age=31536000"
+	# 画面・API・WebSocket(/ws)をすべて web(nginx)へ渡す。接続元の IP は X-Forwarded-For で伝わる
+	reverse_proxy web:80
+}
+
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}
