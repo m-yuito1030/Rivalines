@@ -103,14 +103,16 @@ export class Mirror {
         this.ready.towns = true;
         break;
       case 'fac': {
-        // デザインや大きさが変わった施設は、敷地のタイルを描き直す(建物の絵は、タイルの更新で再描画される)
+        // 新しく建った施設と、デザインや大きさが変わった施設は、敷地のタイルを描き直す。
+        // 施設の絵は、タイルの更新(frame / chunk)と施設の一覧(fac)が別々に届くので、タイルが先に届くと一覧がなくて描けない。
+        // 一覧が届いたときに描き直さないと、ズームを変えて地面を作り直すまで、新しい施設が現れない
         const before = new Map(map.facilities.map((f) => [f.id, `${f.type}:${f.design}:${f.size}`]));
         map.facilities.length = 0;
         map.facilities.push(...(msg.facilities as never[]));
         map.facilityVer++;
         for (const f of map.facilities) {
           const was = before.get(f.id);
-          if (was === undefined || was === `${f.type}:${f.design}:${f.size}`) continue;
+          if (was === `${f.type}:${f.design}:${f.size}`) continue;
           for (let y = f.y0; y < f.y0 + f.h; y++) for (let x = f.x0; x < f.x0 + f.w; x++) if (map.inBounds(x, y)) map.touch(x, y);
         }
         break;
