@@ -21,9 +21,9 @@
       <div id="stats"></div>
       <div id="clock"></div>
       <div id="status">
-        <div id="rank" title="時価総額の順位。クリックでランキング"></div>
-        <div id="cash" title="現金。クリックで経営画面(売上・費用・融資・買収)"></div>
-        <div id="rating" title="会社の評価。最悪になると新規の開発ができません"></div>
+        <div id="rank" title="時価総額のランキング。クリックするとランキング画面を表示します。"></div>
+        <div id="cash" title="現金残高。クリックすると経営画面(売上・費用・融資・買収)を表示します。"></div>
+        <div id="rating" title="会社の評価。評価が最低ランクになると、新しい施設や路線を開発できなくなります。"></div>
       </div>
       <div id="toolbar">
         <div class="group">
@@ -31,56 +31,56 @@
           <div class="dd">
             <button class="ddbtn" type="button" data-def="🛣 道路">🛣 道路 ▾</button>
             <div class="ddmenu">
-              <button data-tool="road" title="道路 (R) ドラッグで敷設。1段差までスロープでつながる">🛣 道路 (R)</button>
-              <button data-tool="oneway" title="一方通行 (O) ドラッグ方向に通行">➡ 一方通行 (O)</button>
-              <button data-tool="twoway" title="双方向に戻す (T)">⇄ 双方向化 (T)</button>
-              <button data-tool="stop" title="バス停 (B) クリックで道路上に設置">🚏 バス停 (B)</button>
-              <button data-tool="depot" title="車両基地 道路・直線の線路・空港ターミナルの上をクリック。タップして車両を購入">🏭 車両基地</button>
-              <button data-tool="roadspan" title="道路の橋/トンネル (Y) 両端をドラッグ">🌉 橋・トンネル (Y)</button>
+              <button data-tool="road" title="道路 (R) ドラッグして道路を敷設します。高低差1段まではスロープで接続できます。">🛣 道路 (R)</button>
+              <button data-tool="oneway" title="一方通行 (O) ドラッグした方向にだけ通行できる道路を設置します。">➡ 一方通行 (O)</button>
+              <button data-tool="twoway" title="双方向に戻す (T) 一方通行を解除して、双方向通行に戻します。">⇄ 双方向に戻す (T)</button>
+              <button data-tool="stop" title="バス停 (B) 道路上をクリックして設置します。">🚏 バス停 (B)</button>
+              <button data-tool="depot" title="車両基地 道路・直線の線路・空港ターミナルの上をクリックして設置します。設置後、基地をクリックすると車両を購入できます。">🏭 車両基地</button>
+              <button data-tool="roadspan" title="道路の橋 / トンネル (Y) 両端をドラッグして設置します。">🌉 橋・トンネル (Y)</button>
             </div>
           </div>
           <div class="dd">
             <button class="ddbtn" type="button" data-def="🛤 鉄道">🛤 鉄道 ▾</button>
             <div class="ddmenu">
-              <button data-tool="rail" title="線路 (L) ドラッグで敷設(約45度なら斜め)">🛤 線路 (L)</button>
-              <button data-tool="station" title="駅 (K) 番線数・ホーム長・デザインを選んでクリックで設置">🚉 駅 (K)</button>
-              <button data-tool="waypoint" title="経由点 直線の線路をクリック。路線に加えると、その線路を通る(番線・待避線の指定)">📍 経由点</button>
-              <button data-tool="depot" title="車両基地 直線の線路の上をクリック。タップして車両を購入">🏭 車両基地</button>
-              <button data-tool="railauto" title="線路の自動敷設: 始点から終点までドラッグすると、既存の線路を使いながら障害物・段差を避けて最短でつなぐ">🪄 自動敷設</button>
-              <button data-tool="signalline" title="信号を並べる: 線路をドラッグすると、ドラッグの向きの一方向信号を一定間隔で置く">🚦 信号を並べる</button>
-              <button data-tool="signal" title="信号 (N) 直線の線路(斜めも可)をクリックで切替: なし → 向き1 → 向き2 → なし(一方向。複線向け)">🚦 信号 (N)</button>
-              <button data-tool="railspan" title="線路の橋/トンネル (H) 両端をドラッグ">🌉 橋・トンネル (H)</button>
+              <button data-tool="rail" title="線路 (L) ドラッグして線路を敷設します。約45度の角度でドラッグすると、斜めに敷設できます。">🛤 線路 (L)</button>
+              <button data-tool="station" title="駅 (K) 番線数・ホームの長さ・デザインを選択し、クリックして設置します。">🚉 駅 (K)</button>
+              <button data-tool="waypoint" title="経由点 直線の線路をクリックして設置します。路線に追加すると、その線路を経由するようになります。使用する番線や待避場所の指定にも利用できます。">📍 経由点</button>
+              <button data-tool="depot" title="車両基地 直線の線路の上をクリックして設置します。設置後、基地をクリックすると車両を購入できます。">🏭 車両基地</button>
+              <button data-tool="railauto" title="線路の自動敷設 始点から終点までドラッグすると、既存の線路を活用しながら、障害物や高低差を避けて最短経路で接続します。">🪄 線路を自動敷設</button>
+              <button data-tool="signalline" title="信号を並べる 線路をドラッグすると、ドラッグした方向に合わせて一方向の信号を一定間隔で設置します。">🚦 信号を並べる</button>
+              <button data-tool="signal" title="信号 (N) 直線の線路をクリックすると、信号の向きを切り替えられます。斜めの線路にも設置できます。なし → 方向1 → 方向2 → なし(複線など、一方向に列車を走らせる場合に使用します)">🚦 信号 (N)</button>
+              <button data-tool="railspan" title="線路の橋 / トンネル (H) 両端をドラッグして設置します。">🌉 橋・トンネル (H)</button>
             </div>
           </div>
-          <button data-tool="airport" title="空港 (P) 3x3の平地に設置">🛫 空港</button>
+          <button data-tool="airport" title="空港 (P) 3×3の平らな土地に設置します。">🛫 空港</button>
           <div class="dd">
             <button class="ddbtn" type="button" data-def="⛰ 地形">⛰ 地形 ▾</button>
             <div class="ddmenu">
-              <button data-tool="raise" title="地面を上げる (U) ドラッグで範囲">⬆ 上げる (U)</button>
-              <button data-tool="lower" title="地面を下げる (J) ドラッグで範囲">⬇ 下げる (J)</button>
-              <button data-tool="level" title="整地 (G) 最初のタイルの高さに揃える">▬ 整地 (G)</button>
+              <button data-tool="raise" title="地面を上げる (U) ドラッグして範囲内の地面を上げます。">⬆ 地面を上げる (U)</button>
+              <button data-tool="lower" title="地面を下げる (J) ドラッグして範囲内の地面を下げます。">⬇ 地面を下げる (J)</button>
+              <button data-tool="level" title="整地 (G) 最初に選択したタイルの高さに、範囲内の地面を揃えます。">▬ 整地 (G)</button>
             </div>
           </div>
           <div class="dd">
             <button class="ddbtn" type="button" data-def="🏟 施設">🏟 施設 ▾</button>
             <div class="ddmenu">
-              <button data-tool="stadium" title="スタジアム 4×4。ナイター時間帯に周辺の駅・バス停の乗客が増える">🏟 スタジアム</button>
-              <button data-tool="amusement" title="遊園地 5×5。日中に家族連れが来る">🎡 遊園地</button>
-              <button data-tool="mall" title="ショッピングモール 4×3。日中〜夜に買い物客が来る">🏬 ショッピングモール</button>
-              <button data-tool="park" title="公園 3×3。少しずつ人が訪れる">🌳 公園</button>
-              <button data-tool="department" title="百貨店 4×3。駅前に置くと売上が大きい">🏢 百貨店</button>
-              <button data-tool="hotel" title="ホテル。一日を通して宿泊客が来る(リゾート向け)">🏨 ホテル</button>
-              <button data-tool="bizhotel" title="ビジネスホテル。平日の出張客。休日は少なめ">🏩 ビジネスホテル</button>
-              <button data-tool="cinema" title="映画館。昼と夜、休日と雨の日に強い">🎬 映画館</button>
-              <button data-tool="zoo" title="動物園・水族館。休日の日中、春・秋に強い">🐧 動物園・水族館</button>
-              <button data-tool="ski" title="スキー場。標高4以上の高地。12〜3月の雪の日に強い">⛷ スキー場</button>
-              <button data-tool="beach" title="ビーチ。海のそば。7〜8月の晴れた休日に強い">🏖 ビーチ</button>
-              <button data-tool="arena" title="アリーナ・コンサートホール。夜、コンサートの日に需要が数倍">🎤 アリーナ</button>
-              <button data-tool="convention" title="コンベンションセンター。平日の出張客。展示会の日に強い">🧳 コンベンション</button>
-              <button data-tool="campus" title="大学。平日の登校・下校の時間帯。休みは閑散">🎓 大学</button>
-              <button data-tool="golf" title="ゴルフ場。休日の朝〜昼。1人あたりの売上が高い">⛳ ゴルフ場</button>
-              <button data-tool="hospital" title="病院。一日を通して安定した需要">🏥 病院</button>
-              <button data-tool="stationmall" title="駅ビル。鉄道の駅から4タイル以内。売上が大きい">🛍 駅ビル</button>
+              <button data-tool="stadium" title="スタジアム 4×4。ナイターの時間帯に、周辺の駅やバス停の利用者が増えます。">🏟 スタジアム</button>
+              <button data-tool="amusement" title="遊園地 5×5。日中に家族連れが訪れます。">🎡 遊園地</button>
+              <button data-tool="mall" title="ショッピングモール 4×3。日中から夜にかけて買い物客が訪れます。">🏬 ショッピングモール</button>
+              <button data-tool="park" title="公園 3×3。少しずつ人が訪れます。">🌳 公園</button>
+              <button data-tool="department" title="百貨店 4×3。駅前に建設すると、大きな売上が期待できます。">🏢 百貨店</button>
+              <button data-tool="hotel" title="ホテル 一日を通して宿泊客が訪れます。リゾート地に向いています。">🏨 ホテル</button>
+              <button data-tool="bizhotel" title="ビジネスホテル 平日に出張客が訪れます。休日は利用者が少なくなります。">🏩 ビジネスホテル</button>
+              <button data-tool="cinema" title="映画館 昼と夜に利用者が訪れます。休日や雨の日に人気があります。">🎬 映画館</button>
+              <button data-tool="zoo" title="動物園・水族館 休日の日中や春・秋に多くの人が訪れます。">🐧 動物園・水族館</button>
+              <button data-tool="ski" title="スキー場 標高4以上の高地に建設できます。12月～3月の雪の日に多くの人が訪れます。">⛷ スキー場</button>
+              <button data-tool="beach" title="ビーチ 海の近くに建設できます。7月～8月の晴れた休日に多くの人が訪れます。">🏖 ビーチ</button>
+              <button data-tool="arena" title="アリーナ・コンサートホール 夜間に利用者が訪れます。コンサート開催日は需要が数倍になります。">🎤 アリーナ</button>
+              <button data-tool="convention" title="コンベンションセンター 平日に出張客が訪れます。展示会の開催日は需要が大きく増えます。">🧳 コンベンションセンター</button>
+              <button data-tool="campus" title="大学 平日の登校・下校時間帯に学生が集まります。休暇中や休日は利用者が少なくなります。">🎓 大学</button>
+              <button data-tool="golf" title="ゴルフ場 休日の朝から昼にかけて利用者が訪れます。1人あたりの売上が高い施設です。">⛳ ゴルフ場</button>
+              <button data-tool="hospital" title="病院 一日を通して安定した利用があります。">🏥 病院</button>
+              <button data-tool="stationmall" title="駅ビル 鉄道駅から4タイル以内に建設できます。駅の利用者を集客でき、売上も大きい施設です。">🛍 駅ビル</button>
             </div>
           </div>
           <button data-tool="bulldoze" title="撤去 (X)">🧹 撤去</button>
@@ -89,58 +89,58 @@
           <div class="dd">
             <button class="ddbtn" type="button" data-def="☰ メニュー" data-fixed="1">☰ メニュー ▾</button>
             <div class="ddmenu">
-              <button id="menuBtn" title="セーブ/ロード (Ctrl+S)">💾 セーブ / ロード</button>
+              <button id="menuBtn" title="セーブ / ロード (Ctrl+S)">💾 セーブ / ロード</button>
               <button id="routesBtn" title="路線パネル">📋 路線</button>
-              <button id="finBtn" title="経営: 資金・売上と費用・融資・買収 (F)">💴 経営 (F)</button>
-              <button id="listBtn" title="一覧: 街・駅・バス停・基地・施設をグループ別に。タップでその場所へ移動">📍 一覧</button>
-              <button id="diaBtn" title="ダイヤ(運行図表): 時刻表をスジ図で見て、ドラッグで直す。待避の提案・路線の複製">📈 ダイヤ</button>
-              <button id="rankBtn" title="ランキング: 会社・街・駅・路線">🏆 ランキング</button>
-              <button id="saleBtn" title="不動産物件: どの会社も持っていない売り出し中の施設を、評価額で購入する(28日間買い手がつかないと取り壊される)">🏘 不動産物件</button>
-              <button id="aucBtn" title="入札: 街ごとの独占権を競りで落札する">🏷 入札・独占権</button>
-              <button id="anaBtn" title="経営分析: 路線・停留所・施設の採算と混雑(赤字が上)">🧮 経営分析</button>
+              <button id="finBtn" title="経営：資金・売上と費用・融資・買収 (F)">💴 経営 (F)</button>
+              <button id="listBtn" title="一覧：街・駅・バス停・車両基地・施設を種類ごとに表示します。項目をクリックすると、その場所へ移動します。">📍 一覧</button>
+              <button id="diaBtn" title="ダイヤ（運行図表）：時刻表をスジ図で確認し、ドラッグして編集できます。待避の提案や路線の複製も行えます。">📈 ダイヤ</button>
+              <button id="rankBtn" title="ランキング：会社・街・駅・路線のランキングを確認できます。">🏆 ランキング</button>
+              <button id="saleBtn" title="不動産物件：どの会社も所有していない売り出し中の施設を、評価額で購入できます。28日間買い手がつかない場合は取り壊されます。">🏘 不動産物件</button>
+              <button id="aucBtn" title="入札・独占権：街ごとの独占権を競売で取得できます。">🏷 入札・独占権</button>
+              <button id="anaBtn" title="経営分析：路線・停留所・施設の収支や混雑状況を確認できます。赤字の項目が上位に表示されます。">🧮 経営分析</button>
               <button id="statsBtn" title="統計 (I)">📊 統計 (I)</button>
-              <button id="dnBtn" title="昼夜の色味">🌓 昼夜</button>
-              <button id="stopNameBtn" title="駅名・バス停名・空港名を地図の上に表示/非表示">🚏 駅名を隠す</button>
-              <button id="mapBtn" title="右下のマップの表示/非表示 (M)">🗺 マップ表示 (M)</button>
+              <button id="dnBtn" title="昼夜の色合いを切り替えます。">🌓 昼夜</button>
+              <button id="stopNameBtn" title="駅名・バス停名・空港名の表示 / 非表示を切り替えます。">🚏 駅名を隠す</button>
+              <button id="mapBtn" title="画面右下のミニマップの表示 / 非表示を切り替えます (M)。">🗺 マップ表示 (M)</button>
             </div>
           </div>
         </div>
       </div>
-      <div id="bulldozeOpts" hidden><button type="button" class="optx" title="閉じる(Esc)">✕</button>
-        <b>🧹 撤去する要素</b>(ドラッグした範囲の中だけ)
+      <div id="bulldozeOpts" hidden><button type="button" class="optx" title="閉じる (Esc)">✕</button>
+        <b>🧹 撤去する要素</b>(ドラッグした範囲内の要素だけを撤去します)
         <label><input type="checkbox" data-bk="road" checked> 道路</label>
         <label><input type="checkbox" data-bk="rail" checked> 線路</label>
         <label><input type="checkbox" data-bk="signal" checked> 信号</label>
         <label><input type="checkbox" data-bk="stop" checked> 駅・停留所</label>
-        <label><input type="checkbox" data-bk="depot" checked> 基地</label>
+        <label><input type="checkbox" data-bk="depot" checked> 車両基地</label>
         <label><input type="checkbox" data-bk="waypoint" checked> 経由点</label>
         <label><input type="checkbox" data-bk="span" checked> 橋・トンネル</label>
         <label><input type="checkbox" data-bk="building"> 街の建物</label>
         <label><input type="checkbox" data-bk="airport"> 空港</label>
-        <span class="row"><button type="button" data-bkset="all">交通すべて</button><button type="button" data-bkset="road">道路だけ</button><button type="button" data-bkset="rail">線路だけ</button><button type="button" data-bkset="signal">信号だけ</button><button type="button" data-bkset="none">解除</button></span>
+        <span class="row"><button type="button" data-bkset="all">すべての交通施設</button><button type="button" data-bkset="road">道路のみ</button><button type="button" data-bkset="rail">線路のみ</button><button type="button" data-bkset="signal">信号のみ</button><button type="button" data-bkset="none">解除</button></span>
       </div>
-      <div id="signalOpts" hidden><button type="button" class="optx" title="閉じる(Esc)">✕</button>🚦 信号の間隔 <input id="optSigInt" type="number" min="1" max="20" value="3" style="width:3.5em"> タイルおき(ドラッグの向きの一方向)</div>
-      <div id="facilityOpts" hidden><button type="button" class="optx" title="閉じる(Esc)">✕</button>
+      <div id="signalOpts" hidden><button type="button" class="optx" title="閉じる (Esc)">✕</button>🚦 信号の間隔 <input id="optSigInt" type="number" min="1" max="20" value="3" style="width:3.5em"> タイル間隔(ドラッグした方向に一方向ずつ設置)</div>
+      <div id="facilityOpts" hidden><button type="button" class="optx" title="閉じる (Esc)">✕</button>
         <b id="facTitle">施設</b>
         <div class="row" id="facSizes"><button type="button" data-fsize="S">小</button><button type="button" data-fsize="M">中</button><button type="button" data-fsize="L">大</button></div>
         <label>デザイン <span class="row"><select id="facDesign"></select><button id="facRand" type="button" title="ランダム">🎲</button></span></label>
         <canvas id="facPreview" width="220" height="240"></canvas>
         <small id="facInfo"></small>
       </div>
-      <div id="stationOpts" hidden><button type="button" class="optx" title="閉じる(Esc)">✕</button>
+      <div id="stationOpts" hidden><button type="button" class="optx" title="閉じる (Esc)">✕</button>
         <b>🚉 駅の設置</b>
         <label>番線数 <select id="optTracks"><option>1</option><option>2</option><option>3</option><option>4</option></select></label>
-        <label>ホーム長 <input id="optLen" type="range" min="1" max="15" value="4"><span id="optLenVal">4</span>タイル</label>
+        <label>ホームの長さ <input id="optLen" type="range" min="1" max="15" value="4"><span id="optLenVal">4</span>タイル</label>
         <label>デザイン <span class="row"><select id="optDesign"></select><button id="optRand" type="button" title="ランダム">🎲</button></span></label>
         <canvas id="stPreview" width="220" height="150"></canvas>
         <small id="optDesignInfo"></small>
         <label>向き <select id="optAxis"><option value="1" selected>東西</option><option value="0">南北</option></select></label>
-        <small>クリックした位置が左上。線路は範囲内に自動で敷きます。外側は線路でつなぎます。</small>
+        <small>クリックした位置を左上として設置します。範囲内には線路が自動で敷かれます。駅の外側の線路は、別途接続してください。</small>
       </div>
       <div id="info" hidden></div>
       <div id="routes"></div>
       <canvas id="minimap"></canvas>
-      <div id="help">右/中ドラッグ・WASD: 移動 ・ ホイール/Q,E: ズーム ・ 建設: 左ドラッグ ・ Esc: キャンセル</div>
+      <div id="help">右ボタン / 中ボタンドラッグ・WASD：マップ移動 ・ ホイール / Q・E：ズーム ・ 左ドラッグ：建設 ・ Esc：キャンセル</div>
     </div>
 
     <div id="menu" hidden>
@@ -148,18 +148,18 @@
         <h2>プレイヤー <button type="button" id="menuX" title="閉じる">✕</button></h2>
         <div id="menuPlayers"></div>
         <details id="profileBox">
-          <summary>🏢 自社の会社名・プロフィール</summary>
-          <label>会社名 <input id="profCompany" maxlength="20" placeholder="例: 白見急行電鉄"></label>
-          <label>プロフィール <textarea id="profBio" maxlength="120" rows="3" placeholder="自己紹介(120文字まで)"></textarea></label>
-          <label>会社の色 <input id="profColor" type="color"></label>
+          <summary>🏢 会社情報</summary>
+          <label>会社名 <input id="profCompany" maxlength="20" placeholder="例：白見急行電鉄"></label>
+          <label>プロフィール <textarea id="profBio" maxlength="120" rows="3" placeholder="自己紹介（120文字以内）"></textarea></label>
+          <label>会社カラー <input id="profColor" type="color"></label>
           <button type="button" id="profSave">保存</button>
         </details>
         <details id="accountBox">
-          <summary>🔑 パスワードの変更・退会</summary>
+          <summary>🔑 パスワード変更・退会</summary>
           <label>現在のパスワード <input id="accPw" type="password" autocomplete="current-password" maxlength="72"></label>
-          <label>新しいパスワード(6文字以上) <input id="accNewPw" type="password" autocomplete="new-password" maxlength="72"></label>
+          <label>新しいパスワード（6文字以上） <input id="accNewPw" type="password" autocomplete="new-password" maxlength="72"></label>
           <button type="button" id="accChange">パスワードを変更</button>
-          <p class="muted">退会すると、アカウントと会社が消えます(施設は売り出し物件になり、路線・車両は撤去されます)。元に戻せません。現在のパスワードを入れて押してください。</p>
+          <p class="muted">退会すると、アカウントと会社のデータが削除されます。自社の施設は売り出し物件となり、路線と車両は撤去されます。退会後は元に戻せません。現在のパスワードを入力して実行してください。</p>
           <button type="button" id="accLeave">退会する</button>
         </details>
         <p class="muted" style="font-size:12px"><a href="./terms.html" target="_blank" rel="noopener" style="color:#9ab">利用規約</a> ・ <a href="./privacy.html" target="_blank" rel="noopener" style="color:#9ab">プライバシーポリシー</a> ・ <a href="./THIRD_PARTY_NOTICES.txt" target="_blank" rel="noopener" style="color:#9ab">ライセンス</a></p>
@@ -193,7 +193,7 @@
 
     <div id="dia-modal" hidden>
       <div class="box">
-        <h2>ダイヤ(運行図表) <button type="button" id="diaClose">閉じる</button></h2>
+        <h2>ダイヤ（運行図表） <button type="button" id="diaClose">閉じる</button></h2>
         <div id="diaBody"></div>
       </div>
     </div>
@@ -229,13 +229,13 @@
     <div id="start">
       <form id="startForm">
         <h1>Rivalines</h1>
-        <label>名前 <input id="uname" placeholder="2〜16文字" autocomplete="username" /></label>
+        <label>名前 <input id="uname" placeholder="2～16文字" autocomplete="username" /></label>
         <label>パスワード <input id="upw" type="password" placeholder="6文字以上" autocomplete="current-password" /></label>
-        <label id="codeRow" hidden>招待コード <input id="ucode" placeholder="新規登録に必要です" autocomplete="off" /></label>
+        <label id="codeRow" hidden>招待コード <input id="ucode" placeholder="新規登録時に必要です。" autocomplete="off" /></label>
         <div class="row"><button type="submit" id="go">ログイン</button><button type="button" id="register">新規登録</button></div>
         <p id="err" style="color:#ff8a80"></p>
         <p id="note"></p>
-        <p class="muted" style="font-size:11px">新規登録すると、<a href="./terms.html" target="_blank" rel="noopener" style="color:#9ab">利用規約</a>に同意したものとみなします。<a href="./privacy.html" target="_blank" rel="noopener" style="color:#9ab">プライバシーポリシー</a>(メールアドレスや本名は取得しません)</p>
+        <p class="muted" style="font-size:11px">新規登録すると、<a href="./terms.html" target="_blank" rel="noopener" style="color:#9ab">利用規約</a>に同意したものとみなします。<a href="./privacy.html" target="_blank" rel="noopener" style="color:#9ab">プライバシーポリシー</a>（メールアドレスや本名の登録は不要です）</p>
         <p class="muted" style="font-size:11px"><a href="./THIRD_PARTY_NOTICES.txt" target="_blank" rel="noopener" style="color:#9ab">ライセンス・クレジット</a></p>
       </form>
     </div>
