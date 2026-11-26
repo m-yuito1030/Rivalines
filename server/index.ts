@@ -9,6 +9,8 @@ import { makeWorldMap } from '../src/shared/world/bigTerrain';
 import { applyLayers, decodeSave, encodeSave } from '../src/shared/save/serialize';
 import { Accounts } from './accounts';
 import { Reports } from './reports';
+import { Chat } from './chat';
+import { Announcements } from './announcements';
 import { execute } from './commands/index';
 import { Replicator, type Client } from './replicate';
 import type { ClientMsg } from '../src/shared/protocol';
@@ -46,6 +48,9 @@ const ACCOUNTS_FROM = process.env.ACCOUNTS_FROM || undefined;
 mkdirSync(DATA, { recursive: true });
 const accounts = new Accounts(`${DATA}/accounts.json`, { followFrom: ACCOUNTS_FROM });
 const reports = new Reports(`${DATA}/reports.json`);
+const chat = new Chat();
+/** お知らせ。次期バージョンは、本稼働のお知らせを読み取り専用で表示する */
+const news = new Announcements(`${ACCOUNTS_FROM ?? DATA}/announcements.json`, !!ACCOUNTS_FROM);
 /** 運営用の鍵(設定しないと、運営用の API は使えない)。公開側の nginx は /api/admin を通さない */
 const ADMIN_KEY = process.env.ADMIN_KEY ?? '';
 
@@ -141,6 +146,7 @@ const server = createServer(async (req, res) => {
   }
   const url = req.url ?? '';
   try {
+    if (req.method === 'GET' && url === '/api/announcements') return json(res, 200, { ok: true, list: news.list() });
     if (req.method === 'GET' && url === '/api/status') return json(res, 200, status());
     if (req.method === 'POST' && (url === '/api/register' || url === '/api/login')) {
       if (throttled(clientIp(req))) return json(res, 429, { ok: false, reason: '試行回数が多すぎます。少し待ってください' });
@@ -200,11 +206,19 @@ function removeAccount(id: number): void {
   sim.removePlayer(id);
   accounts.remove(id);
   reports.dismiss({ target: id });
+  chat.forget(id);
   syncOnline();
 }
 /** 運営の操作。who は名前、または #ID */
 async function admin(action: string, who: string, text: string): Promise<{ ok: boolean; msg: string; data?: unknown }> {
   if (action === 'reports') return { ok: true, msg: `${reports.all().length}件`, data: reports.all() };
+  if (action === 'announcements') return { ok: true, msg: `${news.list().length}件`, data: news.list() };
+  if (action === 'announce') {
+    const r = news.add(who, text);
+    return r.ok ? { ok: true, msg: `お知らせ #${r.item.id} を出しました` } : { ok: false, msg: r.reason };
+  }
+  if (action === 'unannounce') return news.remove(Number(who)) ? { ok: true, msg: `お知らせ #${who} を消しました` } : { ok: false, msg: 'そのお知らせはありません' };
+  if (action === 'chat') return { ok: true, msg: `${chat.recentLog().length}件`, data: chat.recentLog() };
   if (action === 'dismiss') return { ok: true, msg: `${reports.dismiss({ id: Number(who) })}件を対応済みにしました` };
   if (action === 'players')
     return { ok: true, msg: `登録${accounts.count}人 / オンライン${clients.size}人`, data: [...clients].map((c) => ({ id: c.id, name: accounts.byId(c.id)?.name })) };
@@ -212,10 +226,17 @@ async function admin(action: string, who: string, text: string): Promise<{ ok: b
   if (!a) return { ok: false, msg: `アカウントが見つかりません: ${who}` };
   const label = `${a.name}(#${a.id})`;
   switch (action) {
+    case 'mute': {
+      const min = text ? Number(text) : 60;
+      if (!Number.isFinite(min) || min < 0 || min > 60 * 24 * 30) return { ok: false, msg: '分は 0〜43200 で指定してください(0 で解除)' };
+      chat.mute(a.id, min);
+      return { ok: true, msg: min > 0 ? `${label} のチャットを ${min} 分止めました(再起動で解けます)` : `${label} のチャットの停止を解きました` };
+    }
     case 'kick':
       return { ok: true, msg: kick(a.id, 4001) ? `${label} を切断しました` : `${label} は接続していません` };
     case 'ban':
       accounts.setBan(a.id, text || '規約違反');
+      chat.forget(a.id);
       kick(a.id, 4005);
       reports.dismiss({ target: a.id });
       return { ok: true, msg: `${label} を利用停止にしました` };
@@ -265,6 +286,7 @@ server.on('upgrade', (req, socket, head) => {
     ws.send(
       JSON.stringify({ type: 'init', you: a.name, id: a.id, world: { size: SIZE, seed: SEED }, tick: sim.tick, start: accounts.byId(a.id)?.last ?? null, version: GAME_VERSION }),
     );
+    ws.send(JSON.stringify({ type: 'chatlog', list: chat.recentLog() }));
     let tokens = 30;
     const refill = setInterval(() => (tokens = Math.min(30, tokens + 10)), 1000); // 操作は毎秒10回まで(瞬間30回)
     const limit = messageLimit();
@@ -314,6 +336,16 @@ server.on('upgrade', (req, socket, head) => {
         tokens -= 5; // 保存はディスクに書くので重めに数える
         const why = accounts.setProfile(c.id, m);
         ws.send(JSON.stringify({ type: 'res', req: m.req, res: why ? { ok: false, msg: why } : { ok: true, msg: '会社の情報を保存しました' } }));
+      } else if (m.type === 'chat') {
+        if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: LOCALES[lang].tr('操作が多すぎます。少し待ってください') } }));
+        tokens--;
+        const acc = accounts.byId(c.id);
+        const r = chat.post({ id: c.id, name: acc?.company || a.name }, m.text);
+        if (r.ok) {
+          const out = JSON.stringify({ type: 'chat', msg: r.msg });
+          for (const o of clients) if (o.ws.readyState === 1) o.ws.send(out);
+        }
+        ws.send(JSON.stringify({ type: 'res', req: m.req, res: r.ok ? { ok: true } : { ok: false, msg: LOCALES[lang].tr(r.reason) } }));
       } else if (m.type === 'report') {
         if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: LOCALES[lang].tr('操作が多すぎます。少し待ってください') } }));
         tokens -= 5;

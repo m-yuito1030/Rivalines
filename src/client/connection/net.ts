@@ -16,6 +16,13 @@ export class Net {
   private pending = new Map<number, (r: CmdResult) => void>();
   onMessage: (m: ServerMsg) => void = () => {};
   onClose: (code: number) => void = () => {};
+  /** チャットの受信。画面の準備ができるまでに届いた分は、取っておいて、設定されたときに渡す */
+  private chatHandler: ((m: Extract<ServerMsg, { type: 'chat' | 'chatlog' }>) => void) | null = null;
+  private chatBuf: Extract<ServerMsg, { type: 'chat' | 'chatlog' }>[] = [];
+  setChatHandler(fn: (m: Extract<ServerMsg, { type: 'chat' | 'chatlog' }>) => void): void {
+    this.chatHandler = fn;
+    for (const m of this.chatBuf.splice(0)) fn(m);
+  }
   you = '';
   id = 0;
 
@@ -56,6 +63,11 @@ export class Net {
         if (m.type === 'res') {
           this.pending.get(m.req)?.(m.res);
           this.pending.delete(m.req);
+          return;
+        }
+        if (m.type === 'chat' || m.type === 'chatlog') {
+          if (this.chatHandler) this.chatHandler(m);
+          else this.chatBuf.push(m);
           return;
         }
         if (m.type === 'init') {
@@ -112,6 +124,19 @@ export class Net {
       const req = ++this.req;
       this.pending.set(req, resolve);
       this.send({ type: 'profile', req, company, bio, color });
+      setTimeout(() => {
+        if (this.pending.delete(req)) resolve({ ok: false, msg: tr('サーバーの応答がありません') });
+      }, 15000);
+    });
+  }
+
+  /** 全体チャットに発言する */
+  chat(text: string): Promise<CmdResult> {
+    return new Promise((resolve) => {
+      if (this.ws?.readyState !== 1) return resolve({ ok: false, msg: tr('接続が切れています') });
+      const req = ++this.req;
+      this.pending.set(req, resolve);
+      this.send({ type: 'chat', req, text });
       setTimeout(() => {
         if (this.pending.delete(req)) resolve({ ok: false, msg: tr('サーバーの応答がありません') });
       }, 15000);

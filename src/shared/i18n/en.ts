@@ -6,9 +6,10 @@ import { EN_PANELS } from './en/panels';
 import { EN_NAMES } from './en/names';
 import { EN_RULES } from './en/rules';
 import { EN_UI } from './en/ui';
+import { EN_SOCIAL } from './en/social';
 
 /** 英語。訳した文だけを持ち、足りない文は日本語(継承元)で補う */
-export const EN: Catalog = { ...EN_UI, ...EN_RULES, ...EN_CLIENT, ...EN_SERVER, ...EN_PANELS, ...EN_NAMES };
+export const EN: Catalog = { ...EN_UI, ...EN_RULES, ...EN_CLIENT, ...EN_SERVER, ...EN_PANELS, ...EN_NAMES, ...EN_SOCIAL };
 
 export class En extends Ja {
   override readonly code: LangCode = 'en';
