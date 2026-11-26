@@ -43,6 +43,11 @@ export function applyDom(root: ParentNode = document): void {
     // ドロップダウンのボタンは、選んだ道具がなければ、この文(▾を除く)を表示に戻す
     if (el.dataset.def !== undefined) el.dataset.def = text.replace(/\s*▾$/, '');
   });
+  // 利用規約・プライバシーポリシーは、日本語以外では英語のページを開く(訳がある言語を足したら、ここを増やす)
+  root.querySelectorAll<HTMLAnchorElement>('a[data-legal]').forEach((a) => {
+    const page = a.dataset.legal!;
+    a.href = current.code === 'ja' ? `./${page}.html` : `./${page}.en.html`;
+  });
   root.querySelectorAll<HTMLElement>('[data-i18n-title]').forEach((el) => (el.title = current.t(el.dataset.i18nTitle!)));
   root.querySelectorAll<HTMLInputElement>('[data-i18n-placeholder]').forEach((el) => (el.placeholder = current.t(el.dataset.i18nPlaceholder!)));
 }
