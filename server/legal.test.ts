@@ -5,6 +5,8 @@ const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'u
 const terms = read('public/terms.html');
 const privacy = read('public/privacy.html');
 const index = read('index.html');
+const termsEn = read('public/terms.en.html');
+const privacyEn = read('public/privacy.en.html');
 
 describe('利用規約・プライバシーポリシー', () => {
   it('ログイン画面とメニューから、どちらも開ける。同意の文言がある', () => {
@@ -48,5 +50,54 @@ describe('利用規約・プライバシーポリシー', () => {
       expect(page).toContain('個人情報');
     }
     expect(`${terms}${privacy}`).not.toMatch(/@gmail\.com|@[a-z0-9-]+\.(com|jp)/i);
+  });
+
+  it('英語版がある。日本語ページから英語へ、英語ページから日本語へ行ける。日本語版が優先と書いてある', () => {
+    expect(terms).toContain('terms.en.html');
+    expect(privacy).toContain('privacy.en.html');
+    expect(termsEn).toContain('./terms.html');
+    expect(privacyEn).toContain('./privacy.html');
+    for (const page of [termsEn, privacyEn]) {
+      expect(page).toContain('the Japanese version prevails');
+      expect(page).toContain('github.com/m-yuito1030/rivalines/issues');
+      expect(page).toContain('personal information');
+      expect(page).not.toMatch(/@gmail\.com|@[a-z0-9-]+\.(com|jp)/i);
+    }
+  });
+
+  it('英語版にも、決めた方針と実際の設定が書かれている(1人1アカウント・複数アカウント禁止・退会・IP を保存しない・メール等を取らない)', () => {
+    expect(termsEn).toContain('One account per person');
+    expect(termsEn).toContain('Creating or using more than one account');
+    expect(termsEn).toMatch(/suspending an account/);
+    expect(termsEn).toContain('Report');
+    expect(termsEn).toContain('does not clean up inactive accounts');
+    expect(privacyEn).toContain('email address');
+    expect(privacyEn).toContain('not saved to files or logs');
+    expect(privacyEn).toContain('access log');
+    expect(privacyEn).toContain('valid for 14 days');
+  });
+
+  it('規約・ポリシーの日本語版と英語版は、最終更新の日付が同じ', () => {
+    const d = (s: string) =>
+      s
+        .match(/最終更新: (\d+)年(\d+)月(\d+)日/)!
+        .slice(1)
+        .map(Number);
+    const e = (s: string) => {
+      const m = s.match(/Last updated: ([A-Za-z]+) (\d+), (\d+)/)!;
+      return [
+        Number(m[3]),
+        ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].indexOf(m[1]) + 1,
+        Number(m[2]),
+      ];
+    };
+    expect(e(termsEn)).toEqual(d(terms));
+    expect(e(privacyEn)).toEqual(d(privacy));
+  });
+
+  it('画面のリンクは、言語に合わせて切り替わる(data-legal)', () => {
+    expect(index.split('data-legal="terms"').length - 1).toBeGreaterThanOrEqual(2);
+    expect(index.split('data-legal="privacy"').length - 1).toBeGreaterThanOrEqual(2);
+    expect(read('src/client/i18n.ts')).toContain('.en.html');
   });
 });
