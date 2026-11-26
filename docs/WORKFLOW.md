@@ -61,5 +61,6 @@ scripts/release.sh v0.2.0
 3. **Actions** → General → Workflow permissions は Read repository contents(既定)のままで十分
 
 ## 他のエージェント・共同作業者と同時に作業するとき
+詳しい決まりは [MULTI_AGENT.md](MULTI_AGENT.md)。要点:
 - それぞれ別のブランチで作業する(同じ枝に同時に書かない)。
 - 取り込む前に `git fetch && git rebase origin/main`(または GitHub の「Update branch」)で最新の `main` に合わせてから、衝突を直す。
