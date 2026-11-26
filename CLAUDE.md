@@ -3,7 +3,8 @@
 ブラウザで遊ぶ、交通と街づくりのマルチプレイゲーム(TypeScript + Vite + PixiJS + Vitest。サーバーが世界を持つ)。
 
 ## 必ず守ること
-- **`main` に直接コミットしない。** ブランチ → PR → CI が緑 → Squash and merge。流れは [docs/WORKFLOW.md](docs/WORKFLOW.md)。
+- **ふだんの作業の取り込み先は `develop`。`main` には取り込まない。** ブランチは `develop` から切り、PR の宛先(base)も `develop` にする。ブランチ → PR(→ develop)→ CI が緑 → Squash and merge。`main` は、リリースのときだけ、リリースをする人が `develop` から取り込む。`main` や `develop` に直接コミットしない。流れは [docs/WORKFLOW.md](docs/WORKFLOW.md)。
+- 「マージして」と言われたら、宛先が `develop` の PR だけをマージする。宛先が `main` の PR は、リリースの PR(または hotfix)なので、ユーザーが「リリースして」と言ったときだけ。
 - **複数のエージェントが同時に作業する。** 始める前に開いている PR・枝を確かめ、衝突しやすい場所の約束を守る: [docs/MULTI_AGENT.md](docs/MULTI_AGENT.md)。
 - 版番号は機能の PR では上げない。`CHANGELOG.md` の `## [未リリース]` に 1 行足す: [docs/VERSIONING.md](docs/VERSIONING.md)。
 - 出す前に `npm run check`(型・整形・テスト)。画面が変わるときは、ブラウザで動かして確かめる。
