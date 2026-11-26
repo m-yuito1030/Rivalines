@@ -105,6 +105,7 @@ export type ClientMsg =
   | { type: 'cmd'; req: number; cmd: Cmd }
   | { type: 'profile'; req: number; company: string; bio: string; color: number }
   | { type: 'report'; req: number; target: number; reason: string }
+  | { type: 'chat'; req: number; text: string }
   | { type: 'view'; x0: number; y0: number; x1: number; y1: number };
 
 /** 描画に必要な車両の軽量データ(経路 path は変わったときだけ別送) */
@@ -160,7 +161,19 @@ export interface PlayerInfo {
   profitTotal: number;
 }
 
+/** 全体チャットの1発言。from=発言した人のアカウントID */
+export interface ChatMsg {
+  id: number;
+  from: number;
+  name: string;
+  text: string;
+  at: number;
+}
+
 export type ServerMsg =
+  | { type: 'chat'; msg: ChatMsg }
+  /** 接続したとき、直近の発言(新しいものが後ろ) */
+  | { type: 'chatlog'; list: ChatMsg[] }
   | { type: 'init'; you: string; id: number; world: { size: number; seed: number }; tick: number; start: Pt | null; version?: string }
   /** earn: 自社の車両が稼いだ額 [車両 id, 円]、facEarn: 自社の施設が稼いだ額 [施設 id, 円](画面に、稼いだものの上へ出す用) */
   | { type: 'frame'; tick: number; veh: VehMsg[]; gone: number[]; tiles: TileRec[]; earn?: [number, number][]; facEarn?: [number, number][] }

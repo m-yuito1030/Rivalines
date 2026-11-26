@@ -43,6 +43,8 @@ import { ratingName } from '../shared/sim/economy/rating';
 import { InfoPanel, type Selection, findSelection } from './ui/infoPanel';
 import { findVehicle } from './ui/vehicleSelect';
 import { TransitLayer } from './render/transitLayer';
+import { ChatPanel } from './ui/chatPanel';
+import { NewsPanel } from './ui/newsPanel';
 import { ConstructionFx } from './render/constructionFx';
 import { LEVEL_PX, SEA_LEVEL } from '../shared/world/constants';
 import { TIERS, townTier } from '../shared/world/town';
@@ -571,6 +573,18 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     else if (e.key === 'Escape' && info.isOpen) info.close();
   });
 
+  // 全体チャットとお知らせ(新しい発言・お知らせがあれば、メニューに赤い点)
+  const chatPanel = new ChatPanel(
+    (m) => tools.onMessage?.(m),
+    () => isTouch && closeWindows(),
+  );
+  const newsPanel = new NewsPanel();
+  const showDots = () => {
+    const news = newsPanel.hasUnread;
+    $('menuBtn').classList.toggle('unread', news);
+    document.querySelector('.ddbtn[data-fixed]')?.classList.toggle('unread', news || chatPanel.hasUnread);
+  };
+  document.addEventListener('rivalines:unread', showDots);
   const playerMenu = new PlayerMenu({ transit, players: () => mirror.players, notify: (m) => tools.onMessage?.(m), beforeOpen: () => closeWindows('menu') });
 
   $('verLine').textContent = `Rivalines v${__APP_VERSION__}`;

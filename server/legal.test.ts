@@ -100,4 +100,16 @@ describe('利用規約・プライバシーポリシー', () => {
     expect(index.split('data-legal="privacy"').length - 1).toBeGreaterThanOrEqual(2);
     expect(read('src/client/i18n.ts')).toContain('.en.html');
   });
+
+  it('チャットの扱い(メモリ上だけ・直近100件)が、実装と食い違わずに書かれている', () => {
+    expect(privacy).toContain('直近の100件');
+    expect(privacy).toContain('ファイルには保存しません');
+    const chat = read('server/chat.ts');
+    expect(chat).toContain('export const CHAT_KEEP = 100');
+    expect(chat).not.toMatch(/writeFileSync|appendFile/); // ディスクに書かない
+    expect(terms).toContain('チャットの発言');
+    expect(privacyEn).toContain('most recent 100 messages');
+    expect(privacyEn).toContain('not saved to files');
+    expect(termsEn).toContain('chat messages');
+  });
 });
