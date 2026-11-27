@@ -44,7 +44,7 @@ export class Net {
     const r = await fetch(`${BASE}api/${kind}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, password }),
+      body: JSON.stringify({ name, password, lang: lang() }),
     });
     const j = (await r.json()) as { ok: boolean; reason?: string; token?: string; name?: string };
     if (j.ok) localStorage.setItem(SESSION, JSON.stringify({ token: j.token, name: j.name }));

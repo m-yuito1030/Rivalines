@@ -28,3 +28,12 @@ button:disabled { opacity: 0.5; cursor: default; }
 .card.last { outline: 2px solid #8cf; }
 .beta { font-size: 11px; vertical-align: middle; padding: 2px 8px; border-radius: 10px; background: #b36a00; color: #fff; }
 .card button { margin-top: 6px; width: 100%; }
+.lang { margin: -14px 0 18px; }
+.lang select { background: #15283f; color: #e8eef6; border: 1px solid #456; border-radius: 6px; padding: 5px 8px; font-size: 13px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.about { margin-top: 36px; padding-top: 18px; border-top: 1px solid #2c4561; }
+.about h2 { font-size: 20px; margin: 0 0 8px; }
+.about p { color: #c4d2e2; }
+.about ul { padding-left: 20px; color: #c4d2e2; }
+.about li { margin: 6px 0; }
+.shot { max-width: 100%; height: auto; border-radius: 10px; border: 1px solid #2c4561; margin: 6px 0 12px; }
