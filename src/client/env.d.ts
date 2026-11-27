@@ -1,2 +1,2 @@
-/** ゲームの版番号(ビルド時に package.json から入る) */
+/** The game's version number (injected from package.json at build time) */
 declare const __APP_VERSION__: string;

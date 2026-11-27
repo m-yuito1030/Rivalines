@@ -10,7 +10,7 @@ import { acquirePrice, assetValueFor, facilityValue, yen } from '../economyApi';
 export function gift(cmd: Extract<Cmd, { t: 'gift' }>, ctx: CommandContext): CmdResult {
   const tr = ctx.tr;
   const { sim, co, who } = ctx;
-  // 資金支援: 他の会社へ送金する(自社の現金の範囲で)
+  // Funding: send money to another company (within your own cash)
   const amount = Math.floor(Number(cmd.amount));
   if (!(amount >= 10_000)) return fail(tr('1万円以上を指定してください'));
   if (cmd.to === who || !sim.players.has(cmd.to)) return fail(tr('送り先が見つかりません'));
@@ -61,7 +61,7 @@ export function fin(cmd: Extract<Cmd, { t: 'fin' }>, ctx: CommandContext): CmdRe
       if (!co.spend('acquire', v)) return fail(tr('資金が足りません(買収額 {v})', { v: yen(v) }));
       f.owner = 'player';
       f.playerId = who;
-      f.listedDay = undefined; // 売り出しが終わる
+      f.listedDay = undefined; // the listing ends
       map.facilityVer++;
       return { ok: true, msg: tr('{name}を {v} で購入しました', { name: f.name, v: yen(v) }) };
     }
@@ -69,7 +69,7 @@ export function fin(cmd: Extract<Cmd, { t: 'fin' }>, ctx: CommandContext): CmdRe
     const get = Math.round(v * 0.6);
     co.earn('sale', get);
     f.owner = 'city';
-    f.ownerId = undefined; // どの会社も持たない売り出し物件になる
+    f.ownerId = undefined; // becomes a listed property owned by no company
     f.playerId = undefined;
     f.listedDay = sim.day;
     map.facilityVer++;

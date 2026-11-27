@@ -3,7 +3,7 @@ import type { GameMap } from './gameMap';
 export const AIRPORT_W = 3;
 export const AIRPORT_H = 3;
 
-/** 3x3の小空港を (x,y) 左上として置けるか(平坦な空き地) */
+/** Whether a small 3x3 airport can be placed with (x,y) at the top left (flat empty ground) */
 export function canPlaceAirport(map: GameMap, x: number, y: number): boolean {
   if (!map.inBounds(x, y) || !map.inBounds(x + AIRPORT_W - 1, y + AIRPORT_H - 1)) return false;
   const lv = map.levelAt(x, y);
@@ -17,12 +17,12 @@ export function canPlaceAirport(map: GameMap, x: number, y: number): boolean {
   return true;
 }
 
-/** 配置。ターミナルタイルの座標を返す */
+/** Place it. Returns the coordinates of the terminal tile */
 export function placeAirport(map: GameMap, x: number, y: number): { x: number; y: number } | null {
   if (!canPlaceAirport(map, x, y)) return null;
   for (let j = 0; j < AIRPORT_H; j++) {
     for (let i = 0; i < AIRPORT_W; i++) {
-      // 上段=エプロン(中央はターミナル)、中段=エプロン、下段=滑走路
+      // Top row = apron (the terminal in the middle), middle row = apron, bottom row = runway
       map.air.set(map.idx(x + i, y + j), j === 2 ? 2 : j === 0 && i === 1 ? 3 : 1);
       map.touch(x + i, y + j);
     }
@@ -30,7 +30,7 @@ export function placeAirport(map: GameMap, x: number, y: number): { x: number; y
   return { x: x + 1, y };
 }
 
-/** 空港全体(連結した空港タイル)を撤去 */
+/** Remove the whole airport (connected airport tiles) */
 export function removeAirport(map: GameMap, x: number, y: number): void {
   if (!map.inBounds(x, y) || !map.air.get(map.idx(x, y))) return;
   const stack = [[x, y]];
@@ -45,7 +45,7 @@ export function removeAirport(map: GameMap, x: number, y: number): void {
   }
 }
 
-/** 空港の任意タイルからターミナル(値3)を探す */
+/** From any tile of an airport, find the terminal (value 3) */
 export function findTerminal(map: GameMap, x: number, y: number): { x: number; y: number } | null {
   for (let dy = -2; dy <= 2; dy++) {
     for (let dx = -2; dx <= 2; dx++) {

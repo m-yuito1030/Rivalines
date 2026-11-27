@@ -12,6 +12,24 @@
     <link rel="icon" type="image/svg+xml" href="./icon.svg" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <title>Rivalines</title>
+    <meta name="description" content="Rivalines is a free multiplayer browser game. Build roads, rails and routes, grow towns, and compete with other companies. No download, no email needed." />
+    <link rel="canonical" href="https://rivalines.com/" />
+    <!-- SNS・チャットに URL を貼ったときのカード(OGP)。画像は絶対 URL。画像は public/og.png(1200x630) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Rivalines" />
+    <meta property="og:title" content="Rivalines — Build transit. Grow cities. Outplay your rivals." />
+    <meta property="og:description" content="A free multiplayer browser game. Build roads, rails and routes, grow towns, and compete with other companies. No download, no email needed." />
+    <meta property="og:url" content="https://rivalines.com/" />
+    <meta property="og:image" content="https://rivalines.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Rivalines: a pixel-art town with roads and houses, and the tagline Build transit, grow cities, outplay your rivals." />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="ja_JP" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Rivalines — Build transit. Grow cities. Outplay your rivals." />
+    <meta name="twitter:description" content="A free multiplayer browser game. Build roads, rails and routes, grow towns, and compete with other companies." />
+    <meta name="twitter:image" content="https://rivalines.com/og.png" />
     <link rel="stylesheet" href="/src/client/style.css" />
   </head>
   <body>
@@ -24,6 +42,7 @@
       <div id="status">
         <div id="rank" title="時価総額のランキング。クリックするとランキング画面を表示します。" data-i18n-title="ui.rank.title"></div>
         <div id="cash" title="現金残高。クリックすると経営画面(売上・費用・融資・買収)を表示します。" data-i18n-title="ui.cash.title"></div>
+        <div id="gov" hidden></div>
         <div id="rating" title="会社の評価。評価が最低ランクになると、新しい施設や路線を開発できなくなります。" data-i18n-title="ui.rating.title"></div>
       </div>
       <div id="toolbar">
@@ -248,7 +267,6 @@
         <label class="langrow"><span data-i18n="ui.lang">言語</span> <select class="lang-select" aria-label="Language"></select></label>
         <label><span data-i18n="ui.startForm.t1">名前</span> <input id="uname" placeholder="2～16文字" autocomplete="username"  data-i18n-placeholder="ui.uname.placeholder"/></label>
         <label><span data-i18n="ui.startForm.t2">パスワード</span> <input id="upw" type="password" placeholder="6文字以上" autocomplete="current-password"  data-i18n-placeholder="ui.upw.placeholder"/></label>
-        <label id="codeRow" hidden><span data-i18n="ui.codeRow">招待コード</span> <input id="ucode" placeholder="新規登録時に必要です。" autocomplete="off"  data-i18n-placeholder="ui.ucode.placeholder"/></label>
         <div class="row"><button type="submit" id="go" data-i18n="ui.go">ログイン</button><button type="button" id="register" data-i18n="ui.register">新規登録</button></div>
         <p id="err" style="color:#ff8a80"></p>
         <p id="note"></p>

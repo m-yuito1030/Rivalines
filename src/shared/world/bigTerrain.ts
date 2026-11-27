@@ -2,7 +2,7 @@ import { CHUNK } from './tileLayer';
 import { SEA_LEVEL } from './constants';
 import { GameMap } from './gameMap';
 
-/** この一辺を超えるマップは、全体を作らずチャンクごとに地形を生成する */
+/** A map larger than this side length does not build everything; its terrain is generated chunk by chunk */
 export const BIG_MAP_MIN = 8192;
 
 function hash(x: number, y: number, seed: number): number {
@@ -24,28 +24,28 @@ function valueNoise(x: number, y: number, seed: number): number {
   return a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy;
 }
 
-/** 大陸の波長(タイル)。マップサイズによらず一定なので、どれだけ広くても密度が同じ */
+/** Wavelength of the continents (tiles). Constant regardless of map size, so density is the same however large it is */
 const CONTINENT = 1536;
-const OCTAVES = 9; // 最小波長 ~6タイル
+const OCTAVES = 9; // shortest wavelength ~6 tiles
 
-/** 陸地の多さ。大きいほど海が減る(0.54 で陸約50%、0.47 で約70%) */
+/** How much land there is. The larger, the less sea (0.54 gives about 50% land, 0.47 about 70%) */
 const LAND_BIAS = 0.47;
 
 const fbm2 = (x: number, y: number, seed: number) => (valueNoise(x, y, seed) * 2 + valueNoise(x * 2.3, y * 2.3, seed + 7)) / 3;
 
-/** 川の岸の高さ(段1)。川は海面まで掘り下げ、岸を低くして橋を架けやすくする */
+/** Height of a river bank (level 1). Rivers are dug down to sea level and the banks are lowered so bridges are easy to build */
 const BANK = SEA_LEVEL + 10;
-/** この高さ(段5ほど)より高い所には川を掘らない(山の中で自然に消える) */
+/** No rivers are dug above this height (about level 5) (they fade out naturally in the mountains) */
 const RIVER_MAX = SEA_LEVEL + 75;
 
 /**
- * 川までの距離(タイル)の見積もりと、川の半幅。座標だけで決まるので、チャンクをまたいでつながる。
- * 低周波ノイズの「値が0.5になる線」を川筋にし(ゆるやかに蛇行)、別のノイズで川のある区間/ない区間を分ける。
+ * An estimate of the distance to a river (tiles), and the river's half-width. Decided from coordinates alone, so it connects across chunks.
+ * The river course is the line where low-frequency noise equals 0.5 (meandering gently); other noise separates stretches with a river from stretches without.
  */
 function river(x: number, y: number, seed: number): { dist: number; half: number } | null {
   const mask = valueNoise(x / 2000, y / 2000, seed + 3011);
   if (mask < 0.3) return null;
-  const taper = smooth(Math.min(1, (mask - 0.3) / 0.12)); // 川の両端は細く消える
+  const taper = smooth(Math.min(1, (mask - 0.3) / 0.12)); // both ends of a river thin out and vanish
   const wx = x + (valueNoise(x / 400, y / 400, seed + 3001) - 0.5) * 300;
   const wy = y + (valueNoise(x / 400 + 41, y / 400 + 17, seed + 3002) - 0.5) * 300;
   const f = (px: number, py: number) => fbm2(px / 650, py / 650, seed + 3003);
@@ -56,7 +56,7 @@ function river(x: number, y: number, seed: number): { dist: number; half: number
   return { dist: Math.abs(v - 0.5) / g, half: (1.4 + 1.6 * valueNoise(x / 300, y / 300, seed + 3021)) * taper };
 }
 
-/** 1点の高度(0..255)。同じ seed なら常に同一(座標だけで決まる)。rivers=false で川を省く(粗い参照用) */
+/** Height (0..255) at one point. Always identical for the same seed (decided by coordinates alone). rivers=false omits rivers (for coarse lookups) */
 export function bigHeight(x: number, y: number, seed: number, octaves = OCTAVES): number {
   let amp = 1;
   let freq = 1 / CONTINENT;
@@ -85,14 +85,14 @@ export function bigHeight(x: number, y: number, seed: number, octaves = OCTAVES)
   return h;
 }
 
-/** チャンク(64x64)の高度 */
+/** Heights of a chunk (64x64) */
 export function bigChunk(cx: number, cy: number, seed: number): Uint8Array {
   const out = new Uint8Array(CHUNK * CHUNK);
   for (let ly = 0; ly < CHUNK; ly++) for (let lx = 0; lx < CHUNK; lx++) out[ly * CHUNK + lx] = bigHeight(cx * CHUNK + lx, cy * CHUNK + ly, seed);
   return out;
 }
 
-/** サーバーとクライアントで同じ地形のマップを作る(座標とシードだけで決まるので、通信しなくても一致する) */
+/** Build a map with the same terrain on the server and the client (decided by coordinates and seed alone, so they agree without any communication) */
 export function makeWorldMap(size: number, seed: number): GameMap {
   return new GameMap(
     size,

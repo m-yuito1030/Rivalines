@@ -8,13 +8,13 @@ import { $, esc } from './dom';
 interface Deps {
   transit: Transit;
   players: () => PlayerInfo[];
-  /** 結果の通知(トースト) */
+  /** Notification of a result (toast) */
   notify: (msg: string) => void;
-  /** 開く前に、ほかのウィンドウを閉じる */
+  /** Before opening, close the other windows */
   beforeOpen: () => void;
 }
 
-/** メニュー: プレイヤー一覧(送金・全駅の許可)、自社の会社名・プロフィール・色の設定、ログアウト */
+/** Menu: the player list (remittances, granting access to all stations), setting your own company's name, profile, and color, and logout */
 export class PlayerMenu {
   private readonly menu = $('menu');
   private readonly list = $('menuPlayers');
@@ -52,14 +52,14 @@ export class PlayerMenu {
     const pw = () => $<HTMLInputElement>('accPw').value;
     $('accChange').addEventListener('click', () => {
       void net.account('password', net.you, pw(), $<HTMLInputElement>('accNewPw').value).then((r) => {
-        d.notify(r.ok ? tr('パスワードを変更しました(ほかの端末は、ログインし直しが必要です)') : (r.reason ?? tr('失敗しました')));
+        d.notify(r.ok ? tr('パスワードを変更しました(ほかの端末は、ログインし直しが必要です)') : r.reason ? tr(r.reason) : tr('失敗しました'));
         if (r.ok) $<HTMLInputElement>('accNewPw').value = $<HTMLInputElement>('accPw').value = '';
       });
     });
     $('accLeave').addEventListener('click', () => {
       if (!window.confirm(tr('本当に退会しますか?アカウントと会社が消え、元に戻せません。'))) return;
       void net.account('leave', net.you, pw()).then((r) => {
-        if (!r.ok) return d.notify(r.reason ?? tr('失敗しました'));
+        if (!r.ok) return d.notify(r.reason ? tr(r.reason) : tr('失敗しました'));
         alert(tr('退会しました。ご利用ありがとうございました'));
         location.reload();
       });
@@ -70,7 +70,7 @@ export class PlayerMenu {
     });
   }
 
-  /** メニューを閉じる */
+  /** Close the menu */
   close(): void {
     this.menu.hidden = true;
   }

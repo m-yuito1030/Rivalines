@@ -3,26 +3,26 @@ import type { GameMap } from '../../world/gameMap';
 import { facilityValue } from '../economy/economy';
 
 /**
- * 売り出し中の物件(不動産物件): どの会社も持っていない施設。プレイヤーが売却した施設と、街が建てた民間の施設がなる。
- * 誰でも評価額で買える。LISTING_DAYS 日のあいだ買い手がつかないと、取り壊されて更地に戻る。
+ * Listed properties (real estate): facilities owned by no company. Facilities sold by players and private facilities built by towns become these.
+ * Anyone can buy one at its valuation. If no buyer comes for LISTING_DAYS days, it is demolished and the land is cleared.
  */
 export const LISTING_DAYS = 28;
 
-/** 売り出し中か(持ち主がいない民間の施設。競合会社が持っている施設・公共施設・自社/他のプレイヤーの施設は含まない) */
+/** Whether it is listed (a private facility with no owner. Excludes facilities owned by rival companies, public facilities, and the company's own / other players' facilities) */
 export const isForSale = (f: Pick<Facility, 'owner' | 'ownerId'>): boolean => f.owner === 'city' && f.ownerId === undefined;
 
-/** 売り出しの残り日数(売り出し日からの経過で減る。まだ日付がつかない物件は満期の日数) */
+/** Days left on the listing (decreases with time since the listing date; for a property with no date yet, the full term) */
 export const listingLeft = (f: Pick<Facility, 'listedDay'>, day: number): number => (f.listedDay === undefined ? LISTING_DAYS : Math.max(0, LISTING_DAYS - (day - f.listedDay)));
 
-/** 売り出し価格(評価額) */
+/** Asking price (valuation) */
 export const askingPrice = (f: Facility): number => facilityValue(f);
 
-/** 売り出し中の物件の一覧 */
+/** List of properties currently for sale */
 export const listedFacilities = (map: Pick<GameMap, 'facilities'>): Facility[] => map.facilities.filter(isForSale);
 
 /**
- * 日締め(day=今の日の通し番号): 新しく売り出された物件(売却したばかり・街が建てた・古いセーブ)に売り出し日をつけ、
- * 売り出しでなくなった物件の日付を消し、期限が過ぎた物件を取り壊して更地に戻す。取り壊した施設を返す
+ * Day close (day = the running day number): set a listing date on newly listed properties (just sold, built by a town, or from an old save),
+ * clear the date of properties no longer listed, and demolish properties past their deadline, clearing the land. Returns the demolished facilities
  */
 export function processListings(map: GameMap, day: number): Facility[] {
   const removed: Facility[] = [];

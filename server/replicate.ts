@@ -7,12 +7,12 @@ import { assetValue } from '../src/shared/sim/economy/economy';
 import type { Accounts } from './accounts';
 import { profitTotalOf } from '../src/shared/sim/economy/weekly';
 
-/** 1クライアントが見ている範囲(タイル)の最大一辺。これを超える分は切り詰める */
+/** Max side length (tiles) of the area one client may watch. Anything beyond is clipped */
 const MAX_VIEW = 512;
 const MARGIN = 24;
-/** 1クライアントに、1フレームで新しく送るチャンクの最大数と、送信済みとして覚えておく最大数 */
+/** Max chunks newly sent to one client per frame, and the max number remembered as already sent */
 const CHUNKS_PER_FRAME = 24;
-/** 会社の一覧に載せる、オフラインの会社の数(時価総額の上位)と、1回の配信で計算し直す数 */
+/** How many offline companies appear in the company list (top by market cap), and how many are recomputed per broadcast */
 const OFFLINE_LISTED = 60;
 const OFFLINE_REFRESH = 8;
 const MAX_SENT_CHUNKS = 6000;
@@ -22,9 +22,9 @@ export interface Client {
   id: number;
   name: string;
   view: { x0: number; y0: number; x1: number; y1: number };
-  /** 送信済みのチャンク */
+  /** Chunks already sent */
   sent: Set<number>;
-  /** 経路を送った車両: id → 経路の識別 */
+  /** Vehicles whose path was sent: id -> path identity */
   paths: Map<number, number>;
   structVer: number;
   facVer: number;
@@ -32,7 +32,7 @@ export interface Client {
   lastDiscover: number;
 }
 
-/** サーバーの世界をクライアントの視界に合わせて配信する(差分・視界内のみ) */
+/** Streams the server's world to each client for just its own view (differences only, in-view only) */
 export class Replicator {
   private dirty = new Set<number>();
   private pathIds = new WeakMap<Uint32Array, number>();
@@ -156,16 +156,16 @@ export class Replicator {
     return x >= x0 && x <= x1 && y >= y0 && y <= y1;
   }
 
-  /** 約10Hz: 視界内の車両・変化したタイル・新しく見えたチャンク */
+  /** About 10 Hz: in-view vehicles, changed tiles, and newly visible chunks */
   frame(clients: Iterable<Client>): void {
     const sim = this.sim;
     const dirtyTiles = [...this.dirty];
     this.dirty.clear();
     for (const c of clients) {
       const { x0, y0, x1, y1 } = c.view;
-      if (x1 <= x0 && y1 <= y0) continue; // まだ視界を知らせていない
-      // 新しく視界に入ったチャンク(1フレームに送る数に上限。残りは次のフレーム。視界を次々変える攻撃で、サーバーが地図データ作りに追われないように)
-      if (c.sent.size > MAX_SENT_CHUNKS) c.sent.clear(); // 送信済みの記憶が増え続けないように(忘れても、見えたときに送り直すだけ)
+      if (x1 <= x0 && y1 <= y0) continue; // this client has not reported a view yet
+      // Chunks that newly came into view (capped per frame; the rest go next frame, so an attack that keeps changing the view cannot keep the server busy generating map data)
+      if (c.sent.size > MAX_SENT_CHUNKS) c.sent.clear(); // keep the sent-set from growing forever (forgetting only means resending when the chunk is seen again)
       let budget = CHUNKS_PER_FRAME;
       const cw = Math.ceil(sim.map.size / CHUNK);
       for (let cy = y0 >> CHUNK_SHIFT; cy <= y1 >> CHUNK_SHIFT; cy++) {
@@ -194,7 +194,7 @@ export class Replicator {
       const gone: number[] = [];
       for (const id of c.paths.keys()) if (!present.has(id)) gone.push(id);
       for (const id of gone) c.paths.delete(id);
-      // 自社の車両・施設が稼いだ額(稼いだものの上に、画面が出す)
+      // Amounts earned by the company's own vehicles and facilities (the client draws them above whatever earned them)
       const earn: [number, number][] = [];
       for (const [vid, amt] of sim.vehicleEarn) {
         const v = sim.transit.vehicles.find((x) => x.id === vid);
@@ -206,7 +206,7 @@ export class Replicator {
         if (f && f.playerId === c.id && amt >= 1) facEarn.push([fid, Math.round(amt)]);
       }
       this.send(c, { type: 'frame', tick: sim.tick, veh, gone, tiles, ...(earn.length ? { earn } : {}), ...(facEarn.length ? { facEarn } : {}) });
-      // 視界の周辺に街を生み出す
+      // Spawn towns around the view
       const now = Date.now();
       if (now - c.lastDiscover > 1000) {
         c.lastDiscover = now;
@@ -217,14 +217,14 @@ export class Replicator {
     sim.facilityEarn.clear();
   }
 
-  /** 構造(停留所・路線・基地・信号・街・施設)。変化があったクライアントにだけ送る */
+  /** Structure (stops, routes, depots, signals, towns, facilities). Sent only to clients where something changed */
   structure(clients: Iterable<Client>): void {
     const sim = this.sim;
     const now = Date.now();
     for (const c of clients) {
       if (c.structVer !== sim.transit.version && now - this.lastStructAt > 400) {
         c.structVer = sim.transit.version;
-        // 構造は全員同じ内容なので、版ごとに1回だけ作る(ダイヤの走行時間の計算が重いため)
+        // The structure is the same for everyone, so build it once per version (computing the diagram's travel times is expensive)
         if (!this.structCache || this.structCache.ver !== sim.transit.version) {
           const t = sim.transit;
           this.structCache = {
@@ -258,14 +258,14 @@ export class Replicator {
     if (now - this.lastStructAt > 400) this.lastStructAt = now;
   }
 
-  /** 1秒ごと: 自社の経営・競合・評価・ランキングなど */
+  /** Every second: the company's finances, rivals, rating, rankings, and so on */
   misc(clients: Iterable<Client>): void {
     const sim = this.sim;
     const players = this.playerInfos();
     const online = players.filter((p) => p.online).map((p) => p.name);
     const waiting: [number, number][] = [];
     for (const s of sim.transit.stops.values()) if (s.waiting > 0) waiting.push([s.id, Math.floor(s.waiting)]);
-    // 自社の車両の概要(視界外も含む)。持ち主ごとに1回だけ集める
+    // Summary of the company's own vehicles (including out-of-view ones). Collected once per owner
     const mine = new Map<number, MyVeh[]>();
     for (const v of sim.transit.vehicles) {
       const owner = sim.transit.routes.get(v.routeId)?.owner;
@@ -291,7 +291,7 @@ export class Replicator {
         v.cars,
       ]);
     }
-    // 路線の収入・利益・輸送人数は日々変わるが、構造(struct)は変更があったときしか送られないので、ここで毎回送る
+    // Route income, profit, and passengers carried change every day, but the structure (struct) is only sent on change, so send them here every time
     const routeStats: [number, number, number, number][] = [...sim.transit.routes.values()].map((r) => [r.id, r.income ?? 0, r.profit ?? 0, r.carried ?? 0]);
     for (const c of clients) {
       this.send(c, {
@@ -310,11 +310,12 @@ export class Replicator {
         pacts: sim.pacts.toJSON(),
         auctions: sim.auctions.toJSON(),
         weekly: sim.weekly.toJSON(),
+        gov: sim.govInfoFor(c.id),
       });
     }
   }
 
-  /** 会社1社ぶんの一覧用の情報(資産の評価などを計算するので、全員ぶんを毎回は求めない) */
+  /** List info for one company (computing asset value and so on is costly, so it is not done for everyone every time) */
   private computeInfo(id: number): PlayerInfo | null {
     const sim = this.sim;
     const co = sim.players.get(id);
@@ -339,14 +340,14 @@ export class Replicator {
     };
   }
 
-  /** オフラインの会社の、最後に計算した一覧用の情報 */
+  /** The list info last computed for an offline company */
   private infoCache = new Map<number, PlayerInfo>();
   private refreshCursor = 0;
 
   /**
-   * 配信する会社の一覧。アカウントの数に上限がないので、全員ぶんは送らない:
-   * オンラインの会社は毎回計算し、オフラインの会社は、時価総額の上位 OFFLINE_LISTED 社だけを出す
-   * (オフラインの会社は止まっているので、1回に OFFLINE_REFRESH 社ずつ順番に計算し直せば足りる)
+   * The company list to broadcast. There is no cap on the number of accounts, so it is not sent for everyone:
+   * online companies are computed every time, and offline ones only for the top OFFLINE_LISTED by market cap
+   * (offline companies are frozen, so recomputing OFFLINE_REFRESH of them at a time in rotation is enough)
    */
   private playerInfos(): PlayerInfo[] {
     const sim = this.sim;

@@ -1,9 +1,9 @@
 import type { FacilityType } from '../../world/facilities';
 import { TIERS, townTier, type Town } from '../../world/town';
 
-/** 入札・独占権: 街ごと・施設の種類ごとの「独占権」を競りにかける。落札した会社だけが、その街(の範囲)にその種類の施設を建てられる */
+/** Auctions and monopoly rights: a "monopoly right" per town and facility type is put up for auction. Only the winning company may build facilities of that type in that town (within its area) */
 export const AUCTION_TYPES: FacilityType[] = ['stadium', 'amusement', 'mall', 'department', 'hotel', 'arena', 'convention', 'zoo', 'ski', 'beach', 'stationmall'];
-/** 入札の受付日数・同時に開く競りの数・競りを開く間隔(日)・入札の最低刻み(現在額の何倍以上か) */
+/** Days a bid is open, number of auctions open at once, interval between auctions (days), and the minimum bid step (a multiple of the current amount) */
 export const LOT_DAYS = 3;
 export const MAX_LOTS = 6;
 export const OPEN_EVERY_DAYS = 2;
@@ -13,9 +13,9 @@ export interface Lot {
   id: number;
   townId: number;
   type: FacilityType;
-  /** 最低入札額 */
+  /** Minimum bid */
   minBid: number;
-  /** 締め切りまでの残り日数(日締めのたびに減る。0 で締め切り) */
+  /** Days left until the deadline (decreases at each day close; closes at 0) */
   left: number;
   bid?: { who: number; amount: number };
 }
@@ -23,7 +23,7 @@ export interface Right {
   townId: number;
   type: FacilityType;
   owner: number;
-  /** 落札額 */
+  /** Winning bid */
   paid: number;
 }
 export interface AuctionState {
@@ -33,10 +33,10 @@ export interface AuctionState {
 }
 export interface Settled {
   lot: Lot;
-  /** 落札して支払えた会社(いなければ流札) */
+  /** The company that won and could pay (none if the lot went unsold) */
   winner?: number;
   amount?: number;
-  /** 落札者が支払えず流れた */
+  /** The winner could not pay, so the lot fell through */
   failed?: boolean;
 }
 
@@ -45,12 +45,12 @@ export class Auctions {
   rights: Right[] = [];
   private nextId = 1;
 
-  /** その街・種類の独占権を持つ会社 */
+  /** The company holding the monopoly right for that town and type */
   holder(townId: number, type: FacilityType): number | undefined {
     return this.rights.find((r) => r.townId === townId && r.type === type)?.owner;
   }
 
-  /** 競りを開く。すでに権利者がいる・競りが開いている街と種類は不可 */
+  /** Open an auction. Not allowed for a town and type that already has a rights holder or an open auction */
   open(townId: number, type: FacilityType, minBid: number): Lot | null {
     if (this.holder(townId, type) !== undefined) return null;
     if (this.lots.some((l) => l.townId === townId && l.type === type)) return null;
@@ -60,7 +60,7 @@ export class Auctions {
     return lot;
   }
 
-  /** 入札する。できなければ理由(現金の確認は呼び出し側) */
+  /** Place a bid. On failure, returns the reason (checking cash is up to the caller) */
   minNext(lot: Lot): number {
     return lot.bid ? Math.ceil((lot.bid.amount * BID_STEP) / 10_000) * 10_000 : lot.minBid;
   }
@@ -76,7 +76,7 @@ export class Auctions {
     return null;
   }
 
-  /** 日締め: 残り日数を減らし、締め切った競りを決着する。pay は落札額を支払えるか(支払う)。支払えなければ流札 */
+  /** Day close: decrease days left and settle auctions that reached the deadline. `pay` charges the winning bid if affordable; if not, the lot goes unsold */
   settleDay(pay: (who: number, amount: number) => boolean): Settled[] {
     const out: Settled[] = [];
     for (const lot of [...this.lots]) {
@@ -103,7 +103,7 @@ export class Auctions {
   }
 }
 
-/** (x,y) に who が type の施設を建てるのを妨げる、他社の独占権(街の範囲内)。なければ undefined */
+/** Another company's monopoly right (within the town's area) that stops `who` from building a facility of `type` at (x,y). undefined if none */
 export function blockingRight(a: Auctions, towns: Pick<Town, 'x' | 'y' | 'pop' | 'tier'>[], who: number, type: FacilityType, x: number, y: number): Right | undefined {
   for (const r of a.rights) {
     if (r.type !== type || r.owner === who) continue;

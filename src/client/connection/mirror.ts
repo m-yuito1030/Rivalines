@@ -6,24 +6,27 @@ import type { MyVeh, PlayerInfo, ServerMsg } from '../../shared/protocol';
 import type { PactState } from '../../shared/sim/economy/pacts';
 import type { AuctionState } from '../../shared/sim/economy/auctions';
 import type { WeeklyState } from '../../shared/sim/economy/weekly';
+import type { GovInfo } from '../../shared/sim/economy/government';
 import type { Route, Stop, Depot, Vehicle } from '../../shared/sim/network/transit';
 
-/** サーバーから届いた世界を、描画・UI用の GameMap / Simulation に反映する(クライアントは世界を進めない) */
+/** Reflect the world that arrived from the server into the GameMap / Simulation used for drawing and UI (the client does not advance the world) */
 export class Mirror {
   players: PlayerInfo[] = [];
-  /** 自社の車両の概要(一覧用) */
+  /** Summary of the company's own vehicles (for the list) */
   myVehicles: MyVeh[] = [];
   online: string[] = [];
-  /** 提携(乗り入れ契約)と申し込み */
+  /** Pacts (through-running agreements) and proposals */
   pacts: PactState = { pacts: [], proposals: [], nextId: 1 };
-  /** 入札(競り)と独占権 */
+  /** Auctions and monopoly rights */
   auctions: AuctionState = { lots: [], rights: [], nextId: 1 };
-  /** 週間ランキング */
+  /** Weekly ranking */
   weekly: WeeklyState = { week: 1, base: [] };
-  /** 最初の構造・経営データが届いたか */
+  /** The government's current state as sent by the server (null before the first message) */
+  gov: GovInfo | null = null;
+  /** Whether the first structure and finance data have arrived */
   ready = { struct: false, misc: false, towns: false };
   onFirst: (() => void) | null = null;
-  /** 自社の車両・施設が稼いだ額が届いたとき(kind: 'veh' = 車両、'fac' = 施設)。画面が、稼いだものの上に出す */
+  /** When the amounts earned by the company's own vehicles and facilities arrive (kind: 'veh' = vehicle, 'fac' = facility). The screen shows them above whatever earned */
   onEarn: ((kind: 'veh' | 'fac', id: number, amount: number) => void) | null = null;
 
   constructor(
@@ -62,7 +65,7 @@ export class Mirror {
           this.setTile([map.idx(x, y), road, rail, span, air, building, owner, infra, -1, con ?? 0]);
         }
         for (const [i, h] of msg.edits) map.restoreEdit(i, h);
-        // 描画の更新(チャンク内の全タイル)
+        // Update drawing (every tile in the chunk)
         for (let y = y0; y < y0 + CHUNK && y < map.size; y++) for (let x = x0; x < x0 + CHUNK && x < map.size; x++) map.touch(x, y);
         break;
       }
@@ -102,6 +105,7 @@ export class Mirror {
         this.pacts = msg.pacts ?? this.pacts;
         this.auctions = msg.auctions ?? this.auctions;
         this.weekly = msg.weekly ?? this.weekly;
+        this.gov = msg.gov ?? this.gov;
         this.ready.misc = true;
         break;
       case 'towns':
@@ -110,9 +114,9 @@ export class Mirror {
         this.ready.towns = true;
         break;
       case 'fac': {
-        // 新しく建った施設と、デザインや大きさが変わった施設は、敷地のタイルを描き直す。
-        // 施設の絵は、タイルの更新(frame / chunk)と施設の一覧(fac)が別々に届くので、タイルが先に届くと一覧がなくて描けない。
-        // 一覧が届いたときに描き直さないと、ズームを変えて地面を作り直すまで、新しい施設が現れない
+        // Redraw the site tiles of newly built facilities and of facilities whose design or size changed.
+        // A facility's art depends on tile updates (frame / chunk) and the facility list (fac), which arrive separately; if tiles arrive first there is no list yet and it cannot be drawn.
+        // Unless we redraw when the list arrives, the new facility does not appear until the ground is rebuilt by changing the zoom
         const before = new Map(map.facilities.map((f) => [f.id, `${f.type}:${f.design}:${f.size}`]));
         map.facilities.length = 0;
         map.facilities.push(...(msg.facilities as never[]));

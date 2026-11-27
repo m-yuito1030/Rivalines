@@ -6,7 +6,7 @@ import { SPRITE_VARIANTS, fillerOf, makeBuilding } from './buildings';
 import { hospitalGrowth } from './hospital';
 import { POP_PER_LEVEL, TIERS, popMul, townTier, type Town } from './town';
 
-/** 決定論的な乱数(mulberry32)。状態を保存/復元できる */
+/** Deterministic random numbers (mulberry32). The state can be saved and restored */
 export interface Rng {
   (): number;
   getState(): number;
@@ -42,19 +42,19 @@ function townName(rng: () => number, used: Set<string>): string {
   return `街${used.size + 1}`;
 }
 
-/** 建物を置ける空き地か(陸・道路なし・建物なし) */
+/** Whether it is open ground where a building can go (land, no road, no building) */
 function isFree(map: GameMap, x: number, y: number): boolean {
   if (!map.inBounds(x, y)) return false;
   const i = map.idx(x, y);
   return map.levelAt(x, y) > 0 && map.road.get(i) === 0 && map.building.get(i) === 0 && map.rail.get(i) === 0 && map.air.get(i) === 0;
 }
 
-/** 街が1軒ぶん成長するまでの基準(tick)。大きいほどゆっくり育つ */
+/** Baseline (ticks) for a town to grow by one building. The larger, the slower it grows */
 export const GROWTH_BASE_TICKS = 600;
-/** 建物の工事にかかる日数(最低〜最長。この範囲でランダム) */
+/** Days a building takes to construct (minimum to maximum; random within the range) */
 export const BUILD_DAYS_MIN = 2;
 export const BUILD_DAYS_MAX = 3;
-/** 道路タイル検索用(街の道路が数万になっても includes の総当たりにならないように) */
+/** For road tile lookups (so that a town with tens of thousands of road tiles does not turn into a brute-force includes) */
 const roadSets = new WeakMap<Town, Set<number>>();
 const roadSet = (t: Town): Set<number> => {
   let s = roadSets.get(t);
@@ -65,10 +65,10 @@ const roadSet = (t: Town): Set<number> => {
   return s;
 };
 
-/** マップの広さで、生まれてよい街の最大段階(狭いマップに首都は入らない) */
+/** The largest tier a town may be born with, by map size (a narrow map cannot fit a capital) */
 export const maxTierFor = (size: number): number => (size < 512 ? 1 : size < 2048 ? 2 : size < 8192 ? 3 : 4);
 
-/** 大きな街の予定地として十分な平地(中心と同じ高さ±1段の陸)が広がっているか */
+/** Whether enough flat land (land within one level of the centre's height) spreads out as the planned site of a big town */
 function roomFor(map: GameMap, x: number, y: number, tier: number): boolean {
   if (tier === 0) return true;
   const rr = Math.min(36, Math.floor(TIERS[tier].radius * 0.6));
@@ -80,16 +80,16 @@ function roomFor(map: GameMap, x: number, y: number, tier: number): boolean {
       if (dx * dx + dy * dy > rr * rr) continue;
       n++;
       const l = map.levelAt(x + dx, y + dy);
-      if (l > 0 && Math.abs(l - lv) <= (dx * dx + dy * dy < (rr * rr) / 4 ? 0 : 1)) ok++; // 中心側は同じ高さ(道と家は同じ高さにしか置けない)
+      if (l > 0 && Math.abs(l - lv) <= (dx * dx + dy * dy < (rr * rr) / 4 ? 0 : 1)) ok++; // near the centre, the same height (roads and houses can only be placed at the same height)
     }
   }
   return ok >= n * 0.7;
 }
 
-/** 街どうしの最小間隔(広がりの合計の8割。狭いマップでは詰める) */
+/** Minimum spacing between towns (80% of the sum of their extents; tighter on narrow maps) */
 const spacing = (map: GameMap, a: number, b: number, base: number) => Math.min(Math.max(base, (TIERS[a].radius + TIERS[b].radius) * 0.8), map.size / 3);
 
-/** 重みで段階を選ぶ */
+/** Pick a tier by weight */
 export function pickTier(rng: () => number, maxTier: number): number {
   let total = 0;
   for (let i = 0; i <= maxTier; i++) total += TIERS[i].weight;
@@ -101,15 +101,15 @@ export function pickTier(rng: () => number, maxTier: number): number {
   return 0;
 }
 
-/** 次の成長の時刻を決める。bonus: 病院などによる成長の速さの上乗せ(0.25 なら 25% 速い) */
+/** Decide the time of the next growth. bonus: extra growth speed from hospitals, etc. (0.25 means 25% faster) */
 export function scheduleNext(town: Town, now: number, rng: () => number, bonus = 0): void {
   const slow = 1 + town.houses / 150;
-  const boost = (1 + Math.min(3, town.pax / 40)) * (1 + bonus); // 交通サービスで最大4倍速。病院でさらに速くなる
+  const boost = (1 + Math.min(3, town.pax / 40)) * (1 + bonus); // up to 4x faster with transit service. Hospitals make it faster still
   town.nextGrowth = now + Math.round((GROWTH_BASE_TICKS * (0.6 + rng() * 0.8) * slow) / boost);
 }
 
-/** 街を設置する(中央に十字路 + 数軒)。成功したら Town を返す */
-/** 街が生まれた直後(十字路と数軒ができたあと、人口を育てる前)に呼ばれる。市役所を先に置くのに使う */
+/** Place a town (a crossroads in the middle + a few houses). Returns the Town on success */
+/** Called right after a town is born (after the crossroads and a few houses, before the population is grown). Used to place the town hall first */
 export type FoundHook = (town: Town) => void;
 
 function foundTown(map: GameMap, x: number, y: number, used: Set<string>, rng: () => number, tier = 0, hook?: FoundHook): Town {
@@ -139,7 +139,7 @@ function foundTown(map: GameMap, x: number, y: number, used: Set<string>, rng: (
   addRoadTile(map, town, x, y);
   for (let i = 0; i < 4; i++) tryPlaceHouse(map, town, rng);
   hook?.(town);
-  // 段階の最低人口まで一気に育てる(置ける場所がなくなったら諦める)
+  // Grow it all at once up to the tier's minimum population (give up if there is no place left)
   const want = TIERS[tier].min;
   for (let it = 0, stall = 0; town.pop < want && it < Math.min(40000, want) && stall < 600; it++) {
     if (tryPlaceHouse(map, town, rng)) stall = 0;
@@ -160,13 +160,13 @@ function addRoadTile(map: GameMap, town: Town, x: number, y: number): void {
   }
 }
 
-/** 街の道路に隣接する空き地へ建物を置く */
+/** Place a building on open ground next to the town's roads */
 export interface PlaceOpts {
-  /** 置いてよい場所(例: 運行中の停留所の集客圏) */
+  /** Places where building is allowed (e.g. the catchment of an operating stop) */
   filter?: (x: number, y: number) => boolean;
-  /** 段階を指定(1〜3)。2x2 が確保できなければ 2 になる */
+  /** Specify the tier (1-3). If a 2x2 cannot be secured, it becomes 2 */
   level?: number;
-  /** 工事中として置く(完成は 2〜3日後)。now=今の tick、ticksPerDay=1日の tick 数 */
+  /** Place it as under construction (finishes in 2-3 days). now = the current tick, ticksPerDay = ticks in a day */
   site?: { now: number; ticksPerDay: number };
 }
 
@@ -175,7 +175,7 @@ export function tryPlaceHouse(map: GameMap, town: Town, rng: () => number, opts:
     const ri = (rng() * town.roads.length) | 0;
     const idx = town.roads[ri];
     if (map.road.get(idx) === 0) {
-      // 撤去された道路は抽選リストから除く
+      // Demolished roads are dropped from the picking list
       town.roads[ri] = town.roads[town.roads.length - 1];
       town.roads.pop();
       continue;
@@ -188,25 +188,25 @@ export function tryPlaceHouse(map: GameMap, town: Town, rng: () => number, opts:
     if (!isFree(map, x, y) || map.levelAt(x, y) !== map.levelAt(rx, ry)) continue;
     if (opts.filter && !opts.filter(x, y)) continue;
     const dist = Math.abs(x - town.x) + Math.abs(y - town.y);
-    // 大都市ほど中心の高層域が広い
+    // The bigger the city, the wider its high-rise area at the centre
     const rs = TIERS[townTier(town)].radius / 10;
     const T = TIERS[townTier(town)];
     const maxLevel = Math.min(T.maxLevel, dist < 8 * rs ? 3 : dist < 20 * rs ? 2 : 1);
-    // 低層が多く、高層は中心部にまれに
+    // Mostly low-rise, with high-rise rarely, near the centre
     const r = rng();
     let level = opts.level ?? Math.min(maxLevel, r < T.l1 ? 1 : r < T.l2 ? 2 : 3);
-    // 中心ほどオフィス、外側は住宅
+    // More offices toward the centre, houses toward the outside
     const office = rng() < Math.max(0, T.office - dist / (22 * rs));
     const variant = (rng() * SPRITE_VARIANTS) | 0;
     let ax = x;
     let ay = y;
     if (level === 3) {
-      // L は 2x2 の空き地が必要。(x,y) を角に含む4通りの配置を試し、置けなければ M にする
+      // L needs a 2x2 open site. Try the four placements that include (x,y) at a corner, and fall back to M if none fits
       const start = (rng() * 4) | 0;
       let found = false;
       for (let k = 0; k < 4 && !found; k++) {
         const o = (start + k) & 3;
-        const bx = x - (o & 1); // ブロックの左上
+        const bx = x - (o & 1); // top-left of the block
         const by = y - (o >> 1);
         if ([0, 1, 2, 3].every((q) => isFree(map, bx + (q & 1), by + (q >> 1)) && map.levelAt(bx + (q & 1), by + (q >> 1)) === map.levelAt(rx, ry))) {
           ax = bx + 1;
@@ -243,7 +243,7 @@ export function tryPlaceHouse(map: GameMap, town: Town, rng: () => number, opts:
   return false;
 }
 
-/** 既存の道路タイルから側道を伸ばす */
+/** Extend a side road from an existing road tile */
 function tryExtendRoad(map: GameMap, town: Town, rng: () => number): boolean {
   if (town.roads.length >= TIERS[townTier(town)].roads) return false;
   for (let tries = 0; tries < 12 && town.roads.length; tries++) {
@@ -255,7 +255,7 @@ function tryExtendRoad(map: GameMap, town: Town, rng: () => number): boolean {
     let x = idx % map.size;
     let y = Math.floor(idx / map.size);
     const len = 3 + ((rng() * 5) | 0);
-    // 先が空き地でなければ中止(他の道路にぶつかるのは許容: 接続して終了)
+    // Stop if the end is not open ground (running into another road is allowed: connect and finish)
     let built = 0;
     for (let i = 0; i < len; i++) {
       const nx = x + DX[d];
@@ -274,14 +274,14 @@ function tryExtendRoad(map: GameMap, town: Town, rng: () => number): boolean {
   return false;
 }
 
-/** 街を1段階成長させる */
+/** Grow a town by one step */
 export function growTown(map: GameMap, town: Town, now: number, rng: () => number, ticksPerDay = 0): void {
-  // 段階の上限に達したらそれ以上は成長しない(村は村、都市は都市のまま)。ticksPerDay を渡すと、建物は工事中から始まる
+  // Once the tier's limit is reached it does not grow any more (a village stays a village, a city stays a city). If ticksPerDay is passed, buildings start under construction
   if (town.pop < TIERS[townTier(town)].max && !tryPlaceHouse(map, town, rng, ticksPerDay ? { site: { now, ticksPerDay } } : {})) tryExtendRoad(map, town, rng);
   scheduleNext(town, now, rng, hospitalGrowth(map, town).bonus);
 }
 
-/** 初期の街を配置する。数は面積に比例(最低2) */
+/** Place the initial towns. The count is proportional to the area (at least 2) */
 export function placeTowns(map: GameMap, rng: () => number, hook?: FoundHook): void {
   const count = Math.max(2, Math.round((map.size * map.size) / 150000));
   const minDist = Math.max(24, map.size / 24);
@@ -296,7 +296,7 @@ export function placeTowns(map: GameMap, rng: () => number, hook?: FoundHook): v
       const h = map.heightAt(x, y);
       if (h <= SEA_LEVEL + 2 || h > SEA_LEVEL + 40) continue;
       if (map.towns.some((t) => Math.hypot(t.x - x, t.y - y) < spacing(map, townTier(t), tier, minDist))) continue;
-      // 周囲7x7が同じ高さの陸(平坦地)
+      // The surrounding 7x7 is land of the same height (flat ground)
       const lv = map.levelAt(x, y);
       let flat = true;
       for (let dy = -3; dy <= 3 && flat; dy++) for (let dx = -3; dx <= 3; dx++) if (map.levelAt(x + dx, y + dy) !== lv) flat = false;
@@ -308,10 +308,10 @@ export function placeTowns(map: GameMap, rng: () => number, hook?: FoundHook): v
   }
 }
 
-/** 巨大マップの街は、この一辺の区画ごとに決定論的に(近づいたとき)生まれる */
+/** On a huge map, towns are born deterministically (when approached) per region of this side length */
 export const TOWN_REGION = 1024;
 
-/** 区画 (rx,ry) の街を配置する。同じシードなら常に同じ街ができる(区画の発見順に依存しない) */
+/** Place the towns of region (rx,ry). The same seed always gives the same towns (independent of the order regions are discovered) */
 export function placeTownsRegion(map: GameMap, rx: number, ry: number, hook?: FoundHook): number {
   const x0 = rx * TOWN_REGION;
   const y0 = ry * TOWN_REGION;
@@ -325,7 +325,7 @@ export function placeTownsRegion(map: GameMap, rx: number, ry: number, hook?: Fo
   const mine: Town[] = [];
   for (let n = 0; n < count; n++) {
     const tier = pickTier(rng, 4);
-    // 大きな街は区画の縁から離して置く(隣の区画の街と重ならないように)
+    // Place big towns away from the region's edge (so they do not overlap towns of the neighbouring region)
     const edge = Math.max(8, Math.floor(TIERS[tier].radius * 0.6));
     if (w <= 2 * edge + 16 || h <= 2 * edge + 16) continue;
     for (let attempt = 0; attempt < 400; attempt++) {

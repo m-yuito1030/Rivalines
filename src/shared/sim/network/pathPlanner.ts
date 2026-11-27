@@ -3,11 +3,11 @@ import { findPath } from './pathfinding';
 import { NET_LOG_MAX, PATH_MARGIN, PathEntry, Stop, Vehicle, dirBetween } from './types';
 import type { Transit } from './transit';
 
-/** 経路の探索とキャッシュ・ネットワーク変更の通知(変更範囲にかかる経路だけ探し直す) */
+/** Path search, caching, and network-change notification (only paths touching the changed area are searched again) */
 export class PathPlanner {
   constructor(private readonly t: Transit) {}
 
-  /** 変更した個々のタイルを知らせる(線路・道路・信号の操作のあと)。そのタイルを通る走行中の編成は、次のタイルに入ったところで経路を探し直す */
+  /** Report individual changed tiles (after track, road, or signal edits). A running train that crosses such a tile searches its path again when it enters the next tile */
   touchNetworkTiles(tiles: [number, number][]): void {
     if (!tiles.length) return;
     const rects = tiles.length > 1500 ? [this.boundsOf(tiles)] : tiles.map(([x, y]) => ({ x0: x, y0: y, x1: x, y1: y }));
@@ -28,7 +28,7 @@ export class PathPlanner {
     return { x0, y0, x1, y1 };
   }
 
-  /** 変更の記録(世代・履歴)と、その変更を通る走行中の編成への「経路の探し直し」の印 */
+  /** Record a change (generation and history) and mark running trains that cross it to "search the path again" */
   applyChange(rects: { x0: number; y0: number; x1: number; y1: number }[]): void {
     this.t.netGen++;
     for (const r of rects) this.t.netLog.push({ gen: this.t.netGen, x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 });
@@ -37,7 +37,7 @@ export class PathPlanner {
       this.t.netLogFloor = this.t.netLog[drop - 1].gen;
       this.t.netLog.splice(0, drop);
     }
-    if (rects.some((r) => r.x0 < 0)) return; // 全体(範囲不明)は編成には印を付けない(キャッシュだけ)
+    if (rects.some((r) => r.x0 < 0)) return; // a change to the whole network (area unknown) does not mark trains (only the cache)
     const s = this.t.map.size;
     const points = new Set<number>();
     const wide: typeof rects = [];
@@ -64,17 +64,17 @@ export class PathPlanner {
   }
 
   /**
-   * ネットワークが変わったことを知らせる(建設・撤去・信号・駅の操作のあとに呼ぶ)。変更した範囲の矩形を渡す
-   * (省略すると全体に影響する扱い)。これで、近道を敷く・信号を変えるといった小さな変更でも、関係する経路は次の出発時に探し直される。
+   * Report that the network changed (call after building, demolishing, signals, or station edits). Pass the rectangles of the changed area
+   * (if omitted, it is treated as affecting everything). So even a small change, like laying a shortcut or changing a signal, makes the relevant paths be searched again at their next departure.
    */
   touchNetwork(x0 = -1, y0 = -1, x1 = x0, y1 = y0): void {
     this.applyChange([{ x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1) }]);
   }
 
-  /** この記録(世代 ce.gen)以降の変更が、記録の探索範囲にかかっているか */
+  /** Whether a change since this entry (generation ce.gen) touches the entry's search area */
   pathAffected(ce: PathEntry): boolean {
     if (ce.gen >= this.t.netGen) return false;
-    if (ce.gen < this.t.netLogFloor) return true; // 古い履歴は捨てたので、念のため探し直す
+    if (ce.gen < this.t.netLogFloor) return true; // old history was discarded, so search again to be safe
     for (let i = this.t.netLog.length - 1; i >= 0; i--) {
       const c = this.t.netLog[i];
       if (c.gen <= ce.gen) break;
@@ -84,7 +84,7 @@ export class PathPlanner {
     return false;
   }
 
-  /** 経路探索(結果をキャッシュ。使用時は各辺がまだ通れるか検査し、駄目なら探索し直す) */
+  /** Path search (the result is cached; on use, each edge is checked to still be passable, and the search is redone if not) */
   route(from: number, to: number, rail: boolean): Uint32Array | null {
     const m = this.t.map;
     const s = m.size;
@@ -92,7 +92,7 @@ export class PathPlanner {
     const ce = this.t.pathCache.get(key);
     if (ce && !this.pathAffected(ce)) {
       if (ce.p === null) {
-        ce.gen = this.t.netGen; // 到達できない結果も、関係する変更がなければ使い回す(同じ探索を繰り返さない)
+        ce.gen = this.t.netGen; // an unreachable result is reused too, unless a relevant change happened (the same search is not repeated)
         return null;
       }
       const c = ce.p;
@@ -103,13 +103,13 @@ export class PathPlanner {
         ok = d >= 0 && (layer.get(c[i]) & (rail ? CONN(d) : OUT(d))) !== 0 && (layer.get(c[i + 1]) & CONN(opposite8(d))) !== 0;
         if (ok && rail && this.t.signals.size && d < 8) {
           const mk = this.t.signalsSys.signalMask(c[i + 1]);
-          if (mk && !(mk & (1 << d))) ok = false; // 一方向の信号を逆走する経路は不可
+          if (mk && !(mk & (1 << d))) ok = false; // a path that runs the wrong way through a one-way signal is invalid
         }
       }
       if (ok) {
         ce.gen = this.t.netGen;
         this.t.pathCache.delete(key);
-        this.t.pathCache.set(key, ce); // 最近使った印(LRU)
+        this.t.pathCache.set(key, ce); // mark as recently used (LRU)
         return c;
       }
     }
@@ -132,7 +132,7 @@ export class PathPlanner {
         if (y > by1) by1 = y;
       }
     } else {
-      // 到達できなかった記録は、始点・終点の周囲(探索が広がった範囲)の変更で探し直す
+      // An unreachable record is searched again when something changes around the start and end (the area the search spread over)
       bx0 -= 60;
       by0 -= 60;
       bx1 += 60;
@@ -151,8 +151,8 @@ export class PathPlanner {
   }
 
   /**
-   * 鉄道の出発経路の候補(短い順)。経由点を順に通り、最後は駅の番線(両端のうち進行方向の奥側)まで。
-   * 折り返し(来た線路へ戻る)になる経路は除く。見つからなければ空。
+   * Candidate departure paths for rail (shortest first). They pass through the waypoints in order and end at a platform track of the station (the far end in the direction of travel).
+   * Paths that would reverse (go back along the track they came on) are excluded. Empty if none is found.
    */
   railCandidates(v: Vehicle, vias: number[], dest: Stop): number[][] {
     let cur = v.trail[0];

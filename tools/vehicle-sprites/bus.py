@@ -1,5 +1,5 @@
-"""8方向の乗り物スプライト生成(小さな3Dモデルを回して2:1アイソメ+ドット絵風に描画)
-方向: 0=画面右下向き(+X) から反時計回りに45度ずつ: 0右下,1下,2左下,3左,4左上,5上,6右上,7右
+"""Generates 8-direction vehicle sprites (renders a small 3D model rotated, in 2:1 isometric with a pixel-art look)
+Directions: from 0 = facing lower right on screen (+X), counterclockwise in 45-degree steps: 0 lower right, 1 down, 2 lower left, 3 left, 4 upper left, 5 up, 6 upper right, 7 right
 """
 import os,sys,math,csv,zipfile
 from PIL import Image,ImageDraw

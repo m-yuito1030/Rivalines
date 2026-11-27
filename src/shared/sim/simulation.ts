@@ -1,10 +1,11 @@
 import type { GameMap } from '../world/gameMap';
+import { Government, POLICIES, type GovInfo, classify, corporateTaxRate, policyOfDay, policyOfMonth, runningMul, stanceOfDay, LEVY_BASE, STANCES } from './economy/government';
 import { TOWN_REGION, growTown, makeRng, placeTowns, placeTownsRegion, type Rng } from '../world/towns';
 import { Transit, type TransitSave } from './network/transit';
 import type { Town } from '../world/town';
 import { type RatingState, newRating, stepRating } from './economy/rating';
 import { migrateStep } from './world/migration';
-import { Company, FIRST_OWNER, RUNNING_RATE, TOLL, type CompanyState, vehiclePrice } from './economy/economy';
+import { Company, FIRST_OWNER, RUNNING_RATE, TAX_RATE, TOLL, type CompanyState, vehiclePrice } from './economy/economy';
 import { Pacts, type PactState } from './economy/pacts';
 import { Weekly, type WeeklyState, playerMetrics } from './economy/weekly';
 import { AUCTION_TYPES, Auctions, OPEN_EVERY_DAYS, type AuctionState } from './economy/auctions';
@@ -19,21 +20,23 @@ import { modelOf } from '../data/models';
 import { spawnCityBusiness } from './facility/cityBusiness';
 import { placePublicFacilities, placeTownHall } from './facility/publicFacilities';
 
-/** セーブから復元するための状態 */
+/** State for restoring from a save */
 export interface SimState {
   tick: number;
   speed: number;
   rng: number;
   towns: Town[];
-  /** 巨大マップ: 街を生成済みの区画 */
+  /** Huge map: the regions whose towns have been generated */
   townRegions?: number[];
-  /** 工事中の建物 [タイルindex, 完成する tick](なければ全部完成済み) */
+  /** Buildings under construction [tile index, tick when they finish] (if absent, everything is finished) */
   sites?: [number, number][];
-  /** マルチプレイ: 提携(乗り入れ契約)・入札と独占権 */
+  /** Multiplayer: pacts (through-running agreements), auctions, and monopoly rights */
   pacts?: PactState;
   auctions?: AuctionState;
   weekly?: WeeklyState;
-  /** マルチプレイ: 会社ごとの経営 */
+  /** Multiplayer: the government's treasury */
+  gov?: { treasury: number };
+  /** Multiplayer: each company's finances */
   players?: [number, CompanyState][];
   transit: TransitSave;
   rating?: RatingState;
@@ -45,53 +48,56 @@ export interface SimState {
   pubRng?: number;
 }
 
-/** 実時間30分 = ゲーム内1日(速度x1)。1tick = 実0.1秒(x1) */
+/** 30 real minutes = 1 in-game day (at speed x1). 1 tick = 0.1 real seconds (x1) */
 export const TICKS_PER_SECOND = 10;
 export const TICKS_PER_DAY = 30 * 60 * TICKS_PER_SECOND;
-/** 会社の評価を更新する間隔(tick) */
+/** Interval (ticks) for updating the company rating */
 export const RATING_EVERY = 600;
-/** 人口移動を試みる間隔(tick) */
+/** Interval (ticks) for attempting migration */
 export const MIGRATE_EVERY = 300;
-/** 街が民間の施設(百貨店など)を建てるか検討する間隔(tick) */
+/** Interval (ticks) at which towns consider building private facilities (department stores, etc.) */
 export const CITY_EVERY = 1800;
 
 export class Simulation {
-  /** 直近の送信から今までに、車両・施設が稼いだ額(画面に「どれが稼いだか」を出すため。送信のたびに空にする) */
+  /** Amounts earned by vehicles and facilities since the last send (so the screen can show which one earned; cleared at every send) */
   readonly vehicleEarn = new Map<number, number>();
   readonly facilityEarn = new Map<number, number>();
   tick = 0;
-  /** 0=一時停止 */
+  /** 0 = paused */
   speed = 1;
   private acc = 0;
   private rng: Rng;
   readonly transit: Transit;
-  /** 会社の評価(1分ごとに更新) */
+  /** Company rating (updated every minute) */
   rating: RatingState = newRating();
-  /** マルチプレイ: 会社(アカウントID → 会社)。切断中の会社は日次・決算の処理を止める */
+  /** Multiplayer: companies (account ID -> company). A disconnected company's daily and fiscal processing stops */
   readonly players = new Map<number, Company>();
   readonly online = new Set<number>();
-  /** マルチプレイ: 提携(通行料の割引) */
+  /** Multiplayer: pacts (toll discounts) */
   readonly pacts = new Pacts();
-  /** マルチプレイ: 入札(競り)と独占権 */
+  /** Multiplayer: auctions and monopoly rights */
   readonly auctions = new Auctions();
-  /** マルチプレイ: 週間ランキング */
+  /** Multiplayer: weekly ranking */
   readonly weekly = new Weekly();
+  /** Multiplayer: the government (policies and the levy on large companies are derived from the date; only the treasury is state) */
+  readonly gov = new Government();
   multi = false;
-  /** 運行が始まった地域へ移住した人数(累計) */
+  /** Cumulative number of people who moved to areas where service started */
   migrated = 0;
-  /** 会社(資金・売上・費用・融資) */
+  /** The company (funds, sales, costs, loans) */
   company = new Company();
-  /** マルチプレイ: 会社を取り出す(なければ新設) */
+  /** Multiplayer: get a company (created if absent) */
   playerCompany(id: number): Company {
     let c = this.players.get(id);
     if (!c) {
       c = new Company();
+      c.buildMul = POLICIES[policyOfDay(this.map.seed, this.day)].buildMul;
       this.players.set(id, c);
     }
     return c;
   }
 
-  /** 工事が終わった建物を完成させる(取り壊されたものは、記録だけ消す) */
+  /** Finish buildings whose construction is done (for ones demolished meanwhile, just drop the record) */
   private finishSites(): void {
     const m = this.map;
     for (const [i, at] of m.sites) {
@@ -104,7 +110,7 @@ export class Simulation {
     }
   }
 
-  /** マルチプレイ: 会社を消す(退会・削除)。施設は売り出し物件になり、路線・車両・停留所・車庫は撤去される */
+  /** Multiplayer: delete a company (leaving or deletion). Facilities become listed properties; routes, vehicles, stops, and depots are removed */
   removePlayer(id: number): void {
     for (const r of [...this.transit.routes.values()]) if (r.owner === id) this.transit.removeRoute(r.id);
     for (const s of [...this.transit.stops.values()]) if (s.owner === id) this.transit.removeStop(s.id);
@@ -126,12 +132,20 @@ export class Simulation {
     this.pacts.proposals = this.pacts.proposals.filter((p) => p.from !== id && p.to !== id);
     for (const l of this.auctions.lots) if (l.bid?.who === id) l.bid = undefined;
     this.auctions.rights = this.auctions.rights.filter((r) => r.owner !== id);
+    // Rivals the company had acquired become independent again (otherwise they would stay owned by nobody, and nobody could buy them)
+    for (const r of this.rivals) {
+      if (r.acquired && r.acquiredBy === id) {
+        r.acquired = false;
+        r.acquiredBy = undefined;
+      }
+    }
+    this.weekly.forget(id);
     this.players.delete(id);
     this.online.delete(id);
     this.transit.frozen.delete(id);
   }
 
-  /** マルチプレイ: ログイン中の会社を更新する。切断中の会社の路線は止まる */
+  /** Multiplayer: update the companies that are logged in. A disconnected company's routes stop */
   setOnline(ids: Iterable<number>): void {
     this.online.clear();
     for (const i of ids) this.online.add(i);
@@ -139,14 +153,14 @@ export class Simulation {
     for (const id of this.players.keys()) if (!this.online.has(id)) this.transit.frozen.add(id);
   }
 
-  /** 競合する交通会社(買収できる)。乱数は街の成長とは別系列 */
+  /** Rival transit companies (can be acquired). Their random numbers are a separate stream from town growth */
   rivals: Rival[] = [];
   private rivalRng: Rng;
-  /** 公共施設(市役所・学校)の配置用の乱数(街の成長の乱数とは別系列) */
+  /** Random numbers for placing public facilities (town halls, schools) (a separate stream from town growth) */
   private pubRng: Rng;
-  /** 施設の来場者の乱数 */
+  /** Random numbers for facility visitors */
   private facRng: Rng;
-  /** いまの日の通し番号(開始日=0) */
+  /** The running day number (start date = 0) */
   get day(): number {
     return Math.floor((this.tick + TICKS_PER_DAY / 4) / TICKS_PER_DAY);
   }
@@ -170,7 +184,7 @@ export class Simulation {
     };
     this.transit.serviceMul = (owner) => (this.multi && owner ? this.playerCompany(owner) : this.company).serviceMul;
     this.transit.onVisit = (stop, n, tick) => this.company.visits(this.map, stop, n, tick, this.multi ? (f) => (f.playerId ? this.playerCompany(f.playerId) : null) : undefined);
-    // 他社のインフラを走ると通行料(線路・道路の共有)
+    // Running over another company's infrastructure costs a toll (sharing tracks and roads)
     this.transit.onTile = (_v, route, tile) => {
       if (!this.multi || !route.owner) return;
       const own = this.map.infraOwner.get(tile);
@@ -186,7 +200,7 @@ export class Simulation {
       map.towns.push(...restore.towns);
       for (const r of restore.townRegions ?? []) map.townRegions.add(r);
       this.transit.restore(restore.transit);
-      this.transit.repair(); // 以前の不具合などで壊れた路線が保存データに残っていても、読み込み時に直す
+      this.transit.repair(); // fix broken routes left in saved data by earlier bugs when loading
       if (restore.rating) this.rating = restore.rating;
       this.migrated = restore.migrated ?? 0;
       map.facilities.push(...(restore.facilities ?? []));
@@ -200,6 +214,7 @@ export class Simulation {
         this.map.construction.set(i, 1);
       }
       if (restore.weekly) this.weekly.load(restore.weekly);
+      this.gov.load(restore.gov);
       this.rivals = restore.rivals ?? createRivals(this.rivalRng, this.multi ? 20 : 4);
       if (restore.rivalRng !== undefined) this.rivalRng.setState(restore.rivalRng);
       if (restore.pubRng !== undefined) this.pubRng.setState(restore.pubRng);
@@ -207,13 +222,13 @@ export class Simulation {
       if (map.chunked) this.discoverNear(map.size / 2, map.size / 2, 0, true);
       else placeTowns(map, this.rng, (t) => void placeTownHall(map, t, this.pubRng));
       this.rivals = createRivals(this.rivalRng, this.multi ? 20 : 4);
-      placePublicFacilities(map, this.transit, this.pubRng); // 市役所は最初から建っている
+      placePublicFacilities(map, this.transit, this.pubRng); // the town hall is there from the start
     }
   }
 
   /**
-   * 巨大マップ: (x,y) の周囲の区画に街を生み出す(未生成の区画だけ)。
-   * firstTwo: 開始時、街が2つ以上できるまで中心から渦巻き状に探す。
+   * Huge map: spawn towns in the regions around (x,y) (only regions not yet generated).
+   * firstTwo: at the start, search in a spiral from the centre until two or more towns exist.
    */
   discoverNear(x: number, y: number, radius = 1, firstTwo = false): void {
     const map = this.map;
@@ -235,7 +250,7 @@ export class Simulation {
     for (let r = 1; r < n && map.towns.length < 2; r++) run(r);
   }
 
-  /** セーブ用に状態を取り出す */
+  /** Take out the state for saving */
   state(): SimState {
     return {
       tick: this.tick,
@@ -245,6 +260,7 @@ export class Simulation {
       auctions: this.auctions.toJSON(),
       sites: [...this.map.sites],
       weekly: this.weekly.toJSON(),
+      gov: this.gov.toJSON(),
       players: [...this.players].map(([id, c]) => [id, c.toJSON()] as [number, CompanyState]),
       towns: this.map.towns,
       townRegions: [...this.map.townRegions],
@@ -259,15 +275,15 @@ export class Simulation {
     };
   }
 
-  /** 直近のフレームで進めたtick数と所要時間(HUD用) */
+  /** Ticks advanced and time taken in the latest frame (for the HUD) */
   lastSteps = 0;
   lastMs = 0;
-  /** 処理が追いつかず、速度を落として進めているか */
+  /** Whether processing could not keep up and the speed is being reduced */
   throttled = false;
 
   /**
-   * 実経過秒を渡す。速度に応じてtickを進める。
-   * 時間予算(budgetMs)を超えたら残りは捨て、ゲーム速度を自動的に落とす(フリーズ防止)。
+   * Pass the elapsed real seconds. Advances ticks according to the speed.
+   * If the time budget (budgetMs) is exceeded, the rest is discarded and the game speed is lowered automatically (to prevent freezes).
    */
   advance(dtSec: number, budgetMs = 10): void {
     this.lastSteps = 0;
@@ -302,46 +318,70 @@ export class Simulation {
       spawnCityBusiness(this.map, this.transit, this.rng, 0.35, this.rivals);
       placePublicFacilities(this.map, this.transit, this.pubRng);
     }
-    // 日の締めは暦の日付が変わる 0:00 に行う(開始は6:00なので、開始から 3/4 日後が最初)
+    // The day close happens at 0:00 when the calendar date changes (the start is 6:00, so the first is 3/4 of a day after the start)
     if ((this.tick + TICKS_PER_DAY / 4) % TICKS_PER_DAY === 0) {
-      const ended = (this.tick + TICKS_PER_DAY / 4) / TICKS_PER_DAY - 1; // 今締める日(開始日=0)
-      // 施設の来場者(周辺の人口・停留所・競合・広告で決まる)。売上は今日の分として計上してから日を締める
-      dailyVisitors(this.map, this.transit, ended, this.facRng, (f, amount) => {
-        const c = this.multi ? (f.playerId ? this.playerCompany(f.playerId) : null) : this.company;
-        if (c && (!this.multi || this.online.has(f.playerId!))) {
-          c.earn('facility', amount);
-          if (this.multi) this.facilityEarn.set(f.id, (this.facilityEarn.get(f.id) ?? 0) + amount);
-        }
-      });
+      const ended = (this.tick + TICKS_PER_DAY / 4) / TICKS_PER_DAY - 1; // the day being closed (start date = 0)
+      // Facility visitors (decided by surrounding population, stops, rivals, and advertising). Book sales as today's before closing the day
+      dailyVisitors(
+        this.map,
+        this.transit,
+        ended,
+        this.facRng,
+        (f, amount) => {
+          const c = this.multi ? (f.playerId ? this.playerCompany(f.playerId) : null) : this.company;
+          if (c && (!this.multi || this.online.has(f.playerId!))) {
+            c.earn('facility', amount);
+            if (this.multi) this.facilityEarn.set(f.id, (this.facilityEarn.get(f.id) ?? 0) + amount);
+          }
+        },
+        this.multi ? POLICIES[policyOfDay(this.map.seed, ended)].visitorMul : 1,
+      );
       if (this.multi) {
+        // The national policy of the day being closed sets the running-cost multiplier (a larger fleet pays more under an environmental policy)
+        const policy = policyOfDay(this.map.seed, ended);
+        const fleet = new Map<number, number>();
+        for (const v of this.transit.vehicles) {
+          const owner = this.transit.routes.get(v.routeId)?.owner;
+          if (owner) fleet.set(owner, (fleet.get(owner) ?? 0) + 1);
+        }
         let first = true;
         for (const [id, c] of this.players) {
-          if (!this.online.has(id)) continue; // 切断中はそのまま止める
+          if (!this.online.has(id)) continue; // a disconnected company is left frozen
           if (first) FIRST_OWNER.id = id;
           first = false;
+          c.govRunMul = runningMul(policy, fleet.get(id) ?? 0);
           c.endOfDay(ended, this.map, this.transit, this.rating.score, this.rivals, id);
         }
+        this.governmentDay(ended);
       } else this.company.endOfDay(ended, this.map, this.transit, this.rating.score, this.rivals);
-      // 売り出し中の物件: 売り出し日をつけ、期限が過ぎた物件を取り壊して更地に戻す
+      // Listed properties: set listing dates and demolish those past their deadline, clearing the land
       processListings(this.map, this.day);
       if (this.multi) {
         this.auctionDay(ended);
-        this.weekly.onDay(ended, [...this.online], (id) => playerMetrics(this, id)); // オフラインの会社は止まっているので、集計しない(アカウントが多くても重くならない)
+        this.weekly.onDay(ended, [...this.online], (id) => playerMetrics(this, id)); // offline companies are frozen, so they are not counted (so many accounts do not make it heavy)
       }
       stepRivals(this.rivals, this.rivalRng);
-      // 事業年度をまたぐ日(3月31日→4月1日)は決算
+      // The day that crosses a fiscal year (March 31 -> April 1) closes the books
       const a = calendarOf(ended);
       const b = calendarOf(ended + 1);
       const pa = fiscalPeriodOf(a.year, a.month);
       if (pa !== fiscalPeriodOf(b.year, b.month)) {
         if (this.multi) {
-          for (const [id, c] of this.players) if (this.online.has(id)) c.closeFiscalYear(pa, assetValue(this.map, this.transit, this.rivals, id));
+          // Corporate tax: large companies pay a higher rate, depending on the government's stance and policy
+          const cls = classify(this.rankedOnline());
+          const policy = policyOfDay(this.map.seed, ended);
+          const stance = stanceOfDay(this.map.seed, ended);
+          for (const [id, c] of this.players) {
+            if (!this.online.has(id)) continue;
+            c.taxRate = corporateTaxRate(TAX_RATE, cls.get(id) ?? 'none', policy, stance);
+            c.closeFiscalYear(pa, assetValue(this.map, this.transit, this.rivals, id));
+          }
         } else {
           const rep = this.company.closeFiscalYear(pa, assetValue(this.map, this.transit, this.rivals));
           this.onFiscalClose?.(rep);
         }
       }
-      // 路線ごとの1日あたり収入と利益(運賃収入 - 車両の運行費)
+      // Income and profit per day for each route (fare income - vehicle running cost)
       for (const r of this.transit.routes.values()) {
         const run = this.transit.vehicles.filter((v) => v.routeId === r.id).reduce((a, v) => a + vehiclePrice(modelOf(v.modelId), v.cars) * RUNNING_RATE, 0);
         r.income = (r.income ?? 0) * 0.8 + (r.dayRevenue ?? 0) * 0.2;
@@ -351,7 +391,46 @@ export class Simulation {
     }
   }
 
-  /** マルチプレイ: 競りの決着と、新しい競りを開く(日締めに1回。人口の多い街から、日付で決まる) */
+  /** The online companies with their net assets (for the government's size classes) */
+  private rankedOnline(): { id: number; netWorth: number }[] {
+    const out: { id: number; netWorth: number }[] = [];
+    for (const id of this.online) {
+      const c = this.players.get(id);
+      if (c) out.push({ id, netWorth: c.netWorth(assetValue(this.map, this.transit, this.rivals, id)) });
+    }
+    return out;
+  }
+
+  /** Multiplayer: government work at a day close. At month end the large companies pay the levy and the treasury is paid out to the small ones; the next day's construction multiplier is set */
+  private governmentDay(ended: number): void {
+    const seed = this.map.seed;
+    if (calendarOf(ended).month !== calendarOf(ended + 1).month) {
+      const r = this.gov.monthly(this.rankedOnline(), policyOfDay(seed, ended), stanceOfDay(seed, ended));
+      for (const [id, amount] of r.levies) this.players.get(id)?.pay('levy', amount);
+      for (const [id, amount] of r.subsidies) this.players.get(id)?.earn('subsidy', amount);
+    }
+    const next = POLICIES[policyOfDay(seed, ended + 1)].buildMul;
+    for (const c of this.players.values()) c.buildMul = next;
+  }
+
+  /** What to show a player about the government right now */
+  govInfoFor(id: number): GovInfo {
+    const seed = this.map.seed;
+    const day = this.day;
+    const d = calendarOf(day);
+    const nm = d.month === 12 ? { y: d.year + 1, m: 1 } : { y: d.year, m: d.month + 1 };
+    const ranked = this.rankedOnline();
+    const size = classify(ranked).get(id) ?? 'none';
+    const policy = policyOfDay(seed, day);
+    const stance = stanceOfDay(seed, day);
+    const nw = ranked.find((c) => c.id === id)?.netWorth ?? 0;
+    const levy = size === 'large' && nw > 0 ? Math.round(nw * LEVY_BASE * POLICIES[policy].levyMul * STANCES[stance].levyMul) : 0;
+    let changeDay = day + 1;
+    while (changeDay - day < 40 && calendarOf(changeDay).month === d.month) changeDay++;
+    return { policy, next: policyOfMonth(seed, nm.y, nm.m), stance, treasury: this.gov.treasury, size, levy, changeDay };
+  }
+
+  /** Multiplayer: settle auctions and open new ones (once per day close; starting from the most populous towns, decided by the date) */
   private auctionDay(day: number): void {
     this.auctions.settleDay((who, amount) => this.online.has(who) && this.playerCompany(who).spend('acquire', amount));
     if (day % OPEN_EVERY_DAYS !== 0) return;
@@ -362,10 +441,10 @@ export class Simulation {
     this.auctions.open(t.id, type, Math.round((FACILITY_SPECS[type].cost * 0.5) / 100_000) * 100_000);
   }
 
-  /** 決算(事業年度の締め)が行われたときに呼ばれる */
+  /** Called when a fiscal close (year end) happens */
   onFiscalClose?: (report: FiscalReport) => void;
 
-  /** ゲーム内日時。2026年4月1日 06:00 開始、実際の暦で1日ずつ進む。期(第N期)・四半期つき */
+  /** In-game date and time. Starts at 06:00 on April 1, 2026 and advances one day at a time on the real calendar. Includes the period (period N) and the quarter */
   get date() {
     const total = this.tick + TICKS_PER_DAY / 4;
     const days = Math.floor(total / TICKS_PER_DAY);

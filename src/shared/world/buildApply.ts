@@ -11,18 +11,18 @@ export const DRAG_TOOLS: readonly string[] = ['road', 'oneway', 'twoway', 'bulld
 export const RECT_TOOLS: readonly string[] = ['raise', 'lower', 'level'];
 type Tile = { x: number; y: number };
 
-/** 建設の入出力: 資金の確認・支払い、メッセージ、(マルチ)インフラの所有者 */
+/** Construction I/O: checking and paying funds, messages, and (multiplayer) infrastructure ownership */
 export interface BuildIO {
   afford: (cost: number) => boolean;
   pay: (cost: number) => boolean;
   msg: (m: string) => void;
-  /** マルチプレイ: 敷設したタイルの所有者(会社)。撤去は自社(または無所有)のタイルだけ */
+  /** Multiplayer: the owner (company) of the tiles laid. Demolition only works on the company's own (or unowned) tiles */
   owner?: number;
-  /** 線路・道路を変更したタイルを知らせる(経路の探し直しの対象を絞るため) */
+  /** Report tiles where track or road changed (to narrow down which paths need searching again) */
   touched?: (x: number, y: number) => void;
 }
 
-/** 矩形ドラッグ範囲(上限あり) */
+/** Rectangle drag range (with a cap) */
 export function dragRect(a: Tile, b: Tile): Tile[] {
   const x0 = Math.min(a.x, b.x);
   const y0 = Math.min(a.y, b.y);
@@ -39,7 +39,7 @@ const claim = (map: GameMap, x: number, y: number, owner: number | undefined) =>
   if (!map.infraOwner.get(i)) map.infraOwner.set(i, owner);
 };
 
-/** ドラッグ操作(道路・線路・撤去・整地・橋/トンネル)を実行する。ツールバーのドラッグと、サーバーのコマンドで共通 */
+/** Run a drag action (road, rail, demolish, terraform, bridge/tunnel). Shared by the toolbar drag and the server command */
 export function applyBuild(map: GameMap, tool: DragTool, a: Tile, b: Tile, io: BuildIO): void {
   if (!map.inBounds(a.x, a.y) || !map.inBounds(b.x, b.y)) return;
   if (RECT_TOOLS.includes(tool)) {
@@ -69,16 +69,16 @@ export function applyBuild(map: GameMap, tool: DragTool, a: Tile, b: Tile, io: B
   }
   let tiles: { x: number; y: number; d: number }[];
   if (tool === 'railauto') {
-    // 自動敷設: 始点から終点まで、既存の線路を優先し、高低差・建物・交差を避けて最短でつなぐ
+    // Auto-laying: from start to end, prefer existing track and connect by the shortest way avoiding height differences, buildings, and crossings
     const path = autoRailPath(map, a, b);
     if (!path) return void io.msg('自動で敷設できる経路が見つかりません(水域・建物・高低差などで遮られています。橋・整地を使うか、途中に目印を置いてください)');
     tiles = path;
-  } else tiles = tool === 'rail' || tool === 'bulldoze' ? railLineTiles(a.x, a.y, b.x, b.y) : lineTiles(a.x, a.y, b.x, b.y); // 撤去も斜めのドラッグは斜めの線に沿う
+  } else tiles = tool === 'rail' || tool === 'bulldoze' ? railLineTiles(a.x, a.y, b.x, b.y) : lineTiles(a.x, a.y, b.x, b.y); // a diagonal drag for demolishing follows a diagonal line too
   if (tool === 'bulldoze') {
     for (const t of tiles) {
       const i = map.idx(t.x, t.y);
       const own = map.infraOwner.get(i);
-      if (io.owner && own && own !== io.owner) continue; // 他社の施設は撤去できない
+      if (io.owner && own && own !== io.owner) continue; // another company's facilities cannot be demolished
       bulldoze(map, t.x, t.y);
       io.touched?.(t.x, t.y);
       if (map.road.get(i) === 0 && map.rail.get(i) === 0) map.infraOwner.set(i, 0);
@@ -93,7 +93,7 @@ export function applyBuild(map: GameMap, tool: DragTool, a: Tile, b: Tile, io: B
       io.touched?.(t.x, t.y);
       continue;
     }
-    // 新しく敷く辺だけ費用がかかる(既存の辺の上書きは無料)
+    // Only newly laid edges cost money (overwriting an existing edge is free)
     const isRail = tool === 'rail' || tool === 'railauto';
     if (!(isRail ? canConnectRail(map, t.x, t.y, t.d, true) : canConnect(map, t.x, t.y, t.d, true))) continue;
     const k = map.idx(t.x, t.y);
@@ -111,7 +111,7 @@ export function applyBuild(map: GameMap, tool: DragTool, a: Tile, b: Tile, io: B
       io.pay(price);
       spent += price;
       claim(map, t.x, t.y, io.owner);
-      claim(map, t.x + DX8[t.d], t.y + DY8[t.d], io.owner); // 斜めの線の終端のタイルも自社のものにする
+      claim(map, t.x + DX8[t.d], t.y + DY8[t.d], io.owner); // the tile at the end of a diagonal line also becomes the company's
     }
   }
   if (spent > 0) io.msg(`建設費 ${yen(spent)}`);

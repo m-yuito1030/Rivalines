@@ -12,7 +12,7 @@ interface Item {
   body: string;
 }
 
-/** メニューの「お知らせ」。運営が出したものを一覧で見られる。まだ見ていないものがあれば、メニューに赤い点を出す */
+/** The menu's "Announcements". Lists what the operators have posted. If there is one not yet seen, a red dot appears on the menu */
 export class NewsPanel {
   private items: Item[] = [];
 
@@ -42,7 +42,7 @@ export class NewsPanel {
       if (!$('menu').hidden) this.markSeen();
       document.dispatchEvent(new CustomEvent('rivalines:unread'));
     } catch {
-      /* 取れなくても、ゲームには影響しない */
+      /* failing to fetch does not affect the game */
     }
   }
 

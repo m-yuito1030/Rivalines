@@ -41,7 +41,7 @@ export type Tool =
   | 'hotel'
   | NewFacilityType;
 const RECT: Tool[] = ['raise', 'lower', 'level', 'bulldoze'];
-/** 新規の開発(建設)を伴うツール。会社の評価が最悪のときは使えない(撤去・移動・路線作成は可) */
+/** Tools that involve new development (construction). Unavailable when the company's rating is the worst (demolition, move, and route creation are allowed) */
 const BUILD: Tool[] = [
   'road',
   'oneway',
@@ -71,18 +71,18 @@ const SINGLE: Tool[] = ['stop', 'route', 'station', 'airport', 'signal', 'waypoi
 type Tile = { x: number; y: number };
 const isFacilityTool = (t: string): t is FacilityType => (FACILITY_TYPES as string[]).includes(t);
 
-/** 建設ツール: ドラッグで直線の道路/一方通行/撤去を行い、プレビューを表示する */
+/** Construction tool: drag to lay a straight road / one-way / demolition, and show a preview */
 export class ToolController {
   tool: Tool = 'pan';
   readonly overlay = new Graphics();
-  /** 資金: 払えるか / 支払う(足りなければ false)。main が会社につなぐ */
+  /** Funds: whether it can be paid / pay (false if short). main connects it to the company */
   afford: (cost: number) => boolean = () => true;
   pay: (cost: number) => boolean = () => true;
-  /** 新規の開発ができるか(会社の評価が最悪だと false) */
+  /** Whether new development is possible (false when the company's rating is the worst) */
   canBuild: () => boolean = () => true;
-  /** 駅ツールの設置範囲の検討(main が設定する) */
+  /** Checking the placement area of the station tool (set by main) */
   stationPlanner: ((x: number, y: number) => StationPlan) | null = null;
-  /** 大型施設の設置範囲の検討(main が設定する) */
+  /** Checking the placement area of large facilities (set by main) */
   facilityPlanner: ((x: number, y: number, type: FacilityType) => FacilityPlan) | null = null;
   private start: Tile | null = null;
   private hover: Tile | null = null;
@@ -92,9 +92,9 @@ export class ToolController {
     private camera: Camera,
     canvas: HTMLElement,
     private pick: (sx: number, sy: number) => Tile | null,
-    /** 停留所/路線ツールのクリック */
+    /** Clicks of the stop/route tools */
     private onClickTile: (tool: Tool, tile: Tile) => void,
-    /** 操作結果のメッセージ(橋・トンネルの可否など) */
+    /** A message about an action's result (whether a bridge or tunnel is possible, etc.) */
     public onMessage?: (msg: string) => void,
   ) {
     canvas.addEventListener('pointerdown', (e) => {
@@ -109,7 +109,7 @@ export class ToolController {
     canvas.addEventListener('pointerup', (e) => {
       if (e.button !== 0 || !this.start) return;
       if (this.camera.multiTouch) {
-        // 2本指ジェスチャー中は建設しない
+        // Do not build during a two-finger gesture
         this.start = null;
         return;
       }
@@ -134,12 +134,12 @@ export class ToolController {
     this.start = null;
   }
 
-  /** 矩形ドラッグ範囲(上限あり) */
+  /** Rectangle drag range (with a cap) */
   private rect(a: Tile, b: Tile): Tile[] {
     return dragRect(a, b);
   }
 
-  /** 通信(マルチプレイ)時: ドラッグ操作はサーバーへ送る。なければ手元で実行する */
+  /** In communication (multiplayer): drag actions are sent to the server. Otherwise run locally */
   remoteBuild: ((tool: DragTool, a: Tile, b: Tile) => void) | null = null;
 
   private apply(a: Tile, b: Tile): void {
@@ -147,7 +147,7 @@ export class ToolController {
     applyBuild(this.map, this.tool as DragTool, a, b, { afford: (c) => this.afford(c), pay: (c) => this.pay(c), msg: (m) => this.onMessage?.(m) });
   }
 
-  /** 毎フレーム: ホバー/ドラッグ範囲を描く */
+  /** Every frame: draw the hover/drag range */
   draw(): void {
     const g = this.overlay;
     g.clear();
@@ -206,7 +206,7 @@ export class ToolController {
       let ok = true;
       if (this.start && (this.tool === 'road' || this.tool === 'oneway' || this.tool === 'rail')) {
         const can = this.tool === 'rail' ? canConnectRail : canConnect;
-        // この辺(または末尾なら手前の辺)が敷設可能か
+        // Whether this edge (or, at the end, the edge before it) can be laid
         if (tiles.length > 1) ok = i < tiles.length - 1 ? can(this.map, t.x, t.y, t.d, true) : can(this.map, t.x - DX8[t.d], t.y - DY8[t.d], t.d, true);
       }
       const lvl = this.map.inBounds(t.x, t.y) ? this.map.levelAt(t.x, t.y) : 0;

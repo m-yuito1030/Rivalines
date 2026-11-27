@@ -10,7 +10,7 @@ import { FACILITY_TILE, facilityAt, removeFacility } from './facilities';
 
 export const hasRoad = (map: GameMap, x: number, y: number) => map.inBounds(x, y) && map.road.get(map.idx(x, y)) !== 0;
 
-/** (x,y) から方向 d へ道路をつなげられるか(両タイルが陸・同じ高さ・建物なし) */
+/** Whether a road can be connected from (x,y) in direction d (both tiles land of the same height with no buildings) */
 export function canConnect(map: GameMap, x: number, y: number, d: number, slope = false): boolean {
   const nx = x + DX[d];
   const ny = y + DY[d];
@@ -22,13 +22,13 @@ export function canConnect(map: GameMap, x: number, y: number, d: number, slope 
   const b = map.idx(nx, ny);
   if (map.span.get(a) || map.span.get(b)) return false;
   if (map.building.get(a) || map.building.get(b) || map.air.get(a) || map.air.get(b)) return false;
-  // 線路との踏切は直線かつ直交のときのみ
+  // A crossing with rail is allowed only when straight and perpendicular
   return crossingOk(map.road.get(a) | CONN(d), map.rail.get(a)) && crossingOk(map.road.get(b) | CONN(opposite(d)), map.rail.get(b));
 }
 
 /**
- * (x,y)→d の辺を敷設する。oneway=true なら (x,y) から d 方向への一方通行。
- * 既存の辺は上書き(双方向⇄一方通行の切替にも使う)。
+ * Lay the edge (x,y)->d. With oneway=true, one-way from (x,y) in direction d.
+ * An existing edge is overwritten (also used to switch between two-way and one-way).
  */
 export function connect(map: GameMap, x: number, y: number, d: number, oneway: boolean, slope = false): boolean {
   if (!canConnect(map, x, y, d, slope)) return false;
@@ -46,7 +46,7 @@ export function connect(map: GameMap, x: number, y: number, d: number, oneway: b
   return true;
 }
 
-/** 既存の辺を双方向に戻す(辺がなければ何もしない) */
+/** Turn an existing edge back into two-way (nothing if there is no edge) */
 export function makeTwoWay(map: GameMap, x: number, y: number, d: number): boolean {
   if (!map.inBounds(x, y)) return false;
   const nx = x + DX[d];
@@ -62,7 +62,7 @@ export function makeTwoWay(map: GameMap, x: number, y: number, d: number): boole
   return true;
 }
 
-/** 辺を撤去 */
+/** Remove an edge */
 export function disconnect(map: GameMap, x: number, y: number, d: number): void {
   const nx = x + DX[d];
   const ny = y + DY[d];
@@ -75,7 +75,7 @@ export function disconnect(map: GameMap, x: number, y: number, d: number): void 
   map.touch(x, y);
 }
 
-/** 建物を撤去(街の人口も更新) */
+/** Demolish a building (also updates the town's population) */
 export function removeBuilding(map: GameMap, x: number, y: number): boolean {
   if (!map.inBounds(x, y)) return false;
   let i = map.idx(x, y);
@@ -83,12 +83,12 @@ export function removeBuilding(map: GameMap, x: number, y: number): boolean {
   if (!b) return false;
   if (b === FACILITY_TILE) {
     const f = facilityAt(map, x, y);
-    if (f && f.owner === 'public') return false; // 市役所・学校などの公共施設は撤去できない
+    if (f && f.owner === 'public') return false; // public facilities such as town halls and schools cannot be demolished
     if (f) removeFacility(map, f);
     return !!f;
   }
   if ((b & 3) === 0) {
-    // 2x2 建物の付属タイル: アンカーを探して建物ごと撤去
+    // Attached tile of a 2x2 building: find the anchor and demolish the whole building
     const [ax, ay] = fillerAnchorOffset(b);
     x += ax;
     y += ay;
@@ -120,7 +120,7 @@ export function removeBuilding(map: GameMap, x: number, y: number): boolean {
   return true;
 }
 
-/** ブルドーザー: タイルの道路と建物を撤去 */
+/** Bulldozer: remove a tile's road and building */
 export function bulldoze(map: GameMap, x: number, y: number): void {
   if (!map.inBounds(x, y)) return;
   removeSpansAround(map, x, y);
@@ -130,7 +130,7 @@ export function bulldoze(map: GameMap, x: number, y: number): void {
   removeAirport(map, x, y);
 }
 
-/** 始点→終点を軸に揃えた直線のタイル列 */
+/** A straight tile list from start to end aligned to an axis */
 export function lineTiles(x0: number, y0: number, x1: number, y1: number): { x: number; y: number; d: number }[] {
   const dx = x1 - x0;
   const dy = y1 - y0;

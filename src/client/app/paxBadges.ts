@@ -1,14 +1,14 @@
 import type { Transit, Vehicle } from '../../shared/sim/network/transit';
 import type { ToScreen } from './moneyFloat';
 
-/** 画面に出す上限(混み合った街で、画面が文字だらけにならないように) */
+/** Cap on how many are shown (so a crowded town does not fill the screen with text) */
 const MAX_BADGES = 40;
-/** これより引いた(小さい)表示では出さない */
+/** Not shown when zoomed out beyond this (small display) */
 const MIN_ZOOM = 0.3;
 
 /**
- * 駅や停留所に停まっている乗り物の上に、いまの停車で「降りた人数(↓)・乗った人数(↑)」を、リアルタイムで出す。
- * 停車が終わって走り出すと消える。数字は、サーバーが車両ごとに数えて毎回送ってくる。
+ * Above a vehicle stopped at a station or stop, show in real time the number who got off (down arrow) and got on (up arrow) at the current stop.
+ * It disappears when the stop ends and the vehicle sets off. The server counts the numbers per vehicle and sends them every time.
  */
 export class PaxBadges {
   private pool: HTMLElement[] = [];
@@ -19,7 +19,7 @@ export class PaxBadges {
     private zoom: () => number,
   ) {}
 
-  /** 毎フレーム呼ぶ */
+  /** Call every frame */
   update(): void {
     let n = 0;
     if (this.zoom() >= MIN_ZOOM) {
@@ -44,7 +44,7 @@ export class PaxBadges {
     for (let i = n; i < this.pool.length; i++) this.pool[i].style.display = 'none';
   }
 
-  /** 停車中(乗降の最中)で、降りた人か乗った人がいるとき */
+  /** While stopped (boarding and alighting in progress) and someone got off or on */
   private show(v: Vehicle): boolean {
     return v.state === 'load' && !v.hold && ((v.on ?? 0) > 0 || (v.off ?? 0) > 0);
   }

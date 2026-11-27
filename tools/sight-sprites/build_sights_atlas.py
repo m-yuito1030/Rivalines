@@ -1,10 +1,10 @@
-"""観光地スプライト(各 *_out/sprites/<cat>_NNN_{S,M,L}.png, 128x192)を1枚のアトラスにまとめる。
-使い方: python3 build_sights_atlas.py <*_out を含むフォルダ> <出力png> <出力json>
-並びは他の施設と同じ: 種類 i は 行=⌊i/5⌋、列=(i%5)*3+(S=0,M=1,L=2)。"""
+"""Packs the sight sprites (each *_out/sprites/<cat>_NNN_{S,M,L}.png, 128x192) into one atlas.
+Usage: python3 build_sights_atlas.py <the folder containing *_out> <output png> <output json>
+The layout is the same as other facilities: kind i is at row = floor(i/5), column = (i%5)*3 + (S=0, M=1, L=2)."""
 import csv, json, os, sys
 from PIL import Image
 
-CATS = [  # (フォルダ接頭辞, 分類名, 件数)
+CATS = [  # CATS = [  # (folder prefix, category name, count)
     ('shrine', '神社', 30), ('temple', '神殿・寺院', 20), ('tower', 'タワー', 20), ('onsen', '温泉', 20),
     ('outlet', 'アウトレット', 20), ('casino', 'カジノ', 20), ('objects', '名所', 50),
 ]

@@ -1,4 +1,4 @@
-/** マルチプレイの通信の型(サーバーとクライアントで共有) */
+/** Multiplayer protocol types (shared by the server and the client) */
 import type { DragTool } from './world/buildApply';
 import type { StationOptions } from './world/stations';
 import type { Mode } from './data/models';
@@ -6,29 +6,29 @@ import type { NewFacilityType } from './world/facilities';
 import type { PactState } from './sim/economy/pacts';
 import type { AuctionState } from './sim/economy/auctions';
 import type { WeeklyState } from './sim/economy/weekly';
-
+import type { GovInfo } from './sim/economy/government';
 export type Pt = { x: number; y: number };
 
-/** 撤去する要素の種類 */
+/** Kinds of elements to demolish */
 export interface BulldozeKinds {
   road: boolean;
   rail: boolean;
   signal: boolean;
-  /** 駅・バス停・空港の停留所(駅は全体が消える) */
+  /** Stops of stations, bus stops, and airports (a station disappears as a whole) */
   stop: boolean;
   depot: boolean;
   waypoint: boolean;
-  /** 橋・トンネル */
+  /** Bridges and tunnels */
   span: boolean;
-  /** 街の建物 */
+  /** Town buildings */
   building: boolean;
   airport: boolean;
 }
 
-/** 1タイルずつ置くツール */
+/** Tools that place one tile at a time */
 export type PlaceTool = 'stop' | 'station' | 'depot' | 'waypoint' | 'signal' | 'airport' | 'stadium' | 'amusement' | 'mall' | 'park' | 'department' | 'hotel' | NewFacilityType;
 
-/** 路線・オーダー・車両の操作のうち、持ち主の確認だけで実行できるもの(Transit のメソッド名) */
+/** Route, order, and vehicle operations that need only the owner's confirmation (method names on Transit) */
 export const TX_METHODS = [
   'removeRoute',
   'moveOrder',
@@ -56,37 +56,37 @@ export type Cmd =
   | { t: 'rename'; kind: 'stop' | 'depot' | 'facility'; id: number; name: string }
   | { t: 'buyVehicle'; depotId?: number; routeId: number; modelId: string; cars: number }
   | { t: 'gift'; to: number; amount: number }
-  /** 停留所の使用許可: 駅ごと(stopAllow)/会社単位(companyAllow)。持ち主だけが設定できる */
+  /** Stop permissions: per station (stopAllow) / company-wide (companyAllow). Only the owner can set them */
   | { t: 'stopAllow'; stopId: number; who: number; allow: boolean }
   | { t: 'companyAllow'; who: number; allow: boolean }
-  /** 広告: 自社の施設に打つ(施設ごとに一定期間に1度) */
+  /** Advertising: run it for the company's own facility (once per period per facility) */
   | { t: 'ad'; facilityId: number; kind: 'news' | 'sns' | 'tv' }
-  /** 施設の料金の段階(0=格安〜4=高級) */
+  /** A facility's price level (0 = cheapest to 4 = luxury) */
   | { t: 'facPrice'; facilityId: number; level: number }
-  /** 施設のグレードを1つ上げる / 改装する */
+  /** Raise a facility's grade by one / renovate it */
   | { t: 'facUpgrade'; facilityId: number }
   | { t: 'facRenovate'; facilityId: number }
-  /** デザイン変更: 建てた施設を、同じ大きさのまま別のデザインにする(費用がかかる) */
+  /** Redesign: change a built facility to another design at the same size (costs money) */
   | { t: 'facRedesign'; facilityId: number; design: number }
-  /** 要素ごとの撤去: 矩形(ドラッグした範囲)の中の、選んだ種類の要素だけを撤去する */
+  /** Demolish by element: within a rectangle (the dragged area), demolish only the chosen kinds of element */
   | { t: 'bulldoze'; a: Pt; b: Pt; kinds: BulldozeKinds }
-  /** 沿線開発: 自社の停留所の開発度を1上げる */
+  /** Line development: raise the development level of the company's own stop by one */
   | { t: 'develop'; stopId: number }
-  /** 入札: 競り lotId に amount 円で入札する */
+  /** Bid: bid `amount` yen on auction lotId */
   | { t: 'bid'; lotId: number; amount: number }
-  /** 提携(乗り入れ契約): 申し込み・承諾・拒否・解消(取り下げ) */
+  /** Pacts (through-running agreements): propose, accept, refuse, dissolve (withdraw) */
   | { t: 'pact'; op: 'propose' | 'accept' | 'reject' | 'cancel'; to?: number; id?: number; discount?: number }
-  /** 信号を並べる: 始点→終点の直線の線路に、ドラッグの向きの一方向信号を interval タイルおきに置く */
+  /** Lay signals: on a straight track from start to end, place one-way signals in the drag direction every `interval` tiles */
   | { t: 'signalLine'; a: Pt; b: Pt; interval: number }
-  /** 路線の全車両を、路線の既定の車種・両数に置き換える(旧車両は評価額の50%で下取り) */
+  /** Replace all of a route's vehicles with the route's default model and car count (old vehicles are traded in at 50% of valuation) */
   | { t: 'routeReplace'; routeId: number }
-  /** 車両のこの先の経路の予定(表示用。読み取りだけ) */
+  /** The planned path ahead of a vehicle (for display; read-only) */
   | { t: 'vehPlan'; id: number }
-  /** ダイヤ: 編成の発車時刻のずれ(tick)/ 路線の複製 / 運行本数の一括設定 / 提案の適用(オーダー index 以降の発車時刻を遅らせる) */
+  /** Timetable: offset a train's departure time (ticks) / duplicate a route / bulk-set the service frequency / apply a suggestion (delay departures from order index onwards) */
   | { t: 'vehOffset'; id: number; offset: number }
   | { t: 'routeClone'; routeId: number; reverse: boolean; shiftMin: number }
   | { t: 'routeBulk'; routeId: number; intervalMin: number; firstMin: number }
-  /** 種別: 通過駅を自動設定(copy=元の路線は変えず、種別の路線として複製して作る。startShiftMin 分ずらす) */
+  /** Service class: auto-set the skipped stations (copy = do not change the original route, but create a duplicate as that class, shifted by startShiftMin minutes) */
   | { t: 'routeRank'; routeId: number; rank: number; copy: boolean; shiftMin?: number }
   | { t: 'orderShift'; routeId: number; from: number; delta: number }
   | { t: 'fin'; op: 'borrow' | 'repay' | 'payout' | 'train' | 'rival-buy' | 'rival-sell' | 'acquire' | 'sell'; amount?: number; id?: number };
@@ -94,13 +94,13 @@ export type Cmd =
 export interface CmdResult {
   ok: boolean;
   msg?: string;
-  /** 作った停留所・路線などのID */
+  /** The ID of the stop, route, etc. that was created */
   id?: number;
-  /** 結果のデータ(経路の予定など) */
+  /** Result data (e.g. a route plan) */
   data?: unknown;
 }
 
-/** クライアント → サーバー */
+/** Client -> server */
 export type ClientMsg =
   | { type: 'cmd'; req: number; cmd: Cmd }
   | { type: 'profile'; req: number; company: string; bio: string; color: number }
@@ -108,7 +108,7 @@ export type ClientMsg =
   | { type: 'chat'; req: number; text: string }
   | { type: 'view'; x0: number; y0: number; x1: number; y1: number };
 
-/** 描画に必要な車両の軽量データ(経路 path は変わったときだけ別送) */
+/** Lightweight vehicle data needed for drawing (the path is sent separately, only when it changes) */
 export interface VehMsg {
   id: number;
   routeId: number;
@@ -131,23 +131,23 @@ export interface VehMsg {
   cars: number;
   hold: boolean;
   resTo: number;
-  /** 今回の停車で乗った人数・降りた人数 */
+  /** People who boarded / alighted at this stop */
   on: number;
   off: number;
-  /** 経路が変わった(初回含む)ときだけ付く */
+  /** Attached only when the path changed (including the first time) */
   path?: number[];
 }
 
-/** タイル1つ: [index, road, rail, span, air, building, owner, infraOwner, 整地の高度(-1=なし), 工事中(1=工事中)] */
+/** One tile: [index, road, rail, span, air, building, owner, infraOwner, terraform height (-1 = none), under construction (1 = yes)] */
 export type TileRec = [number, number, number, number, number, number, number, number, number, number];
 
-/** 自社の車両の一覧用の概要(視界の外の車両も含む)。[id, routeId, modelId, mode, x, y, state(0走行 1停車 2経路なし 3待機), 積載%, 両数] */
+/** Summary of the company's own vehicles for the list (including out-of-view ones). [id, routeId, modelId, mode, x, y, state (0 moving, 1 stopped, 2 no route, 3 held), load %, car count] */
 export type MyVeh = [number, number, string, Mode, number, number, number, number, number];
 
 export interface PlayerInfo {
   id: number;
   name: string;
-  /** 会社名(未設定ならアカウント名)とプロフィール */
+  /** Company name (the account name if unset) and profile */
   company: string;
   bio: string;
   color: number;
@@ -157,11 +157,11 @@ export interface PlayerInfo {
   netWorth: number;
   profit: number;
   passengers: number;
-  /** 売上 − 費用の累計(週間ランキング用) */
+  /** Cumulative sales - expenses (for the weekly ranking) */
   profitTotal: number;
 }
 
-/** 全体チャットの1発言。from=発言した人のアカウントID */
+/** One public chat message. from = the account ID of the sender */
 export interface ChatMsg {
   id: number;
   from: number;
@@ -172,10 +172,10 @@ export interface ChatMsg {
 
 export type ServerMsg =
   | { type: 'chat'; msg: ChatMsg }
-  /** 接続したとき、直近の発言(新しいものが後ろ) */
+  /** On connect, the recent messages (newest last) */
   | { type: 'chatlog'; list: ChatMsg[] }
   | { type: 'init'; you: string; id: number; world: { size: number; seed: number }; tick: number; start: Pt | null; version?: string }
-  /** earn: 自社の車両が稼いだ額 [車両 id, 円]、facEarn: 自社の施設が稼いだ額 [施設 id, 円](画面に、稼いだものの上へ出す用) */
+  /** earn: amounts earned by the company's own vehicles [vehicle id, yen]; facEarn: amounts earned by its own facilities [facility id, yen] (so the screen can show them above whatever earned) */
   | { type: 'frame'; tick: number; veh: VehMsg[]; gone: number[]; tiles: TileRec[]; earn?: [number, number][]; facEarn?: [number, number][] }
   | { type: 'chunk'; cx: number; cy: number; tiles: number[][]; edits: [number, number][] }
   | { type: 'struct'; nextId: number; routes: unknown[]; stops: unknown[]; depots: unknown[]; signals: [number, number][]; grants?: [number, number[]][] }
@@ -195,6 +195,8 @@ export type ServerMsg =
       pacts: PactState;
       auctions: AuctionState;
       weekly: WeeklyState;
+      /** The government: the current and next national policy, the stance, the treasury, and this company's standing */
+      gov?: GovInfo;
     }
   | { type: 'towns'; towns: unknown[] }
   | { type: 'fac'; facilities: unknown[] }

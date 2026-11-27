@@ -25,7 +25,7 @@ export function build(cmd: Extract<Cmd, { t: 'build' }>, ctx: CommandContext): C
     owner: who,
     touched: (x, y) => changed.push([x, y]),
   });
-  t.touchNetworkTiles(changed); // 変更したタイルを通る経路は、次の出発/次のタイルで探し直される
+  t.touchNetworkTiles(changed); // paths through the changed tiles are searched again at the next departure / next tile
   return { ok: true, msg: msgs.join(' ') || undefined };
 }
 
@@ -46,7 +46,7 @@ export function bulldoze(cmd: Extract<Cmd, { t: 'bulldoze' }>, ctx: CommandConte
     for (let x = x0; x <= x1; x++) {
       const i = map.idx(x, y);
       const own = map.infraOwner.get(i);
-      const mineInfra = !own || own === who; // 他社の線路・道路は撤去できない
+      const mineInfra = !own || own === who; // other companies' rails and roads cannot be removed
       let hit = false;
       if (k.span && mineInfra && map.span.get(i) && removeSpansAround(map, x, y)) (count.span++, (hit = true));
       if (k.road && mineInfra && map.road.get(i)) {
@@ -74,7 +74,7 @@ export function bulldoze(cmd: Extract<Cmd, { t: 'bulldoze' }>, ctx: CommandConte
         const d = t.depotAtTile(x, y);
         if (d && (!d.owner || d.owner === who)) (t.removeDepot(d.id), count.depot++, (hit = true));
       }
-      // 他のプレイヤーの施設は撤去できない(街・自社の施設と、街の建物だけ)
+      // Other players' facilities cannot be removed (only towns', your own, and town buildings)
       const fac = map.building.get(i) === FACILITY_TILE ? facilityAt(map, x, y) : undefined;
       const others = !!fac && (fac.owner ?? 'player') === 'player' && fac.playerId !== undefined && fac.playerId !== who;
       if (k.building && map.building.get(i) && !others && removeBuilding(map, x, y)) (count.building++, (hit = true));

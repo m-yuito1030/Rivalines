@@ -1,6 +1,6 @@
 #!/bin/sh
-# 次期バージョンのデータ(世界・会社・記録)を、すべて消して、新しい世界で起動し直す。
-# 本稼働のデータとアカウントには、触れない(次期バージョンは、本稼働のデータを読み取り専用でしか見ない)。
+# Wipe all of the next version's data (world, companies, records) and start it again in a fresh world.
+# It does not touch production data or accounts (the next version only views production data read-only).
 . "$(dirname "$0")/env-common.sh"
 need_live_src
 versions

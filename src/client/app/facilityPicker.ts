@@ -5,15 +5,15 @@ import { drawFacilityPreview } from '../render/buildingSprites';
 import { $ } from './dom';
 import { onLangChange, tr } from '../i18n';
 
-/** 施設(ホテル・公園・百貨店・モール)を建てる前に、デザインと大きさを選ぶ入力欄と見本 */
+/** Inputs and a preview for choosing the design and size before building a facility (hotel, park, department store, mall) */
 export class FacilityPicker {
-  /** いま選んでいるデザインと大きさ */
+  /** The design and size currently selected */
   readonly sel = { design: 0, size: 'L' as FacilitySize };
   private type: FacilityType | null = null;
   private readonly designEl = $<HTMLSelectElement>('facDesign');
 
   constructor() {
-    // 言語が変わったら、名前の一覧を作り直す
+    // When the language changes, rebuild the list of names
     onLangChange(() => {
       const tool = this.type;
       this.type = null;
@@ -32,12 +32,12 @@ export class FacilityPicker {
     );
   }
 
-  /** 建てられる種類か(選べるデザインがある) */
+  /** Whether it is a kind that can be built (it has designs to choose from) */
   static choosable(tool: string): tool is FacilityType {
     return (CHOOSABLE as string[]).includes(tool);
   }
 
-  /** ツールが変わったとき: 対象の施設なら入力欄を出す */
+  /** When the tool changes: show the inputs if it is a facility */
   setTool(tool: string): void {
     const on = FacilityPicker.choosable(tool);
     $('facilityOpts').hidden = !on;
@@ -61,7 +61,7 @@ export class FacilityPicker {
     this.refresh();
   }
 
-  /** (x,y) に置けるか(プレビュー用)。選んだ大きさの敷地で調べる */
+  /** Whether it can be placed at (x,y) (for the preview). Checked with the site of the selected size */
   plan(map: GameMap, x: number, y: number, type: FacilityType, occupied: (idx: number) => boolean) {
     return planFacility(map, x, y, type, occupied, FacilityPicker.choosable(type) ? facilityDims(type, this.sel.size) : undefined);
   }

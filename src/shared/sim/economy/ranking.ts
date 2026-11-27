@@ -7,20 +7,20 @@ import { assetValue } from './economy';
 
 export interface CompanyRow {
   name: string;
-  /** 時価総額(円) */
+  /** Market capitalization (yen) */
   marketCap: number;
-  /** 株価(円) */
+  /** Share price (yen) */
   price: number;
   netWorth: number;
-  /** 1日あたりの利益(円) */
+  /** Profit per day (yen) */
   profit: number;
   passengers: number;
   isPlayer: boolean;
-  /** 傘下に入った競合(自社に含まれる) */
+  /** Rivals acquired as subsidiaries (included in the company) */
   subsidiary: boolean;
 }
 
-/** 会社のランキング(時価総額の大きい順)。自社と、傘下に入っていない競合会社 */
+/** Company ranking (largest market cap first): the player's company and the rivals not yet acquired */
 export function companyRanking(company: Company, rivals: Rival[], map: GameMap, transit: Transit): CompanyRow[] {
   const assets = assetValue(map, transit, rivals);
   const rows: CompanyRow[] = [
@@ -51,7 +51,7 @@ export function companyRanking(company: Company, rivals: Rival[], map: GameMap, 
   return rows.sort((a, b) => b.marketCap - a.marketCap);
 }
 
-/** 自社の順位(1始まり)と社数 */
+/** The company's rank (1-based) and the number of companies */
 export function playerRank(company: Company, rivals: Rival[], map: GameMap, transit: Transit): { rank: number; total: number } {
   const rows = companyRanking(company, rivals, map, transit);
   return { rank: rows.findIndex((r) => r.isPlayer) + 1, total: rows.length };
@@ -81,7 +81,7 @@ export interface StopRow {
   traffic: number;
   waiting: number;
 }
-/** 乗降人数(累計)の多い停留所 */
+/** Stops with the most boardings and alightings (cumulative) */
 export function stopRanking(transit: Transit): StopRow[] {
   return [...transit.stops.values()]
     .filter((s) => !s.waypoint)
@@ -93,12 +93,12 @@ export interface RouteRow {
   name: string;
   mode: Mode;
   carried: number;
-  /** 1日あたりの収入・利益(円) */
+  /** Income and profit per day (yen) */
   income: number;
   profit: number;
   vehicles: number;
 }
-/** 路線の利益(1日あたり)の大きい順 */
+/** Routes by profit (per day), largest first */
 export function routeRanking(transit: Transit): RouteRow[] {
   return [...transit.routes.values()]
     .map((r) => ({

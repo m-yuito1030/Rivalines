@@ -12,9 +12,9 @@ const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
 const ICON = { road: '🚌', rail: '🚆', air: '✈' } as const;
 const cls = (n: number) => (n < 0 ? 'neg' : '');
 
-/** 経営分析: 自社の路線・停留所・施設の採算と混雑を、悪い順に並べる */
+/** Management analysis: list the company's routes, stops, and facilities by profitability and crowding, worst first */
 export class AnalysisPanel extends ModalPanel {
-  /** ボタンを押している間は再描画しない(クリック直前に要素が入れ替わるのを防ぐ) */
+  /** Do not redraw while a button is held down (so elements are not swapped out just before a click) */
   private pressed = false;
   constructor(
     modal: HTMLElement,

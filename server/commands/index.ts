@@ -1,6 +1,6 @@
 /**
- * コマンドバス: プレイヤーの操作(Cmd)を、種類ごとのハンドラに振り分けて実行する。
- * サーバーだけが世界を書き換える。ハンドラは種類ごとのファイルに分けてある(build / place / route / fleet / access / business / finance)。
+ * Command bus: dispatches each player action (Cmd) to the handler for its type and runs it.
+ * Only the server mutates the world. Handlers are split by kind into files (build / place / route / fleet / access / business / finance).
  */
 import type { Cmd, CmdResult } from '../../src/shared/protocol';
 import type { Simulation } from '../../src/shared/sim/simulation';
@@ -50,7 +50,7 @@ const handlers: Handlers = {
   fin,
 };
 
-/** 変更したあと、影響を受けた範囲を知らせる(その範囲に関わる経路が、次の出発時に探し直される) */
+/** After a change, report the affected area (paths touching it are searched again at the next departure) */
 function touchChanged(cmd: Cmd, ctx: CommandContext): void {
   const t = ctx.t;
   if (cmd.t === 'signalLine') t.touchNetwork(Math.min(cmd.a.x, cmd.b.x), Math.min(cmd.a.y, cmd.b.y), Math.max(cmd.a.x, cmd.b.x), Math.max(cmd.a.y, cmd.b.y));
@@ -58,12 +58,12 @@ function touchChanged(cmd: Cmd, ctx: CommandContext): void {
   else if (cmd.t === 'place' && ['station', 'airport', 'waypoint'].includes(cmd.tool)) t.touchNetwork(cmd.x - 12, cmd.y - 12, cmd.x + 12, cmd.y + 12);
 }
 
-/** プレイヤー who の操作を検証して実行する */
+/** Validate and run player `who`'s action */
 export function execute(sim: Simulation, who: number, cmd: Cmd, lang: LangCode = 'ja'): CmdResult {
   const handler = cmd && Object.hasOwn(handlers, cmd.t) ? (handlers[cmd.t] as (c: Cmd, x: CommandContext) => CmdResult) : null;
   if (!handler) return fail(LOCALES[lang].tr('不正な操作です'));
   const ctx = new CommandContext(sim, who, lang);
-  ctx.t.actor = who; // TODO: Transit に「誰の操作か」を引数で渡すようにして、この書き込みをなくす
+  ctx.t.actor = who; // TODO: pass "who acted" to Transit as an argument and remove this write
   try {
     const res = handler(cmd, ctx);
     if (res.ok) touchChanged(cmd, ctx);

@@ -2,15 +2,15 @@ import type { ChatMsg } from '../src/shared/protocol';
 
 export const CHAT_MAX_CHARS = 100;
 export const CHAT_KEEP = 100;
-/** 連投の制限: この時間(ms)のうちに、この件数まで */
+/** Rate limit: at most this many messages within this window (ms) */
 const WINDOW_MS = 10_000;
 const WINDOW_MAX = 5;
-/** 同じ文を、この時間のうちに続けて送れない */
+/** The same text cannot be sent again within this window (ms) */
 const REPEAT_MS = 30_000;
 
 /**
- * 全体チャット。記録はメモリの中だけ(直近 CHAT_KEEP 件)で、ディスクには保存しない。サーバーを再起動すると消える。
- * 運営が通報を受けたとき、その発言を通報に添える(通報の側に残る)。
+ * Public chat. The log lives in memory only (the latest CHAT_KEEP messages) and is never written to disk; it is lost on restart.
+ * When the operators receive a report, the reported message is attached to the report (so it survives there).
  */
 export class Chat {
   private log: ChatMsg[] = [];
@@ -18,7 +18,7 @@ export class Chat {
   private recent = new Map<number, { at: number; text: string }[]>();
   private mutedUntil = new Map<number, number>();
 
-  /** 発言を受け付ける。できなければ理由 */
+  /** Accept a message. On failure, returns the reason (a Japanese message key for tr()) */
   post(from: { id: number; name: string }, text: unknown, now = Date.now()): { ok: true; msg: ChatMsg } | { ok: false; reason: string } {
     if (typeof text !== 'string') return { ok: false, reason: '発言を入力してください' };
     const t = text
@@ -40,18 +40,18 @@ export class Chat {
     return { ok: true, msg };
   }
 
-  /** 直近の発言(新しいものが後ろ) */
+  /** Recent messages (newest last) */
   recentLog(): ChatMsg[] {
     return [...this.log];
   }
 
-  /** 発言を止める(分。0 で解除)。サーバーの再起動で解ける */
+  /** Mute an account from chat (minutes; 0 lifts it). Cleared by a server restart */
   mute(id: number, minutes: number, now = Date.now()): void {
     if (minutes <= 0) this.mutedUntil.delete(id);
     else this.mutedUntil.set(id, now + minutes * 60000);
   }
 
-  /** そのアカウントの発言を、履歴から消す(退会・BAN のとき) */
+  /** Remove an account's messages from the log (on account deletion or ban) */
   forget(id: number): void {
     this.log = this.log.filter((m) => m.from !== id);
     this.recent.delete(id);

@@ -1,10 +1,10 @@
 /**
- * 観光地の種類ごとに、置いてよい街の段階(0村 1街 2都市)の範囲 [最小, 最大]。
- * 村にタワーや大規模なアウトレット・カジノが出ないように、規模に合う見た目だけを選ぶ。載っていない種類は街・都市。
- * キーは「分類/種類」(sights.json の cat/type)。
+ * For each type of sight, the range [min, max] of town tiers (0 village, 1 town, 2 city) where it may be placed.
+ * Only looks that suit the size are chosen, so villages do not get towers or large outlets and casinos. Types not listed are for towns and cities.
+ * The key is "category/type" (cat/type in sights.json).
  */
 export const SIGHT_TIERS: Record<string, [number, number]> = {
-  // 神社: 祠・稲荷・小さな社は村から。大きな社殿群は街以上
+  // Shrines: shrines, Inari, and small sanctuaries from villages. Large shrine complexes from towns up
   '神社/小さな祠+御神木': [0, 1],
   '神社/稲荷(千本鳥居)': [0, 2],
   '神社/本殿+鳥居': [0, 2],
@@ -15,7 +15,7 @@ export const SIGHT_TIERS: Record<string, [number, number]> = {
   '神社/拝殿+本殿(2棟)': [1, 2],
   '神社/大社造(高床)': [1, 2],
   '神社/社殿群+手水舎': [1, 2],
-  // 神殿・寺院: 遺跡・仏塔は村から。壮大なものは都市
+  // Temples: ruins and pagodas from villages. Grand ones in cities
   '神殿・寺院/遺跡の神殿': [0, 2],
   '神殿・寺院/仏塔(ストゥーパ)': [0, 2],
   '神殿・寺院/ギリシャ神殿': [1, 2],
@@ -26,7 +26,7 @@ export const SIGHT_TIERS: Record<string, [number, number]> = {
   '神殿・寺院/太陽神殿': [1, 2],
   '神殿・寺院/海神殿': [1, 2],
   '神殿・寺院/パンテオン風大神殿': [2, 2],
-  // タワー: 灯台・給水塔・時計塔・五重塔は村から。電波塔は街から。超高層・観光タワーは都市だけ
+  // Towers: lighthouses, water towers, clock towers, and five-story pagodas from villages. Radio towers from towns. Skyscrapers and observation towers in cities only
   'タワー/灯台': [0, 2],
   'タワー/給水塔': [0, 2],
   'タワー/時計塔': [0, 2],
@@ -37,7 +37,7 @@ export const SIGHT_TIERS: Record<string, [number, number]> = {
   'タワー/スペースニードル風': [2, 2],
   'タワー/エッフェル塔風': [2, 2],
   'タワー/ガラス超高層': [2, 2],
-  // 温泉: 湯屋・足湯・岩風呂は村から。スパリゾート・高層ホテルは都市
+  // Hot springs: bathhouses, foot baths, and rock baths from villages. Spa resorts and high-rise hotels in cities
   '温泉/湯屋+煙突': [0, 2],
   '温泉/露天風呂付き旅館': [0, 2],
   '温泉/湯畑': [0, 2],
@@ -48,7 +48,7 @@ export const SIGHT_TIERS: Record<string, [number, number]> = {
   '温泉/スーパー銭湯': [1, 2],
   '温泉/大浴場スパリゾート': [2, 2],
   '温泉/高層温泉ホテル': [2, 2],
-  // アウトレット: 街から。ガラスアーケード・ゲートタワーは都市
+  // Outlets: from towns. Glass arcades and gate towers in cities
   'アウトレット/カラフルヴィレッジ': [1, 2],
   'アウトレット/北欧ヴィレッジ': [1, 2],
   'アウトレット/並木ストリート': [1, 2],
@@ -59,7 +59,7 @@ export const SIGHT_TIERS: Record<string, [number, number]> = {
   'アウトレット/時計塔広場': [1, 2],
   'アウトレット/ガラスアーケード': [2, 2],
   'アウトレット/ゲートタワー+駐車場': [2, 2],
-  // カジノ: 都市だけ(カジノ船は街でも)
+  // Casinos: cities only (a casino ship is allowed in towns too)
   'カジノ/カジノ船': [1, 2],
   'カジノ/ラスベガス風ツインタワー': [2, 2],
   'カジノ/ピラミッド型': [2, 2],
@@ -70,7 +70,7 @@ export const SIGHT_TIERS: Record<string, [number, number]> = {
   'カジノ/サイコロ型': [2, 2],
   'カジノ/連結タワー+ブリッジ': [2, 2],
   'カジノ/スロットマシン型': [2, 2],
-  // 名所(噴水・銅像など): どの段階にも
+  // Landmarks (fountains, statues, etc.): any tier
   '名所/噴水': [0, 2],
   '名所/広葉樹': [0, 2],
   '名所/針葉樹': [0, 2],
@@ -89,11 +89,11 @@ export interface SightMeta {
   variant: string;
 }
 
-/** デザイン d が、段階 tier の街に置いてよいか */
+/** Whether design d may be placed in a town of tier `tier` */
 export function sightFits(meta: SightMeta, tier: number): boolean {
   const [lo, hi] = SIGHT_TIERS[`${meta.cat}/${meta.type}`] ?? [1, 2];
   return tier >= lo && tier <= hi;
 }
 
-/** 表示名: 種類(と、あれば細かい種類) */
+/** Display name: the type (and the finer type if any) */
 export const sightLabel = (m: SightMeta): string => (m.variant && m.variant !== m.type.split('・')[0] ? `${m.type}(${m.variant})` : m.type);

@@ -17,7 +17,7 @@
     git clone https://github.com/m-yuito1030/rivalines.git
     cd rivalines
     cp .env.example .env
-    nano .env     # DOMAIN と ADMIN_KEY(openssl rand -hex 24 で作る)を書く。公開前は INVITE_CODE も
+    nano .env     # DOMAIN と ADMIN_KEY(openssl rand -hex 24 で作る)を書く
 
 ## 4. 起動
 

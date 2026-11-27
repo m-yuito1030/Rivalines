@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# Rivalines: Ubuntu サーバ用ワンショット セットアップ & 起動スクリプト
+# Rivalines: a one-shot setup & start script for an Ubuntu server
 #
-# 注意: 画面だけを静的に配信する(vite preview)。世界を進めるサーバーは起動しないので、ログインやマルチプレイはできない。
-#       遊ぶときは README の「サーバーを動かして遊ぶ」(docker compose)を使う。
+# Note: this only serves the screens statically (vite preview). It does not start the server that advances the world, so login and multiplayer do not work.
+#       To play, use "Run the server and play" in the README (docker compose).
 #
-#   bash deploy.sh            Node.js導入(なければ) → 取得/更新 → ビルド → バックグラウンド起動
-#   bash deploy.sh stop       停止
-#   bash deploy.sh status     状態表示
-#   bash deploy.sh logs       ログを追う
+#   bash deploy.sh            install Node.js (if absent) -> fetch/update -> build -> start in the background
+#   bash deploy.sh stop       stop
+#   bash deploy.sh status     show the status
+#   bash deploy.sh logs       follow the logs
 #
-# 環境変数: REPO_URL, BRANCH, APP_DIR, PORT
+# Environment variables: REPO_URL, BRANCH, APP_DIR, PORT
 set -euo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/m-yuito1030/rivalines.git}"
 BRANCH="${BRANCH:-main}"
 PORT="${PORT:-4173}"
 
-# リポジトリ内から実行された場合はそのディレクトリ、そうでなければ ~/rivalines
+# If run from inside the repository, that directory; otherwise ~/rivalines
 SELF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd || true)"
 if [ -n "${APP_DIR:-}" ]; then :
 elif [ -f "$SELF_DIR/../package.json" ] && grep -q '"name": "rivalines"' "$SELF_DIR/../package.json" 2>/dev/null; then APP_DIR="$(cd "$SELF_DIR/.." && pwd)"
@@ -52,7 +52,7 @@ case "${1:-start}" in
   *) echo "usage: $0 [start|stop|status|logs]"; exit 1 ;;
 esac
 
-# 1) Node.js 20+ を用意(なければ NodeSource から 22 を導入)
+# 1) Prepare Node.js 20+ (install 22 from NodeSource if absent)
 need_node=1
 if command -v node >/dev/null 2>&1; then
   major="$(node -v | sed 's/^v//; s/\..*//')"
@@ -68,7 +68,7 @@ fi
 command -v git >/dev/null 2>&1 || { $SUDO apt-get update -y && $SUDO apt-get install -y git; }
 say "node $(node -v) / npm $(npm -v)"
 
-# 2) ソース取得・更新
+# 2) Fetch and update the source
 if [ -d "$APP_DIR/.git" ]; then
   say "更新: $APP_DIR ($BRANCH)"
   git -C "$APP_DIR" fetch origin "$BRANCH"
@@ -80,13 +80,13 @@ else
 fi
 cd "$APP_DIR"
 
-# 3) 依存導入 & ビルド
+# 3) Install dependencies & build
 say "npm install"
 npm install --no-audit --no-fund
 say "ビルド"
 npm run build
 
-# 4) 既存プロセスを止めてバックグラウンド起動
+# 4) Stop any existing process and start in the background
 stop_server >/dev/null 2>&1 || true
 say "起動 (ポート $PORT)"
 nohup npx vite preview --host 0.0.0.0 --port "$PORT" > "$LOGFILE" 2>&1 &
@@ -94,7 +94,7 @@ echo $! > "$PIDFILE"
 sleep 3
 if ! kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then echo "起動に失敗しました。ログ:"; tail -n 30 "$LOGFILE"; exit 1; fi
 
-# 5) ファイアウォールが有効ならポートを開ける
+# 5) If the firewall is enabled, open the port
 if command -v ufw >/dev/null 2>&1 && $SUDO ufw status 2>/dev/null | grep -q "Status: active"; then
   say "ufw: ポート $PORT を許可"
   $SUDO ufw allow "$PORT"/tcp || true

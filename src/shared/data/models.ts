@@ -1,6 +1,6 @@
 /**
- * 車両モデル(データ駆動)。型式・名称・配色はすべて架空。
- * 全 300 種: 鉄道 190 / バス 70 / 航空機 40。元からある 8 種(ミライ8000系など)は固定、残りは決定論的に生成する。
+ * Vehicle models (data-driven). Model numbers, names, and color schemes are all fictional.
+ * 300 in total: 190 rail / 70 bus / 40 aircraft. The 8 original models (Mirai 8000 series, etc.) are fixed; the rest are generated deterministically.
  */
 export type Mode = 'road' | 'rail' | 'air';
 
@@ -8,21 +8,21 @@ export interface VehicleModel {
   id: string;
   mode: Mode;
   name: string;
-  /** 種別(通勤・特急・小型バス…)。絞り込み用 */
+  /** Category (commuter, limited express, small bus, ...). For filtering */
   kind: string;
-  /** 定員: 鉄道は1両あたり、バス・航空機は1機あたり */
+  /** Capacity: per car for rail, per vehicle for buses and aircraft */
   cap: number;
-  /** タイル/tick (x1で10tick/秒) */
+  /** Tiles per tick (10 ticks/second at x1) */
   speed: number;
-  /** 鉄道: 編成の両数の範囲。1両のみの車種は min = max = 1、複数両の車種は 2 以上の任意の長さ */
+  /** Rail: range of train car counts. A single-car model has min = max = 1; a multi-car model can be any length from 2 up */
   minCars: number;
   maxCars: number;
-  /** 鉄道: 路線で両数を指定しないときの既定 */
+  /** Rail: the default when a route does not specify a car count */
   defaultCars: number;
-  /** 描画色 */
+  /** Draw color */
   body: number;
   stripe?: number;
-  /** スプライトのデザイン番号: バスは 0〜249(25種×10色)、航空機は 0〜99(10種×10色)、鉄道は 0〜449(30種×15色。使うのは190) */
+  /** Sprite design number: buses 0-249 (25 types x 10 colors), aircraft 0-99 (10 types x 10 colors), rail 0-449 (30 types x 15 colors; 190 are used) */
   sprite?: number;
 }
 
@@ -32,11 +32,11 @@ type KindSpec = {
   count: number;
   cap: [number, number];
   speed: [number, number];
-  cars?: [number, number]; // 鉄道: [最小, 最大]。[1,1] は単行
+  cars?: [number, number]; // rail: [min, max]. [1,1] is a single unit
   dflt?: number;
 };
 
-/** 種別ごとの台数(元からある車種を含む)と性能の範囲 */
+/** Number of vehicles per category (including the original models) and the performance ranges */
 const KINDS: KindSpec[] = [
   { mode: 'rail', kind: '単行', count: 20, cap: [90, 140], speed: [0.38, 0.5], cars: [1, 1] },
   { mode: 'rail', kind: '路面電車', count: 15, cap: [60, 95], speed: [0.28, 0.38], cars: [1, 1] },
@@ -61,7 +61,7 @@ const KINDS: KindSpec[] = [
 
 import railDesigns from './trainDesigns.json';
 
-/** 元からある車種(ID・性能を固定)。鉄道の cap は1両あたり */
+/** The original models (ID and performance fixed). For rail, cap is per car */
 const FIXED: (Omit<VehicleModel, 'minCars' | 'maxCars' | 'defaultCars'> & { cars?: [number, number]; dflt?: number })[] = [
   { id: 'bus-s', mode: 'road', kind: '小型バス', name: '小型バス「こまち」', cap: 22, speed: 0.3, body: 0xe0533d },
   { id: 'bus-l', mode: 'road', kind: '大型バス', name: '大型バス「あおぞら」', cap: 45, speed: 0.27, body: 0x3d8fe0 },
@@ -84,7 +84,7 @@ function mulberry32(seed: number) {
   };
 }
 
-// 名前の素材(実在の列車・機体の愛称は避けた架空のもの)
+// Name ingredients (fictional; avoiding nicknames of real trains and aircraft)
 const STEMS = [
   'あおば',
   'ひなた',
@@ -156,7 +156,7 @@ function generate(): VehicleModel[] {
               ? `${k.kind}「${pick(BIRDS)}${num}」`
               : `${k.kind}「${pick(BUS_NAMES)}」${String.fromCharCode(65 + Math.floor(rng() * 26))}${Math.floor(rng() * 90 + 10)}`;
         if (!used.has(name)) break;
-        name += `-${serial}`; // 衝突したら連番で一意にする
+        name += `-${serial}`; // make it unique with a serial number if it collides
       }
       used.add(name);
       const cars = k.cars ?? [1, 1];
@@ -176,7 +176,7 @@ function generate(): VehicleModel[] {
       });
     }
   }
-  // スプライトのデザインを割り当てる: 種別ごとにタイプの候補を順に使い、足りなければ色違い(variant)を進める
+  // Assign sprite designs: per category, use the candidate types in order, and advance the color variant when they run out
   const BUS_POOLS: Record<string, number[]> = {
     ミニバス: [8, 17, 15],
     小型バス: [1, 9, 14, 16, 18],
@@ -190,7 +190,7 @@ function generate(): VehicleModel[] {
   for (const m of out) {
     const j = count.get(m.kind) ?? 0;
     if (m.mode === 'rail') {
-      // 鉄道: 種別ごとのデザイン一覧(tools/vehicle-sprites/build_train_atlas.py が決める)の j 番目
+      // Rail: the j-th entry of the per-category design list (decided by tools/vehicle-sprites/build_train_atlas.py)
       const list = (railDesigns.kinds as Record<string, number[]>)[m.kind];
       count.set(m.kind, j + 1);
       if (list) m.sprite = list[j % list.length];
@@ -213,7 +213,7 @@ export const AIRCRAFT_MODELS = ALL_MODELS.filter((m) => m.mode === 'air');
 
 const byId = new Map(ALL_MODELS.map((m) => [m.id, m]));
 
-/** 旧セーブの車種ID('mirai8000-8', 'asahi500-15-10+5' など)を、系列ID+両数に読み替える */
+/** Map old saved model IDs ('mirai8000-8', 'asahi500-15-10+5', etc.) to a series ID + car count */
 function legacy(id: string): { model: VehicleModel; cars: number } | undefined {
   const mt = /^([a-z]+\d+)-(\d+)(?:-.*)?$/.exec(id);
   const model = mt && byId.get(mt[1]);
@@ -221,10 +221,10 @@ function legacy(id: string): { model: VehicleModel; cars: number } | undefined {
 }
 
 export const modelOf = (id: string): VehicleModel => byId.get(id) ?? legacy(id)?.model ?? ALL_MODELS[0];
-/** 旧IDに含まれていた両数(なければ undefined) */
+/** The car count contained in an old ID (undefined if none) */
 export const legacyCarsOf = (id: string): number | undefined => (byId.has(id) ? undefined : legacy(id)?.cars);
 export const modelsFor = (mode: Mode): VehicleModel[] => ALL_MODELS.filter((m) => m.mode === mode);
 export const kindsFor = (mode: Mode): string[] => [...new Set(modelsFor(mode).map((m) => m.kind))];
 export const defaultModel = (mode: Mode): string => modelsFor(mode)[0].id;
-/** 両数を車種の範囲に収める */
+/** Clamp the car count to the model's range */
 export const clampCars = (m: VehicleModel, cars: number): number => Math.max(m.minCars, Math.min(m.maxCars, Math.round(cars) || m.defaultCars));

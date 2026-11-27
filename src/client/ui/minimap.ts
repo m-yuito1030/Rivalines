@@ -4,10 +4,10 @@ import type { View } from '../render/chunkRenderer';
 import type { GameMap } from '../../shared/world/gameMap';
 
 const SIZE = 200;
-/** 巨大マップのミニマップが映す範囲(タイル)。カメラが縁に寄ると中心を取り直す */
+/** The area (tiles) the minimap of a huge map shows. When the camera nears the edge, the centre is re-taken */
 const BIG_SPAN = 4096;
 
-/** 平面のミニマップ。クリックでカメラ移動 */
+/** A flat minimap. Click to move the camera */
 export class Minimap {
   private base: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -47,7 +47,7 @@ export class Minimap {
     return m.heightPoint ? m.heightPoint(x, y) : m.heightAt(x, y);
   }
 
-  /** 巨大マップ: カメラが窓の縁に近づいたら窓を取り直す */
+  /** Huge map: when the camera nears the edge of the window, re-take the window */
   private follow(view: View): void {
     if (!this.map.chunked) return;
     const c = Camera.worldToTile((view.left + view.right) / 2, (view.top + view.bottom) / 2);
@@ -59,7 +59,7 @@ export class Minimap {
     this.rebuild();
   }
 
-  /** 地形が変わったとき(整地)にベース画像を作り直す */
+  /** When the terrain changes (terraforming), rebuild the base image */
   rebuild(): void {
     const bctx = this.base.getContext('2d')!;
     const img = bctx.createImageData(SIZE, SIZE);

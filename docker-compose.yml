@@ -1,8 +1,8 @@
-# Rivalines の構成: 本稼働(live)と次期バージョン(next)を並べて動かす。
-#   web         … 入り口(ポータル + /live/ + /next/)。:8092 で公開する
-#   server      … 本稼働の世界(本稼働のコード。LIVE_SRC に置く)。アカウントの持ち主
-#   server-next … 次期バージョンの世界(このリポジトリのコード)。データは消えてよい。アカウントは本稼働側を読み取り専用で使う
-# 手順は docs/ENVIRONMENTS.md。LIVE_SRC は、本稼働のコードを置いたフォルダ(scripts/live-checkout.sh が用意する)。
+# Rivalines layout: run production (live) and the next version (next) side by side.
+#   web         ... the entrance (portal + /live/ + /next/). Published on :8092
+#   server      ... the production world (production code, placed at LIVE_SRC). Owner of the accounts
+#   server-next ... the next version's world (this repository's code). Its data may be wiped. It uses the live side's accounts read-only
+# Steps are in docs/ENVIRONMENTS.md. LIVE_SRC is the folder holding the production code (prepared by scripts/live-checkout.sh).
 services:
   web:
     build:
@@ -22,17 +22,15 @@ services:
     build: { context: "${LIVE_SRC:-../rivalines-live}", target: server }
     container_name: ${PROJECT:-simulator-multi}-server
     restart: unless-stopped
-    stop_grace_period: 30s # 終了の合図を受けたら世界を保存してから終わる
+    stop_grace_period: 30s #     stop_grace_period: 30s # on the termination signal, save the world before exiting
     mem_limit: 3g
     pids_limit: 200
     security_opt: [no-new-privileges:true]
     environment:
       WORLD_SIZE: "65535"
-      SPEED: "${SPEED:-0.5}" # ゲームの進む速さ。1 で実時間30分=ゲーム内1日、0.5 で60分=1日
-      MAX_ONLINE: "100" # 同時に接続できる人数(登録できる人数に上限はない)
-      REGISTER_PER_HOUR: "300" # サーバー全体で、1時間に新規登録できる人数(ボット対策)
-      # 招待コード: 設定すると、新規登録にこのコードが必要になる(公開するときは必ず設定する。.env に INVITE_CODE=... と書く)
-      INVITE_CODE: "${INVITE_CODE:-}"
+      SPEED: "${SPEED:-0.5}" #       SPEED: "${SPEED:-0.5}" # game speed. 1 = one game day per 30 real minutes, 0.5 = one day per 60 minutes
+      MAX_ONLINE: "100" #       MAX_ONLINE: "100" # max concurrent connections (there is no cap on the number of accounts)
+      REGISTER_PER_HOUR: "300" #       REGISTER_PER_HOUR: "300" # server-wide cap on new registrations per hour (against bots)
       ADMIN_KEY: "${ADMIN_KEY:-}"
       ENV_NAME: live
       ENV_LABEL: 本稼働
@@ -48,18 +46,18 @@ services:
     pids_limit: 200
     security_opt: [no-new-privileges:true]
     environment:
-      WORLD_SIZE: "2048" # 次期バージョンは小さな世界で固定(データは消えてよい)
-      WORLD_PREGEN: "1" # 起動のとき、すべての区画の街を作る
-      MAX_ONLINE: "30" # テスト用の世界なので、同時接続は少なめ
+      WORLD_SIZE: "2048" #       WORLD_SIZE: "2048" # the next version uses a small fixed-size world (its data may be wiped)
+      WORLD_PREGEN: "1" #       WORLD_PREGEN: "1" # at startup, generate the towns of every region
+      MAX_ONLINE: "30" #       MAX_ONLINE: "30" # a world for testing, so fewer concurrent connections
       ADMIN_KEY: "${ADMIN_KEY:-}"
       ENV_NAME: next
       ENV_LABEL: 次期バージョン
       APP_VERSION: "${NEXT_VERSION:-dev}"
-      # 本稼働側のアカウントを読み取り専用で使う(下の /shared は読み取り専用で mount する)
+            # Use the live side's accounts read-only (/shared below is mounted read-only)
       ACCOUNTS_FROM: /shared
     volumes:
       - next-data:/data
       - multi-data:/shared:ro
 volumes:
-  multi-data: # 本稼働の世界とアカウント(消さない)
-  next-data: # 次期バージョンの世界(消えてよい)
+  multi-data: #   multi-data: # the production world and accounts (never delete)
+  next-data: #   next-data: # the next version's world (may be wiped)

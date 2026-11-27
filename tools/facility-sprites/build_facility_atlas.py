@@ -1,6 +1,6 @@
-"""ホテル・公園、および newfac.py の新しい施設のスプライト(各 *_out/sprites/<type>_NN_{S,M,L}.png)を、種類ごとに1枚のアトラスにまとめる。
-S/M/L でセルの大きさが違う(S=1x1タイル M=2x2 L=3x3)ので、サイズごとの帯を縦に積み、各帯は5列。
-使い方: python3 build_facility_atlas.py <hotel.py と park.py のあるフォルダ(*_out もここ)> <出力フォルダ(assets)> <出力json>"""
+"""Packs the sprites of hotels, parks, and the new facilities of newfac.py (each *_out/sprites/<type>_NN_{S,M,L}.png) into one atlas per kind.
+The cell size differs by S/M/L (S=1x1 tile, M=2x2, L=3x3), so a band per size is stacked vertically, with 5 columns in each band.
+Usage: python3 build_facility_atlas.py <the folder holding hotel.py and park.py (*_out is here too)> <output folder (assets)> <output json>"""
 import importlib.util, json, os, sys
 from PIL import Image
 
@@ -11,7 +11,7 @@ def load(path):
     return m
 
 def sources(src, only):
-    """(種類, 名前の一覧, サイズごとの寸法) を返す。hotel/park は各 .py から、新しい施設は newfac.py の表から"""
+    """Return (kind, list of names, dimensions per size). hotel/park come from their own .py files, new facilities from the table in newfac.py"""
     sys.path.insert(0, src)
     out = []
     if not only or any(t in ('hotel', 'park') for t in only):
@@ -26,7 +26,7 @@ def sources(src, only):
     return out
 
 def main(src, outdir, outjson, *only):
-    """only に種類名を渡すと、その種類だけ作って、既存の json に統合する(渡さなければ全種類)"""
+    """If a kind name is passed as `only`, build just that kind and merge it into the existing json (all kinds if not passed)"""
     meta = json.load(open(outjson, encoding='utf-8')) if only and os.path.exists(outjson) else {}
     for name, names, geo in sources(src, only):
         n = len(names)

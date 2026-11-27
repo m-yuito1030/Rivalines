@@ -1,26 +1,26 @@
 export interface Town {
-  id: number; // 1始まり(map.owner に格納)
+  id: number; // 1-based (stored in map.owner)
   name: string;
-  x: number; // 中心タイル
+  x: number; // centre tile
   y: number;
   pop: number;
   houses: number;
-  /** この街が敷いた道路タイル(index = y*size+x)。成長時の抽選用 */
+  /** Road tiles this town laid (index = y*size+x). For random picks when growing */
   roads: number[];
-  nextGrowth: number; // 次回成長するシミュレーションtick
-  /** 最近の輸送実績(乗降人数, 日ごとに減衰)。成長を加速する */
+  nextGrowth: number; // the simulation tick of the next growth
+  /** Recent transport results (boardings and alightings, decaying daily). Speeds up growth */
   pax: number;
-  /** 街の段階(0村 1街 2都市 3特大都市 4首都)。生まれたときに決まり、その人口の範囲でだけ成長する。古いセーブにはなく、人口から決める */
+  /** Town tier (0 village, 1 town, 2 city, 3 metropolis, 4 capital). Decided at birth; it grows only within that tier's population range. Absent in old saves, where it is decided from population */
   tier?: number;
 }
 
-/** 建物レベル(1..3)ごとの人口(村・街の基準。大都市ほど建物あたりの人口が多い=高層化: popMul) */
+/** Population per building level (1..3) (the baseline for villages and towns; bigger cities have more people per building = taller buildings: popMul) */
 export const POP_PER_LEVEL = [0, 6, 16, 36] as const;
 
 /**
- * 街の段階。min は生まれたときの人口、max(未満)はその段階で成長できる上限。
- * weight は生まれる割合(合計1)、mul は建物あたりの人口倍率、radius は街の広がり(タイル)、roads は道路タイルの上限。
- * 街のデザイン: maxLevel は建物の最大の高さ(1=S 2=M 3=L)、l1/l2 は低層・中層の累積割合(残りが高層)、office はオフィスビルの多さ(中心ほど多い)。村は低い住宅だけ、都市から高層・オフィス街になる。
+ * Town tiers. min is the population at birth, max (exclusive) is the upper limit of growth at that tier.
+ * weight is the share born (sums to 1), mul is the population multiplier per building, radius is the town's extent (tiles), roads is the cap on road tiles.
+ * Town design: maxLevel is the maximum building height (1=S 2=M 3=L), l1/l2 are cumulative shares of low and mid rise (the rest is high rise), office is how many office buildings (more toward the centre). Villages have only low houses; high-rises and office districts start at cities.
  */
 export const TIERS = [
   { name: '村', min: 100, max: 1000, weight: 0.6, mul: 1, radius: 10, roads: 4000, maxLevel: 1, l1: 1, l2: 1, office: 0 },
@@ -36,5 +36,5 @@ export const tierOfPop = (pop: number): number => {
   return t;
 };
 export const townTier = (t: Pick<Town, 'pop' | 'tier'>): number => t.tier ?? tierOfPop(t.pop);
-/** 建物あたり人口の倍率(街の段階による) */
+/** Multiplier on population per building (by town tier) */
 export const popMul = (t: Pick<Town, 'pop' | 'tier'> | undefined): number => (t ? TIERS[townTier(t)].mul : 1);

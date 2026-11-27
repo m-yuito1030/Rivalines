@@ -171,4 +171,12 @@ export const EN_SERVER: Catalog = {
   'ja:パスワードは6文字以上です': 'Passwords must be at least 6 characters.',
   'ja:その名前は使われています': 'That name is already taken.',
   'ja:この名前は使えません': 'That name cannot be used.',
+  'ja:試行回数が多すぎます。少し待ってください': 'Too many attempts. Please wait a moment.',
+  'ja:新規登録は本稼働側で行ってください(同じ名前とパスワードで、こちらでも遊べます)': 'Please sign up on the live side (you can play here with the same name and password).',
+  'ja:新規登録が混み合っています。しばらくしてからもう一度お試しください': 'Sign-ups are busy right now. Please try again in a little while.',
+  'ja:名前またはパスワードが違います': 'Wrong name or password.',
+  'ja:このアカウントは利用停止中です(理由: {reason})': 'This account is suspended (reason: {reason}).',
+  'ja:パスワードの変更は本稼働側で行ってください': 'Please change your password on the live side.',
+  'ja:アカウントがありません': 'The account does not exist.',
+  'ja:パスワードは6文字以上72文字以下です': 'Passwords must be 6 to 72 characters.',
 };

@@ -1,17 +1,17 @@
 import { DEFAULT_DWELL, ROUTE_COLORS, Route } from './types';
 import type { Transit } from './transit';
 
-/** 路線のオーダー編集(挿入・削除・並べ替え・共有) */
+/** Editing a route's orders (insert, delete, reorder, share) */
 export class OrderEditor {
   constructor(private readonly t: Transit) {}
 
-  // ---------------------------------------------------------------- オーダーの編集(挿入・削除・並べ替え)
-  /** 同じ共有グループの路線(共有していなければ自分だけ) */
+  // ---------------------------------------------------------------- Editing orders (insert, delete, reorder)
+  /** Routes in the same sharing group (just itself if not shared) */
   groupOf(r: Route): Route[] {
     return r.shared === undefined ? [r] : [...this.t.routes.values()].filter((x) => x.shared === r.shared);
   }
 
-  /** オーダー番号の付け替え(old → new。undefined なら条件の飛び先を無効にする)を、路線の車両と条件に適用 */
+  /** Apply an order renumbering (old -> new; undefined invalidates the jump target of a condition) to the route's vehicles and conditions */
   remapOrders(r: Route, f: (i: number) => number | undefined): void {
     for (const o of r.orders) {
       if (!o.cond) continue;
@@ -22,7 +22,7 @@ export class OrderEditor {
     for (const v of this.t.vehicles) if (v.routeId === r.id) v.order = f(v.order) ?? v.order;
   }
 
-  /** index の位置に停留所のオーダーを挿入する(0..n。共有している路線にも同じ操作) */
+  /** Insert a stop order at position `index` (0..n). The same operation applies to routes sharing the orders */
   insertOrder(routeId: number, index: number, stopId: number): { ok: boolean; reason?: string } {
     const r = this.t.routes.get(routeId);
     const s = this.t.stops.get(stopId);
@@ -32,7 +32,7 @@ export class OrderEditor {
     index = Math.max(0, Math.min(r.orders.length, index));
     for (const g of this.groupOf(r)) {
       g.orders.splice(index, 0, { stopId, kind: 'dwell', dwell: DEFAULT_DWELL[g.mode], maxWait: 300, departTod: 0 });
-      // 挿入位置以降の番号をずらす(挿入した新オーダー自身は除く)
+      // Shift the numbers from the insertion point on (except the newly inserted order itself)
       this.remapOrders(g, (i) => (i >= index ? i + 1 : i));
       g.legMeasured = undefined;
     }
@@ -40,7 +40,7 @@ export class OrderEditor {
     return { ok: true };
   }
 
-  /** index のオーダーを削除する。そのオーダーに向かう/停車中の車両がいる、または停車駅が2つ未満になるなら不可 */
+  /** Delete the order at `index`. Not allowed if a vehicle is heading to / stopped at that order, or if fewer than two stops would remain */
   removeOrder(routeId: number, index: number): { ok: boolean; reason?: string } {
     const r = this.t.routes.get(routeId);
     if (!r || index < 0 || index >= r.orders.length) return { ok: false, reason: 'オーダーがありません' };
@@ -59,7 +59,7 @@ export class OrderEditor {
     return { ok: true };
   }
 
-  /** index のオーダーを dir(-1=前 / +1=後)へ動かす */
+  /** Move the order at `index` in direction `dir` (-1 = earlier / +1 = later) */
   moveOrder(routeId: number, index: number, dir: -1 | 1): { ok: boolean; reason?: string } {
     const r = this.t.routes.get(routeId);
     if (dir !== -1 && dir !== 1) return { ok: false, reason: '動かす向きが正しくありません' };
@@ -74,7 +74,7 @@ export class OrderEditor {
     return { ok: true };
   }
 
-  /** 路線のオーダーを共有する: 同じオーダー・周期の新しい路線を作り、共有グループに入れる */
+  /** Share a route's orders: create a new route with the same orders and period and put it in the sharing group */
   shareRoute(routeId: number): Route | null {
     const src = this.t.routes.get(routeId);
     if (!src) return null;
@@ -97,7 +97,7 @@ export class OrderEditor {
     return copy;
   }
 
-  /** 共有を解除する(オーダーは今の内容のまま独立) */
+  /** Stop sharing (the orders stay as they are now, but become independent) */
   unshareRoute(routeId: number): void {
     const r = this.t.routes.get(routeId);
     if (!r || r.shared === undefined) return;
@@ -108,7 +108,7 @@ export class OrderEditor {
     this.t.version++;
   }
 
-  /** この路線のオーダー・周期を、共有している他の路線へ反映する(編集のたびに呼ぶ) */
+  /** Reflect this route's orders and period onto the other routes sharing them (call after every edit) */
   syncOrders(routeId: number): void {
     const src = this.t.routes.get(routeId);
     if (!src || src.shared === undefined) return;

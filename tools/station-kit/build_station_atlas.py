@@ -21,7 +21,7 @@ NAMES = {
     'nordic_red': '北欧の赤い駅', 'tudor': 'チューダー様式の駅', 'mediterranean': '地中海風の駅', 'futuristic': '未来都市の駅', 'mining': '鉱山町の駅',
 }
 VARIANTS = ['', '(別色)', '(ダーク)', '(雪景色)']
-LOW = 6  # この高さ以下の低い物(ホームの縁・車止め)は地面の層に入れる
+LOW = 6  # LOW = 6  # low things at or below this height (platform edges, buffer stops) go into the ground layer
 
 
 def split_prims(name, side, st):
@@ -39,7 +39,7 @@ def render_layer(name, side, st, ax, layer):
     if layer == 0:
         return k.render3(stacks, [], lambda s, t, dx, dy: k.gnd(name, side, st, ax)(s, t, dx, dy), (226, 222, 210), 'plaster', k.GEO, 'none', 1)
     old = k.ground
-    k.ground = lambda *a, **kw: None  # 地面は描かない(上の物だけ)
+    k.ground = lambda *a, **kw: None  #     k.ground = lambda *a, **kw: None  # do not draw the ground (only the things above)
     try:
         return k.render3(stacks, [], lambda s, t, dx, dy: (0, 0, 0), (226, 222, 210), 'plaster', k.GEO, 'none', 1)
     finally:
@@ -64,7 +64,7 @@ def main():
         print('station', v, os.path.getsize(os.path.join(OUT, f'station{v}.png')) // 1024, 'KB')
     info = {
         'tile': 64,
-        'groundTop': 28,  # セル内で、地面のひし形の上の頂点の y
+        'groundTop': 28,  #         'groundTop': 28,  # y of the top vertex of the ground diamond within the cell
         'pieces': [k.pname(b, s) for b, s in k.PIECES],
         'styles': [{'name': NAMES[k.STY[b * 4][0]] + VARIANTS[v], 'key': k.STY[b * 4 + v][0]} for b in range(20) for v in range(4)],
     }

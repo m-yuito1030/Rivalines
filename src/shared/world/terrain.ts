@@ -1,6 +1,6 @@
 import { SEA_LEVEL } from './constants';
 
-/** 32bit整数ハッシュ(格子点の乱数) */
+/** 32-bit integer hash (random numbers at lattice points) */
 function hash(x: number, y: number, seed: number): number {
   let h = Math.imul(x, 0x27d4eb2d) ^ Math.imul(y, 0x165667b1) ^ Math.imul(seed, 0x9e3779b1);
   h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
@@ -10,7 +10,7 @@ function hash(x: number, y: number, seed: number): number {
 
 const smooth = (t: number) => t * t * (3 - 2 * t);
 
-/** 値ノイズ(0..1) */
+/** Value noise (0..1) */
 function valueNoise(x: number, y: number, seed: number): number {
   const xi = Math.floor(x);
   const yi = Math.floor(y);
@@ -26,21 +26,21 @@ function valueNoise(x: number, y: number, seed: number): number {
 export interface TerrainOptions {
   size: number;
   seed: number;
-  /** 進捗(0..1)通知。行ブロックごとに呼ばれる */
+  /** Notifies progress (0..1). Called once per block of rows */
   onProgress?: (p: number) => void;
 }
 
 /**
- * 高度マップを生成する(size x size, Uint8, 行優先 index = y*size + x)。
- * 同じ size/seed なら常に同一結果。地形の特徴サイズはマップサイズに比例させる。
+ * Generate the height map (size x size, Uint8, row-major index = y*size + x).
+ * Always the same result for the same size/seed. Terrain feature size is proportional to the map size.
  */
-/** 直近の generateTerrain で掘った川タイル数(テスト・調整用) */
+/** Number of river tiles dug by the latest generateTerrain (for tests and tuning) */
 export let riverTiles = 0;
 
 export function generateTerrain({ size, seed, onProgress }: TerrainOptions): Uint8Array {
   const out = new Uint8Array(size * size);
-  const octaves = Math.max(5, Math.floor(Math.log2(size / 16)) + 1); // 最小波長 ~4タイルまで
-  const baseFreq = 4 / size; // 大陸スケール: マップ全体で約4周期
+  const octaves = Math.max(5, Math.floor(Math.log2(size / 16)) + 1); // down to a shortest wavelength of ~4 tiles
+  const baseFreq = 4 / size; // continent scale: about 4 periods across the map
   const ridgeFreq = 6 / size;
   const progressEvery = Math.max(1, size >> 6);
 
@@ -56,8 +56,8 @@ export function generateTerrain({ size, seed, onProgress }: TerrainOptions): Uin
         amp *= 0.5;
         freq *= 2;
       }
-      let n = sum / norm; // 概ね 0.2..0.8
-      // 山岳: リッジノイズを陸地にのみ加算
+      let n = sum / norm; // roughly 0.2..0.8
+      // Mountains: add ridge noise only on land
       const r = 1 - Math.abs(valueNoise(x * ridgeFreq, y * ridgeFreq, seed + 997) * 2 - 1);
       const t = (n - 0.54) * 2.2 + 0.5;
       n = t + (t > 0.5 ? Math.pow(r, 4) * 0.25 * (t - 0.4) : 0);
@@ -71,12 +71,12 @@ export function generateTerrain({ size, seed, onProgress }: TerrainOptions): Uin
   return out;
 }
 
-/** 川の岸の高さ(1段目)。川は海面(段0)まで掘り下げ、岸を低くして橋をかけやすくする */
+/** Height of a river bank (level 1). Rivers are dug down to sea level (level 0) and the banks are lowered so bridges are easy to build */
 const BANK = SEA_LEVEL + 10;
 
 /**
- * 山の中腹から海へ向かって低い方へ流れる川を掘る(決定論的)。
- * 川は高度を海面以下にした4連結のタイル列で、両岸は最大で段1に均す。
+ * Dig rivers that flow downhill from mountainsides to the sea (deterministic).
+ * A river is a 4-connected run of tiles with height at or below sea level, and both banks are levelled to at most level 1.
  */
 export function carveRivers(h: Uint8Array, size: number, seed: number): number {
   let carved = 0;
@@ -85,7 +85,7 @@ export function carveRivers(h: Uint8Array, size: number, seed: number): number {
   const DXS = [0, 1, 0, -1];
   const DYS = [-1, 0, 1, 0];
   for (let r = 0; r < count; r++) {
-    // 水源: 段3〜5あたりの陸地を乱数で探す
+    // Source: look for land around levels 3-5 at random
     let cur = -1;
     for (let t = 0; t < 60 && cur < 0; t++) {
       const x = Math.floor(hash(r, t, seed + 5001) * size);
@@ -99,7 +99,7 @@ export function carveRivers(h: Uint8Array, size: number, seed: number): number {
     for (let step = 0; step < size * 3; step++) {
       path.push(cur);
       local.add(cur);
-      if (h[cur] <= SEA_LEVEL) break; // 海・湖に到達
+      if (h[cur] <= SEA_LEVEL) break; // reached the sea or a lake
       const cx = cur % size;
       const cy = Math.floor(cur / size);
       let best = -1;
@@ -139,7 +139,7 @@ export function carveRivers(h: Uint8Array, size: number, seed: number): number {
   return carved;
 }
 
-/** 海でないタイルの割合(テスト・調整用) */
+/** Share of tiles that are not sea (for tests and tuning) */
 export function landRatio(height: Uint8Array): number {
   let land = 0;
   for (let i = 0; i < height.length; i++) if (height[i] > SEA_LEVEL) land++;

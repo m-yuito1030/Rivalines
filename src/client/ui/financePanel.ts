@@ -27,11 +27,11 @@ import type { Transit } from '../../shared/sim/network/transit';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-/** 経営画面: 資金・売上と費用・融資・自社施設と他社施設(買収) */
+/** Management screen: funds, sales and costs, loans, own facilities and other companies' facilities (acquisitions) */
 export class FinancePanel extends ModalPanel {
-  /** ボタンを押している間は再描画しない(クリック直前に要素が入れ替わるのを防ぐ) */
+  /** Do not redraw while a button is held down (so elements are not swapped out just before a click) */
   private pressed = false;
-  /** 提携の申し込みフォームの選択(再描画しても保つ) */
+  /** The selection in the pact proposal form (kept across redraws) */
   private pactTo = 0;
   private pactDisc = 0.5;
   constructor(
@@ -124,12 +124,12 @@ export class FinancePanel extends ModalPanel {
     </table>`;
     const own = this.map.facilities.filter((f) => (f.owner ?? 'player') === 'player' && f.playerId === net.id);
     const other = this.map.facilities.filter((f) => f.owner === 'city' || ((f.owner ?? 'player') === 'player' && f.playerId !== net.id && f.playerId !== undefined && false));
-    // 決算(事業年度): 期首来の損益と、過去の決算書
+    // Fiscal year: profit and loss since the start of the period, and past financial statements
     const dt = this.getDate();
     const f = c.fy;
     const fsum = (cats: readonly string[]) => cats.reduce((a, k) => a + (f[k] ?? 0), 0);
-    const fRev = fsum(['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'realestate']);
-    const fOp = fRev - (f.running ?? 0) - (f.upkeep ?? 0); // 減価償却は期末に確定する
+    const fRev = fsum(['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'realestate', 'subsidy']);
+    const fOp = fRev - (f.running ?? 0) - (f.upkeep ?? 0) - (f.levy ?? 0); // depreciation is fixed at the end of the period
     h += `<h3>${tr('決算(第{period}期 {year}年{month}月{day}日 / Q{quarter} ・ 3月末決算)', { period: dt.period, year: dt.year, month: dt.month, day: dt.day, quarter: dt.quarter })}</h3>`;
     h += `<div class="fgrid"><div>${tr('期首来の売上')}</div><div class="n">${yen(fRev)}</div><div>${tr('期首来の営業利益(減価償却前)')}</div><div class="n ${fOp < 0 ? 'neg' : ''}">${yen(fOp)}</div><div>${tr('インフラの簿価(毎期10%償却) / 繰越欠損金')}</div><div class="n">${yen(c.infra)} / ${yen(c.loss)}</div><div>${tr('法人税率')}</div><div class="n">${tr('{TAX_RATE}%(繰越欠損金で相殺)', { TAX_RATE: Math.round(TAX_RATE * 100) })}</div></div>`;
     h += `<div class="frow">${tr('配当性向:')} ${PAYOUT_OPTIONS.map((p) => `<button data-fa="payout" data-amount="${p}" class="${c.payout === p ? 'on' : ''}">${Math.round(p * 100)}%</button>`).join('')}<span class="muted"> ${tr('決算で当期純利益の何割を配当に回すか(株価にやや好影響)')}</span></div>`;
@@ -208,11 +208,11 @@ export class FinancePanel extends ModalPanel {
           )
           .join('')}</table>`
       : `<div class="muted">${tr('街が大きくなると、民間の百貨店・ホテル・モールが建ちます。買収すると自社の売上になります。')}</div>`;
-    // 部分ごとに、変わったときだけ書き換える(ボタンの要素が毎秒入れ替わらないように)
+    // Rewrite each part only when it changed (so button elements are not swapped every second)
     this.setParts(h);
   }
 
-  /** 株価の折れ線(SVG) */
+  /** Share price line chart (SVG) */
   private stockChart(hist: number[]): string {
     if (hist.length < 2) return `<div class="muted">${tr('1日が終わると表示されます')}</div>`;
     const w = 700;
@@ -225,7 +225,7 @@ export class FinancePanel extends ModalPanel {
 
   private parts: string[] = [];
 
-  /** h3 見出しで区切った部分ごとに差分更新する */
+  /** Update differences for each part separated by h3 headings */
   private setParts(h: string): void {
     const chunks = h.split(/(?=<h3)/);
     const kids = [...this.body.children] as HTMLElement[];

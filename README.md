@@ -22,12 +22,12 @@ npm test
 
 ```bash
 git clone https://github.com/m-yuito1030/rivalines.git && cd rivalines
-echo 'INVITE_CODE=好きな文字列' > .env      # 招待コード。公開するときは必ず設定する(新規登録に必要になる)
+echo 'ADMIN_KEY='$(openssl rand -hex 24) > .env   # 運営用の鍵(BAN・通報の確認などに使う)
 LIVE_SRC=. docker compose up -d --build     # 本稼働も次期バージョンも、いま取り出したコードで起動する(初めて試すとき)
 ```
 `http://<サーバーのアドレス>:8092` で遊べます(ポータルで、本稼働と次期バージョンを選びます)。本稼働と次期バージョンで別の版を動かす運用は、[docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md)。更新するときは、`git pull` のあと同じコマンド(世界のデータは残ります)。
 
-- **設定**(`docker-compose.yml` の `environment`): `WORLD_SIZE`(世界の一辺。既定 65535)・`MAX_ONLINE`(同時に接続できる人数。既定 100。登録できる人数に上限はありません)・`REGISTER_PER_HOUR`(1時間に新規登録できる人数。既定 300)・`INVITE_CODE`(空なら、新規登録は誰でもできる)。
+- **設定**(`docker-compose.yml` の `environment`): `WORLD_SIZE`(世界の一辺。既定 65535)・`MAX_ONLINE`(同時に接続できる人数。既定 100。登録できる人数に上限はありません)・`REGISTER_PER_HOUR`(1時間に新規登録できる人数。既定 300)。新規登録は誰でもできます。
 - **運営**: `ADMIN_KEY`(運営用の鍵。BAN・キック・通報の確認などに使う。手順は [docs/OPERATIONS.md](docs/OPERATIONS.md))。
 - **データ**: 世界(`world.sav`)・アカウント(`accounts.json`)・ログインの署名鍵(`token.secret`)は、Docker のボリューム `multi-data` の `/data` に保存されます。**バックアップを取ってください**(1つのファイルだけです)。
 - **公開するとき**: 暗号化なしの HTTP だと、パスワードが通信の途中で読めます。HTTPS の入口(リバースプロキシ)の後ろに置いてください。前段にプロキシがある場合は、利用者の IP アドレスを `X-Real-IP` で nginx に渡さないと、全員が1つの接続元として制限されます。

@@ -12,9 +12,9 @@ const hm = (t: number) => {
 };
 
 /**
- * ダイヤ(運行図表)画面。縦=駅、横=時刻のスジ図。
- * 列車(線)をドラッグすると発車時刻のずれ、駅の点(●)をドラッグするとその駅の発車時刻を変える。
- * 追い越しが起きる箇所は「待避の提案」に出て、1クリックで適用できる。
+ * The timetable (train diagram) screen. Vertical = stations, horizontal = time, as a diagram of train lines.
+ * Dragging a train (line) changes its departure offset; dragging a station dot (a circle) changes that station's departure time.
+ * Places where an overtake occurs show up in "passing-loop suggestions" and can be applied with one click.
  */
 export class DiagramPanel extends ModalPanel {
   private routeSel: HTMLSelectElement;
@@ -27,7 +27,7 @@ export class DiagramPanel extends ModalPanel {
   private lastKey = '';
   private mode: 'run' | 'node' = 'run';
   private drag: { kind: 'run' | 'node'; id: number; order: number; startX: number; orig: number; delta: number } | null = null;
-  /** 描画ごとの当たり判定用の情報 */
+  /** Information for hit testing, per draw */
   private hit: { runs: { vehId: number; pts: [number, number][]; offset: number }[]; nodes: { x: number; y: number; order: number; t: number; routeId: number }[] } = {
     runs: [],
     nodes: [],
@@ -158,7 +158,7 @@ export class DiagramPanel extends ModalPanel {
     };
   }
 
-  /** 画面の再描画。データが変わらず操作中でもなければ省く */
+  /** Redraw the screen. Skipped if the data has not changed and nothing is being operated */
   draw(): void {
     const sel = this.transit.routes.get(Number(this.routeSel.value));
     const cv = this.canvas;
@@ -192,7 +192,7 @@ export class DiagramPanel extends ModalPanel {
     this.view = { x0, span, left, top, w, h };
     const X = (t: number) => left + ((t - x0) / span) * w;
     const Y = (i: number) => top + (rows.length <= 1 ? h / 2 : (i / (rows.length - 1)) * h);
-    // 格子と目盛り
+    // Grid and scale
     g.font = '11px sans-serif';
     g.textBaseline = 'middle';
     g.strokeStyle = '#243b57';
@@ -221,7 +221,7 @@ export class DiagramPanel extends ModalPanel {
       while (label.length > 2 && g.measureText(label).width > left - 12) label = label.slice(0, -2) + '…';
       g.fillText(label, left - 8, y);
     });
-    // 現在時刻
+    // Current time
     const now = todOf(this.getTick());
     for (const base of [now, now + DAY, now - DAY]) {
       if (base >= x0 && base <= x0 + span) {
@@ -240,7 +240,7 @@ export class DiagramPanel extends ModalPanel {
       g.textAlign = 'left';
       g.fillText(tr('この路線には時刻表がありません。「時刻表を自動作成」か「運行本数を一括設定」で作れます'), left, top + h / 2);
     }
-    // 同じ駅を2つ以上通る自社の他の路線(時刻表あり)も薄く描く
+    // Also draw faintly the company's other routes (with timetables) that pass two or more of the same stations
     const others = this.myRoutes().filter((r) => r.id !== sel.id && r.orders.some((o) => o.kind === 'timed') && r.orders.filter((o) => rows.includes(o.stopId)).length >= 2);
     const drawRun = (route: DiaRoute, run: Run, bold: boolean, dragDelta = 0) => {
       const col = hex(route.color);
@@ -286,7 +286,7 @@ export class DiagramPanel extends ModalPanel {
         }
       }
     };
-    // 図の外(左の駅名・右の余白)にはみ出さないようにクリップする
+    // Clip so nothing spills outside the diagram (the station names on the left, the margin on the right)
     g.save();
     g.beginPath();
     g.rect(left, top - 6, w, h + 12);
@@ -310,7 +310,7 @@ export class DiagramPanel extends ModalPanel {
           tr2: this.mode === 'run' ? tr('線をドラッグすると、その列車の発車時刻がずれます') : tr('●をドラッグすると、その駅の発車時刻が変わります'),
         })
       : '';
-    // 待避の提案(自社の時刻表つき路線どうし)
+    // Passing-loop suggestions (between the company's routes that have timetables)
     const cands = [sel, ...others];
     const key = JSON.stringify(cands.map((r) => [r.id, r.orders.map((o) => [o.stopId, o.kind, o.departTod, o.dwell]), r.vs, r.legs, r.period]));
     if (key !== this.lastKey) {
@@ -334,7 +334,7 @@ export class DiagramPanel extends ModalPanel {
     }
   }
 
-  // ---- ドラッグ操作 ----
+  // ---- Drag operations ----
   private pos(e: PointerEvent): { x: number; y: number } {
     const r = this.canvas.getBoundingClientRect();
     return { x: e.clientX - r.left, y: e.clientY - r.top };
@@ -385,7 +385,7 @@ export class DiagramPanel extends ModalPanel {
     const dt = ((p.x - this.drag.startX) / this.view.w) * this.view.span;
     this.drag.delta = Math.round(dt / MIN) * MIN;
     if (this.drag.kind === 'node') {
-      // プレビュー: 点の位置に目印を描く
+      // Preview: draw a marker at the dot's position
       this.draw();
       const g = this.ctx;
       g.fillStyle = '#ffd24a';

@@ -1,4 +1,4 @@
-# 既存の Caddy の sites フォルダに rivalines.caddy として置く例(HTTPS の証明書は自動で取れる)
+# An example to place as rivalines.caddy in an existing Caddy's sites folder (HTTPS certificates are obtained automatically)
 rivalines.com {
 	encode zstd gzip
 	header Strict-Transport-Security "max-age=31536000"

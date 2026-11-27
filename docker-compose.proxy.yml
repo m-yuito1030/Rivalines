@@ -1,6 +1,6 @@
-# 同じ VPS の別のプロキシ(例: trailpin の Caddy)に HTTPS を任せるときの追加設定。
-# 使い方: docker compose -f docker-compose.vps.yml -f docker-compose.proxy.yml up -d --build
-# 相手のプロキシからは、rivalines-web:80 で届く。
+# Extra settings for leaving HTTPS to another proxy on the same VPS (e.g. trailpin's Caddy).
+# Usage: docker compose -f docker-compose.vps.yml -f docker-compose.proxy.yml up -d --build
+# The other proxy reaches it at rivalines-web:80.
 services:
   rivalines-web:
     networks: [default, proxy]

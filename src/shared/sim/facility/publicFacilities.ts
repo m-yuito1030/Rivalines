@@ -8,16 +8,16 @@ import sightsJson from '../../data/sights.json';
 import { type SightMeta, sightFits, sightLabel } from '../../data/sightTiers';
 
 const sights = sightsJson as SightMeta[];
-/** 段階(村/街/都市)ごとに置いてよい観光地デザインの一覧 */
+/** List of sightseeing designs allowed for each tier (village / town / city) */
 const sightPool = [0, 1, 2].map((t) => sights.map((m, i) => (sightFits(m, t) ? i : -1)).filter((i) => i >= 0));
 const pickSight = (town: Town, rng: () => number): number => {
   const pool = sightPool[Math.min(2, townTier(town))];
   return pool[Math.floor(rng() * pool.length)];
 };
 
-/** 学校どうしの最小間隔(タイル。x または y 方向の距離がこれ以上必要) */
+/** Minimum spacing between schools (tiles; the x or y distance must be at least this) */
 export const SCHOOL_MIN_DISTANCE = 15;
-/** 学校の数の目安: 人口 150 から、250人ごとに1校(+1) */
+/** Guideline for the number of schools: from population 150, one more school per 250 people */
 export const schoolTarget = (pop: number): number => (pop >= 150 ? Math.floor(pop / 250) + 1 : 0);
 
 const DIMS = { S: { w: 1, h: 1 }, M: { w: 1, h: 1 }, L: { w: 2, h: 2 } } as const;
@@ -28,7 +28,7 @@ const schoolSize = (pop: number, r: number): Size => (pop < 400 ? (r < 0.7 ? 'S'
 
 const center = (f: Facility) => ({ x: f.x0 + (f.w - 1) / 2, y: f.y0 + (f.h - 1) / 2 });
 
-/** 学校は他の学校から SCHOOL_MIN_DISTANCE タイル以上離す(x か y の差がそれ以上) */
+/** A school must be at least SCHOOL_MIN_DISTANCE tiles from other schools (in x or y) */
 export function schoolSpacingOk(map: GameMap, x: number, y: number): boolean {
   return map.facilities.every((f) => {
     if (f.type !== 'school') return true;
@@ -37,7 +37,7 @@ export function schoolSpacingOk(map: GameMap, x: number, y: number): boolean {
   });
 }
 
-/** 敷地の外周のすぐ外に、道路があるか */
+/** Whether there is a road just outside the edge of the site */
 function onStreet(map: GameMap, tiles: [number, number][]): boolean {
   return tiles.some(([x, y]) => [0, 1, 2, 3].some((d) => map.inBounds(x + DX[d], y + DY[d]) && map.road.get(map.idx(x + DX[d], y + DY[d])) !== 0));
 }
@@ -73,12 +73,12 @@ function tryPlace(
   return null;
 }
 
-/** 観光地の数(1〜3): 街ごとに決まる(座標から決定論的)。村・街・都市にだけあり、特大都市・首都にはない */
+/** Number of sights (1-3): decided per town (deterministically from coordinates). Only villages, towns, and cities have them, not very large cities or capitals */
 export const sightTarget = (town: Town): number => (townTier(town) <= 2 ? 1 + ((((Math.imul(town.x, 73856093) ^ Math.imul(town.y, 19349663)) >>> 0) >>> 3) % 3) : 0);
 const sightSize = (town: Town, r: number): Size =>
   townTier(town) === 0 ? (r < 0.6 ? 'S' : 'M') : townTier(town) === 1 ? (r < 0.25 ? 'S' : r < 0.65 ? 'M' : 'L') : r < 0.2 ? 'M' : 'L';
 
-/** 街が生まれた直後に市役所を先に置く(人口を育てたあとだと、街が建物で埋まって置けなくなるため) */
+/** Place the town hall first, right after a town is born (after the population has grown the town is full of buildings and it would not fit) */
 export function placeTownHall(map: GameMap, town: Town, rng: () => number): boolean {
   const none = { stopAtTile: () => undefined, depotAtTile: () => undefined } as unknown as Transit;
   const sz = cityhallSize(TIERS[townTier(town)].min);
@@ -88,18 +88,18 @@ export function placeTownHall(map: GameMap, town: Town, rng: () => number): bool
 }
 
 /**
- * 公共施設を街が自動で建てる(プレイヤーは建てられない)。
- * 市役所: 1つの街に1つ(街の中心の近く)。学校: 人口に応じて何校でも、ただし学校どうし 15 タイル以上離す。
- * @returns 新しく建てた数
+ * Towns build public facilities automatically (players cannot build them).
+ * Town hall: one per town (near the centre). Schools: any number depending on population, but at least 15 tiles apart.
+ * @returns the number newly built
  */
 export function placePublicFacilities(map: GameMap, transit: Transit, rng: () => number): number {
   let built = 0;
   for (const town of map.towns) {
-    // 市役所(1街1つ。置けるまで毎回試す。敷地が足りなければ小さくする)
+    // Town hall (one per town. Tried every time until it fits. Made smaller if the site is too small)
     if (!map.facilities.some((f) => f.type === 'cityhall' && f.townId === town.id)) {
       const order: Size[] = cityhallSize(town.pop) === 'L' ? ['L', 'M', 'S'] : cityhallSize(town.pop) === 'M' ? ['M', 'S'] : ['S'];
       for (const sz of order) {
-        const rs = TIERS[townTier(town)].radius / 10; // 大きな街ほど広く探す
+        const rs = TIERS[townTier(town)].radius / 10; // the bigger the town, the wider the search
         const f = tryPlace(map, transit, rng, town, 'cityhall', sz, 2, 9 * rs, 30 + 25 * townTier(town));
         if (f) {
           built++;
@@ -107,9 +107,9 @@ export function placePublicFacilities(map: GameMap, transit: Transit, rng: () =>
         }
       }
     }
-    // 観光地(村・街・都市に1〜3か所。足りなければ少しずつ。街の外縁に近いところ)
+    // Sights (1-3 in villages, towns, and cities. Added gradually if short. Near the edge of the town)
     const wantSights = sightTarget(town);
-    // 規模に合わない見た目(古いセーブや段階の変更)は付け替える
+    // A look that does not suit the size (an old save or a change of tier) is replaced
     for (const f of map.facilities)
       if (f.type === 'sight' && f.townId === town.id && f.design !== undefined && !sightFits(sights[f.design], Math.min(2, townTier(town)))) {
         f.design = pickSight(town, rng);
@@ -123,7 +123,7 @@ export function placePublicFacilities(map: GameMap, transit: Transit, rng: () =>
       for (const s of order) {
         const f = tryPlace(map, transit, rng, town, 'sight', s, 4, 14 * rs, 60 + 20 * townTier(town));
         if (f) {
-          const d = pickSight(town, rng); // 街の規模に合う種類(神社・温泉・タワーなど)から選ぶ
+          const d = pickSight(town, rng); // pick from types that suit the town size (shrine, hot spring, tower, ...)
           f.design = d;
           f.name = `${town.name}の${sightLabel(sights[d])}`;
           built++;
@@ -131,7 +131,7 @@ export function placePublicFacilities(map: GameMap, transit: Transit, rng: () =>
         }
       }
     }
-    // 学校(足りなければ1校ずつ。確率で間引く)
+    // Schools (one at a time if short. Thinned out by chance)
     const have = map.facilities.filter((f) => f.type === 'school' && f.townId === town.id).length;
     if (have < schoolTarget(town.pop) && rng() < 0.5) {
       const sz = schoolSize(town.pop, rng());
