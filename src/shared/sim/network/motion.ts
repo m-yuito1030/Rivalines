@@ -3,7 +3,7 @@ import { FARE, fareMulOf } from './fares';
 import { DECEL_TILES, Route, Stop, Vehicle, dirBetween, nearestDiff, todOf } from './types';
 import type { Transit } from './transit';
 
-/** 走行中の車両の1tickの動き(道路・鉄道・航空)と、到着・降車・位置の計算 */
+/** One tick of movement for running vehicles (road, rail, air), plus arrival, alighting, and position computation */
 export class Motion {
   constructor(private readonly t: Transit) {}
 
@@ -34,7 +34,7 @@ export class Motion {
       const nk = nxt0 * 4 + d0;
       const owner = this.t.lane.get(nk);
       if (owner !== undefined && owner !== v.id && v.stuck < 300) {
-        // 前の車が同じ車線にいる: 追い越さず待つ(渋滞)
+        // The vehicle ahead is in the same lane: wait instead of overtaking (congestion)
         v.t = Math.min(v.t, 0.999);
         v.stuck++;
         return true;
@@ -48,7 +48,7 @@ export class Motion {
       this.t.lane.set(nk, v.id);
       const cur = v.path[v.pi];
       if (m.road.get(cur) === 0) {
-        v.cap = 0; // 道路が撤去された: 車両を削除
+        v.cap = 0; // the road was removed: delete the vehicle
         return false;
       }
       if (v.pi < v.path.length - 1) {
@@ -62,7 +62,7 @@ export class Motion {
           return true;
         }
         if (v.pi + 1 > v.resTo && !this.t.signalsSys.extendReservation(v)) {
-          v.t = 0; // 次の閉塞が空くまで、この位置で待つ
+          v.t = 0; // wait here until the next block is free
           break;
         }
       }
@@ -75,8 +75,8 @@ export class Motion {
   }
 
   /**
-   * 鉄道の加減速: 発車直後は低速から徐々に上がり(約 ACCEL_TICKS)、停車駅の手前 DECEL_TILES タイルから減速する。
-   * 経路の末尾(駅)の手前では最低 25% の速度まで落とす。
+   * Rail acceleration/deceleration: after departure it speeds up gradually from a low speed (about ACCEL_TICKS), and brakes from DECEL_TILES tiles before a stop.
+   * Before the end of the path (a station) it slows to at least 25% of full speed.
    */
   railSpeedFactor(v: Vehicle): number {
     const sf = Math.min(1, (v.sf ?? 0.3) + 0.03);
@@ -89,10 +89,10 @@ export class Motion {
   stepRail(v: Vehicle, route: Route, tick: number): boolean {
     const m = this.t.map;
     const s = m.size;
-    // 斜めの区間は距離が √2 倍なので、タイル間の進捗を距離で割る
+    // A diagonal leg is √2 times longer, so divide the per-tile progress by the distance
     if (v.pi < v.path.length - 1 && v.pi + 1 > v.resTo && !this.t.signalsSys.extendReservation(v)) {
       v.t = 0;
-      v.stuck++; // 赤信号で停止中
+      v.stuck++; // stopped at a red signal
       return true;
     }
     const hop = v.pi < v.path.length - 1 && dirBetween(v.path[v.pi], v.path[v.pi + 1], s) >= 4 ? Math.SQRT2 : 1;
@@ -103,7 +103,7 @@ export class Motion {
       const cur = v.path[v.pi];
       if (this.t.onTile) this.t.onTile(v, route, cur);
       if (m.rail.get(cur) === 0) {
-        v.cap = 0; // 線路が撤去された: 編成を撤去
+        v.cap = 0; // the track was removed: remove the train
         return false;
       }
       v.trail.unshift(cur);
@@ -115,7 +115,7 @@ export class Motion {
         const nxt = v.path[v.pi + 1];
         const d = dirBetween(cur, nxt, s);
         if (d < 0 || !(m.rail.get(cur) & CONN(d)) || !(m.rail.get(nxt) & CONN(opposite8(d))) || this.t.dispatch.takeReplan(v, route)) {
-          // 前方の線路が壊れた/通る線路が変更された: 予約を解放して再探索
+          // The track ahead broke / a track on the path changed: release reservations and search again
           for (let i = v.pi + 1; i < v.path.length; i++) if (this.t.reserved.get(v.path[i]) === v.id && !v.trail.includes(v.path[i])) this.t.reserved.delete(v.path[i]);
           v.path = Uint32Array.of(cur);
           v.pi = 0;
@@ -132,9 +132,9 @@ export class Motion {
     return true;
   }
 
-  /** 到着: 目的地の乗客は降車(輸送実績)、他路線へ乗り換える乗客は停留所に降ろす */
+  /** Arrival: passengers at their destination get off (counted as carried), and those transferring to another route are dropped at the stop */
   alight(v: Vehicle, stop: Stop, route: Route, tick: number): void {
-    // 乗っていた全員の、前の停留所からここまでの距離運賃
+    // The distance fare from the previous stop to here, for everyone aboard
     const prev = v.lastStop !== undefined ? this.t.stops.get(v.lastStop) : undefined;
     if (prev && v.load > 0) this.t.onFare?.(v.mode, v.load * FARE[v.mode].perTile * fareMulOf(route) * (Math.abs(prev.x - stop.x) + Math.abs(prev.y - stop.y)), v.routeId, v.id);
     const tbl = this.t.router.table(stop.id, this.t.version);
@@ -165,7 +165,7 @@ export class Motion {
     v.stuck = 0;
     const order = route.orders[v.order];
     const stop = this.t.stops.get(order.stopId);
-    // 区間の実測(条件ジャンプなしで次の停車駅に着いたときだけ)
+    // Measure the leg (only when arriving at the next stopping stop without a conditional jump)
     if (v.from !== undefined && v.departedAt !== undefined && v.from < route.orders.length && this.t.realAfter(route, v.from) === v.order) {
       const leg = tick - v.departedAt;
       const arr = (route.legMeasured ??= []);
@@ -185,7 +185,7 @@ export class Motion {
     }
     let until = tick + order.dwell;
     if (order.kind === 'timed') {
-      // 周期 P の時刻表: 発車予定は departTod + k*P のうち、到着時刻に最も近いもの
+      // Timetable with period P: the scheduled departures are departTod + k*P; take the one closest to the arrival time
       const P = route.period;
       const diff = nearestDiff(order.departTod + v.offset, todOf(tick), P);
       const late = Math.max(0, tick + order.dwell - (tick + diff));
@@ -195,7 +195,7 @@ export class Motion {
     v.until = until;
   }
 
-  /** 道路車両の描画位置(タイル座標)と進行方向 */
+  /** Draw position (tile coordinates) and heading of a road vehicle */
   position(v: Vehicle): { x: number; y: number; dx: number; dy: number } {
     const s = this.t.map.size;
     const i = v.path[Math.min(v.pi, v.path.length - 1)];
@@ -213,7 +213,7 @@ export class Motion {
     return { x: x0 + dx * v.t, y: y0 + dy * v.t, dx, dy };
   }
 
-  /** 鉄道: 頭→尾の折れ線(タイル座標)。移動中は先頭に前方の補間点を含む */
+  /** Rail: the polyline from head to tail (tile coordinates). While moving it includes an interpolated point ahead of the head */
   trainPoints(v: Vehicle): [number, number][] {
     const s = this.t.map.size;
     const pts: [number, number][] = [];
@@ -228,7 +228,7 @@ export class Motion {
     return pts;
   }
 
-  /** 航空機の位置(タイル座標、中心補正済み)・高度(0..1)・向き */
+  /** Aircraft position (tile coordinates, centre-corrected), altitude (0..1), and heading */
   planePos(v: Vehicle): { x: number; y: number; alt: number; dx: number; dy: number } {
     const f = v.flight;
     if (!f) {

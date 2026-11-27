@@ -2,7 +2,7 @@ import { legacyCarsOf, modelOf } from '../../data/models';
 import { KIND_INDEX, Stop, TransitSave } from './types';
 import type { Transit } from './transit';
 
-/** セーブ・ロード(Transit の状態を保存用の形に変換する) */
+/** Save/load (turn Transit's state into a form for saving) */
 export class TransitStore {
   constructor(private readonly t: Transit) {}
 

@@ -39,75 +39,75 @@ import { TransitStore } from './transitStore';
 export * from './types';
 
 export class Transit {
-  /** クライアント: サーバーから届いた構造・待ち人数・車両を反映し、なめらかに動かす */
+  /** Client: apply the structure, waiting counts, and vehicles that arrived from the server, and animate them smoothly */
   readonly mirror = new MirrorSync(this);
-  /** 経路の探索とキャッシュ・ネットワーク変更の通知(変更範囲にかかる経路だけ探し直す) */
+  /** Path search, caching, and network-change notification (only paths touching the changed area are searched again) */
   readonly planner = new PathPlanner(this);
-  /** 車両の出発: 次の停留所までの経路を決めて走り出す(バス・鉄道・航空) */
+  /** Vehicle departure: pick the path to the next stop and set off (bus, rail, air) */
   readonly dispatch = new Dispatcher(this);
-  /** 走行中の車両の1tickの動き(道路・鉄道・航空)と、到着・降車・位置の計算 */
+  /** One tick of movement for running vehicles (road, rail, air), plus arrival, alighting, and position computation */
   readonly motion = new Motion(this);
-  /** 乗客の発生・待ち人数・積み降ろし・集客圏と施設の需要 */
+  /** Passenger generation, waiting counts, boarding/alighting, catchment areas, and facility demand */
   readonly flow = new PassengerFlow(this);
-  /** セーブ・ロード(Transit の状態を保存用の形に変換する) */
+  /** Save/load (turn Transit's state into a form for saving) */
   readonly store = new TransitStore(this);
 
-  /** 信号・閉塞(鉄道の予約) */
+  /** Signals and blocks (rail reservations) */
   readonly signalsSys = new SignalSystem(this);
-  /** 列車の編成操作(分割・連結・待機中の出発) */
+  /** Train formation operations (split, couple, depart while held) */
   readonly trainOps = new TrainOps(this);
-  /** 路線のオーダー編集(挿入・削除・並べ替え・共有) */
+  /** Editing a route's orders (insert, delete, reorder, share) */
   readonly orderEdit = new OrderEditor(this);
-  /** ダイヤ・発車案内・時刻表の自動作成・種別・路線の複製 */
+  /** Timetable, departure boards, auto-building timetables, service classes, and route duplication */
   readonly schedule = new Schedule(this);
 
   stops = new Map<number, Stop>();
   routes = new Map<number, Route>();
   vehicles: Vehicle[] = [];
   stopAt = new Map<number, number>();
-  /** 鉄道の予約済みタイル(閉塞): tile → vehicle id */
+  /** Reserved rail tiles (blocks): tile -> vehicle id */
   reserved = new Map<number, number>();
-  /** 信号: 線路タイル → 方向ビット(1<<d: d 方向へ進む列車を制御する信号がある)。片方向だけなら逆走は禁止 */
+  /** Signals: track tile -> direction bits (1<<d: a signal controls trains heading in direction d). With only one direction, running the opposite way is forbidden */
   signals = new Map<number, number>();
-  /** 道路の車線の占有: tile*4+向き → vehicle id(1タイル1車線に1台) */
+  /** Road lane occupancy: tile*4+direction -> vehicle id (one vehicle per lane per tile) */
   lane = new Map<number, number>();
   nextId = 1;
-  /** マルチプレイ: いま操作している会社(新設する停留所・路線・基地の持ち主になる) */
+  /** Multiplayer: the company currently acting (it owns newly created stops, routes, and depots) */
   actor = 0;
-  /** マルチプレイ: 切断中の会社。その会社の路線は運行を止める(そのまま止める) */
+  /** Multiplayer: disconnected companies. Their routes stop running (frozen as they are) */
   frozen = new Set<number>();
-  /** 他社のインフラ(道路・線路)のタイルへ入った: 通行料の計算用 */
+  /** Entered a tile of another company's infrastructure (road/rail): used to compute tolls */
   onTile?: (v: Vehicle, route: Route, tile: number) => void;
-  /** UI更新用: 構造が変わるたびに増える */
+  /** For UI refresh: increases whenever the structure changes */
   version = 0;
   delivered = 0;
-  /** 乗り換えた人数 */
+  /** Number of people who transferred */
   transfers = 0;
-  /** 運賃が支払われた(経営用)。mode, 金額 */
+  /** A fare was paid (for management). mode, amount */
   onFare?: (mode: Mode, amount: number, routeId: number, vehicleId?: number) => void;
-  /** 停留所の持ち主の接客の質(乗客の発生にかかる倍率)。設定されていなければ 1 */
+  /** Service quality of a stop's owner (multiplier on passenger generation). 1 if not set */
   serviceMul?: (owner: number | undefined) => number;
-  /** n 人が停留所 stop に到着して降りた(施設の来場者の集計用) */
+  /** n people arrived and got off at `stop` (for counting facility visitors) */
   onVisit?: (stop: Stop, n: number, tick: number) => void;
   router = new Router(
     () => this.realRoutes(),
     (id) => (this.stops.get(id)?.pop ?? 0) + (this.stops.get(id)?.fpop ?? 0) + 1,
   );
-  /** 停留所の配列(毎tickの走査でアロケーションしないためのキャッシュ) */
+  /** Array of stops (a cache, so the per-tick scan does not allocate) */
   stopList: Stop[] = [];
   stopListVer = -1;
   /**
-   * 経路キャッシュ。キーは `始点:終点`(巨大マップでは index が 2^32 に迫り、数値の積では 2^53 を超えて別の経路と衝突するため文字列)。
-   * 使うたびに各辺・信号の向きを検査する。さらに、ネットワークが変わったとき(netLog)に、変更が「この経路の探索範囲(始点・終点・経路の外接矩形+余白)」に
-   * かかっていれば、次に使うときに探し直す。離れた場所の変更では探し直さないので、多数の路線・多数のプレイヤーでも負荷が集中しない。
+   * Path cache. The key is `start:end` (on a huge map the index approaches 2^32, and a numeric product would exceed 2^53 and collide with another path, hence a string).
+   * Every use re-checks each edge and signal direction. In addition, when the network changes (netLog) and the change touches this path's search area (start, end, bounding rectangle of the path + margin),
+   * the path is searched again on its next use. Changes far away do not trigger a re-search, so load does not pile up even with many routes and players.
    */
   pathCache = new Map<string, PathEntry>();
-  /** ネットワーク(線路・道路・信号・駅)の世代。利用者の操作で変わるたびに touchNetwork が進める */
+  /** Generation of the network (tracks, roads, signals, stations). touchNetwork advances it whenever a user action changes the network */
   netGen = 0;
-  /** 変更の履歴(世代と矩形)。キャッシュの各件が、自分の世代以降の変更が範囲にかかるかを調べるのに使う */
+  /** History of changes (generation and rectangle). Each cache entry uses it to check whether a change since its own generation touches its area */
   netLog: { gen: number; x0: number; y0: number; x1: number; y1: number }[] = [];
   netLogFloor = 0;
-  /** 経路キャッシュの上限(テストで小さくできる) */
+  /** Cap on the path cache (can be made small in tests) */
   pathCacheMax = PATH_CACHE_MAX;
 
   constructor(
@@ -115,13 +115,13 @@ export class Transit {
     readonly rng: () => number = makeRng(1),
   ) {}
 
-  /** 次に振る ID(マルチプレイの配信用) */
+  /** The next ID to hand out (for multiplayer broadcast) */
   get idCounter(): number {
     return this.nextId;
   }
 
   mirrorVeh = new Map<number, Vehicle>();
-  /** クライアント: 車両ごとの直近2回のサーバー状態(なめらかに動かすための補間用) */
+  /** Client: each vehicle's last two server states (for interpolation, so motion is smooth) */
   snaps = new Map<number, MirrorSnap>();
 
   stopAtTile(x: number, y: number, kind?: Mode): Stop | undefined {
@@ -133,30 +133,30 @@ export class Transit {
     return undefined;
   }
 
-  /** 経由点を除いた路線(乗客の経路表用) */
+  /** Routes without waypoints (for the passenger route table) */
   *realRoutes(): Generator<Route> {
     for (const r of this.routes.values()) {
       yield r.orders.some((o) => o.pass || this.stops.get(o.stopId)?.waypoint) ? { ...r, orders: r.orders.filter((o) => !o.pass && !this.stops.get(o.stopId)?.waypoint) } : r;
     }
   }
 
-  /** 停留所が占めるタイル(複数タイルの駅は全て) */
+  /** Tiles a stop occupies (every tile of a multi-tile station) */
   stopTiles(s: Stop): number[] {
     return s.station ? stationTiles(s.station).map(([x, y]) => this.map.idx(x, y)) : [s.idx];
   }
 
   stopValid(s: Stop): boolean {
     if (!s.station) return this.tileValid(s.kind, s.idx);
-    // 複数タイルの駅は、1タイルでも壊されたら駅全体が無効(全体を撤去する)
+    // If even one tile of a multi-tile station is destroyed, the whole station is invalid (it is removed entirely)
     return this.stopTiles(s).every((i) => (this.map.rail.get(i) & 0xf) !== 0 && (this.map.rail.get(i) & 0xf0) === 0);
   }
 
-  /** 駅の「停車位置」候補: 番線ごとの両端タイル。1タイルの駅は自分自身 */
+  /** Candidate "stopping positions" of a station: both end tiles of each platform track. A one-tile station is its own */
   docks(s: Stop, trainTiles = 1): { a: number; b: number }[] {
     if (!s.station) return [{ a: s.idx, b: s.idx }];
     const st = s.station;
-    // 編成の中央がホームの中央にくる位置で停まる(編成がホームより長ければ端まで)。
-    // b: 添字が増える向きに進んで停まるときの先頭位置、a: 減る向きに進んで停まるときの先頭位置(対称)
+    // Stops with the middle of the train at the middle of the platform (to the end if the train is longer than the platform).
+    // b: head position when stopping while moving in the direction of increasing index, a: head position when moving in the decreasing direction (symmetric)
     const hi = Math.min(st.len - 1, Math.max(0, Math.round((st.len - 1) / 2 + (trainTiles - 1) / 2)));
     const lo = st.len - 1 - hi;
     const out: { a: number; b: number }[] = [];
@@ -168,7 +168,7 @@ export class Transit {
     return out;
   }
 
-  /** order i の次の「停車する」オーダーの添字(経由点を飛ばす) */
+  /** Index of the next order at which the vehicle stops after order i (skipping waypoints) */
   realAfter(route: Route, i: number): number {
     const n = route.orders.length;
     let j = (i + 1) % n;
@@ -176,14 +176,14 @@ export class Transit {
     return j;
   }
 
-  /** 停まらないオーダー(経由点、または通過に設定した駅) */
+  /** An order that does not stop (a waypoint, or a station set to pass) */
   isWay(route: Route, i: number): boolean {
     return !!route.orders[i].pass || !!this.stops.get(route.orders[i].stopId)?.waypoint;
   }
 
   /**
-   * 駅を新設する: (x0,y0) を左上に、番線数×ホーム長の範囲に線路を敷いて1つの停留所にする。
-   * 置けなければ理由を返す。
+   * Build a new station: lay track over platforms x platform length with (x0,y0) at the top left, forming one stop.
+   * If it cannot be placed, returns the reason.
    */
   addStation(x0: number, y0: number, opts: StationOptions): { stop?: Stop; reason?: string } {
     const m = this.map;
@@ -219,7 +219,7 @@ export class Transit {
     return { stop };
   }
 
-  /** 経由点を置く(直線の線路上。駅・他の経由点と重ならない)。置けなければ null */
+  /** Place a waypoint (on a straight track; it must not overlap a station or another waypoint). null if it cannot be placed */
   addWaypoint(x: number, y: number): Stop | null {
     const m = this.map;
     if (!m.inBounds(x, y)) return null;
@@ -281,7 +281,7 @@ export class Transit {
     const s = this.stops.get(id);
     if (!s) return;
     if (s.station) {
-      // 駅は全てのホーム線路ごと撤去する
+      // A station is removed together with all its platform tracks
       for (const [x, y] of stationTiles(s.station)) {
         for (let d = 0; d < 8; d++) disconnectRail(this.map, x, y, d);
         this.map.touch(x, y);
@@ -297,10 +297,10 @@ export class Transit {
     this.version++;
   }
 
-  /** 会社単位の許可: 持ち主 → 停留所を使ってよい会社 */
+  /** Company-wide permissions: owner -> companies allowed to use the stops */
   grants = new Map<number, Set<number>>();
 
-  /** この会社が停留所を路線に使えるか(共用・自社・駅ごとの許可・会社単位の許可のどれか) */
+  /** Whether this company may use the stop in a route (shared, its own, per-station permission, or company-wide permission) */
   mayUse(s: Stop, who: number): boolean {
     return !s.owner || !who || s.owner === who || !!s.allow?.includes(who) || !!this.grants.get(s.owner)?.has(who);
   }
@@ -357,7 +357,7 @@ export class Transit {
     return v.path[Math.min(v.pi, v.path.length - 1)] * 4 + v.dir;
   }
 
-  /** 路線の最初の停留所に車両を追加する(最初の停車後に出発)。置けなければ null */
+  /** Add a vehicle at the route's first stop (it departs after the first stop). null if it cannot be placed */
   addVehicle(routeId: number, tick: number, offset = 0, opts: { modelId?: string; cars?: number; tile?: number } = {}): Vehicle | null {
     const route = this.routes.get(routeId);
     if (!route || route.orders.length < 2) return null;
@@ -366,7 +366,7 @@ export class Transit {
     if (!stop) return null;
     const model = modelOf(opts.modelId ?? route.modelId);
     const cars = route.mode === 'rail' ? clampCars(model, opts.cars ?? route.cars ?? legacyCarsOf(route.modelId) ?? model.defaultCars) : 1;
-    // 車両基地から出す場合の出発タイル(なければ最初の停留所)
+    // Starting tile when leaving from a depot (the first stop if none)
     const tile = opts.tile ?? stop.idx;
     const id = this.nextId++;
     const v: Vehicle = {
@@ -400,13 +400,13 @@ export class Transit {
     };
     const o0 = route.orders[first];
     if (o0.kind === 'timed') {
-      // 最初の停留所が時刻指定なら、次に来る発車予定まで待つ(過去の時刻には戻らない)
+      // If the first stop is timed, wait for the next scheduled departure (never go back to a past time)
       const P = route.period;
       const m = (((o0.departTod + offset - todOf(tick)) % P) + P) % P;
       v.until = Math.max(v.until, tick + m);
     }
     if (route.mode === 'road') {
-      // 停留所タイルの空いている車線に置く
+      // Place it in a free lane of the stop tile
       const d = [0, 1, 2, 3].find((k) => !this.lane.has(tile * 4 + k));
       if (d === undefined) return null;
       v.dir = d;
@@ -417,13 +417,13 @@ export class Transit {
       if (!this.spawnTrail(v, tile)) return null;
     }
     this.vehicles.push(v);
-    if (opts.tile !== undefined) this.dispatch.depart(v, route, tick, false); // 車両基地から最初の停留所へ
+    if (opts.tile !== undefined) this.dispatch.depart(v, route, tick, false); // from the depot to the first stop
     this.version++;
     return v;
   }
 
-  // ---------------------------------------------------------------- 車両基地(デポ)
-  /** 車両基地: 道路・線路・空港のタイルに置き、そこから車両を購入して路線(=共有オーダー)に配属する */
+  // ---------------------------------------------------------------- Depots
+  /** Depot: placed on a road, rail, or airport tile; buy vehicles there and assign them to a route (= shared orders) */
   depots = new Map<number, Depot>();
   depotAt = new Map<number, number>();
 
@@ -433,7 +433,7 @@ export class Transit {
     return id === undefined ? undefined : this.depots.get(id);
   }
 
-  /** 基地の種類はタイルで決まる: 道路 → バス / 直線の線路 → 鉄道 / 空港ターミナル → 航空 */
+  /** The depot's kind is decided by the tile: road -> bus / straight rail -> train / airport terminal -> aircraft */
   addDepot(x: number, y: number): { depot?: Depot; reason?: string } {
     const m = this.map;
     if (!m.inBounds(x, y)) return { reason: '範囲外です' };
@@ -471,8 +471,8 @@ export class Transit {
   }
 
   /**
-   * 車両基地から車両を購入する。路線のオーダーで運行する(同じ路線の車両はオーダーを共有する)。
-   * 車種は路線の既定と違ってもよい。最初の停留所へ到達できなければ購入できない。
+   * Buy a vehicle from a depot. It runs on the route's orders (vehicles on the same route share orders).
+   * The model may differ from the route's default. It cannot be bought if the first stop is unreachable.
    */
   buyVehicle(depotId: number, routeId: number, modelId: string, cars: number, tick: number): { vehicle?: Vehicle; reason?: string } {
     const d = this.depots.get(depotId);
@@ -488,7 +488,7 @@ export class Transit {
     return v ? { vehicle: v } : { reason: '基地の出口が塞がっているか、置けません(少し待って再度お試しください)' };
   }
 
-  /** 路線の最初の停留所に最も近い、同種の車両基地 */
+  /** The depot of the same kind nearest to the route's first stop */
   nearestDepot(routeId: number): Depot | undefined {
     const r = this.routes.get(routeId);
     const s = r && this.stops.get(r.orders[0]?.stopId);
@@ -506,7 +506,7 @@ export class Transit {
     return best;
   }
 
-  /** 駅から線路を辿って編成の占有タイルを確保する */
+  /** Follow the track from the station to reserve the tiles a train occupies */
   spawnTrail(v: Vehicle, start: number): boolean {
     const m = this.map;
     const s = m.size;
@@ -534,18 +534,18 @@ export class Transit {
     this.version++;
   }
 
-  /** 時刻に応じた施設の需要(人口換算)。施設ごとに人の集まる時間帯がある */
+  /** Facility demand by time of day (in population terms). Each facility has its own busy hours */
   dayMulDay = -1;
   dayMul = new Map<number, number>();
 
-  /** 想定外の失敗で、1tick の処理を打ち切った回数(ログの間引き用) */
+  /** Number of times a tick was aborted by an unexpected failure (for throttling logs) */
   stepFailures = 0;
 
   step(tick: number): void {
     try {
       this.stepInner(tick);
     } catch (e) {
-      // 壊れたデータ(路線のオーダーに穴がある等)で1tickが失敗しても、世界全体を止め続けない。壊れた路線を直して続ける
+      // Even if one tick fails on broken data (e.g. a hole in a route's orders), the whole world must not stay stopped. Repair the broken route and continue
       this.stepFailures++;
       const fixed = this.repair();
       if (this.stepFailures <= 10 || this.stepFailures % 1000 === 0)
@@ -554,8 +554,8 @@ export class Transit {
   }
 
   /**
-   * 壊れた路線を直す: オーダーに穴・null・不正な項目があれば取り除き、停留所が2つ未満になった路線は車両ごと取り除く。
-   * 保存データの読み込み時と、tick の処理が失敗したときに呼ぶ。直した(取り除いた)路線の数を返す
+   * Repair broken routes: remove holes, nulls, and invalid entries from orders, and remove routes left with fewer than two stops together with their vehicles.
+   * Called when loading saved data and when a tick fails. Returns the number of routes repaired (removed)
    */
   repair(): number {
     let n = 0;
@@ -607,11 +607,11 @@ export class Transit {
     for (const v of this.vehicles) {
       const route = this.routes.get(v.routeId);
       if (!route) continue;
-      if (route.owner && this.frozen.has(route.owner)) continue; // 持ち主が切断中: そのまま止める
+      if (route.owner && this.frozen.has(route.owner)) continue; // the owner is disconnected: leave it frozen
       try {
         if (this.stepVehicle(v, route, tick)) removed = true;
       } catch (e) {
-        // 想定外のデータ(壊れた路線など)で1台が失敗しても、世界全体を止めない。その車両だけ取り除く
+        // Even if one vehicle fails on unexpected data (e.g. a broken route), the whole world must not stop. Remove just that vehicle
         v.cap = 0;
         removed = true;
         this.vehicleFailures++;
@@ -626,10 +626,10 @@ export class Transit {
     }
   }
 
-  /** 想定外の失敗で取り除いた車両の数(ログの間引き用) */
+  /** Number of vehicles removed after unexpected failures (for throttling logs) */
   vehicleFailures = 0;
 
-  /** 1台ぶんの1tick。車両が消えるなら true */
+  /** One tick for one vehicle. True if the vehicle disappears */
   private stepVehicle(v: Vehicle, route: Route, tick: number): boolean {
     if (v.state === 'load') {
       this.flow.stepLoad(v, route, tick);
@@ -642,11 +642,11 @@ export class Transit {
     return v.mode === 'air' ? !this.motion.stepAir(v, route, tick) : v.mode === 'rail' ? !this.motion.stepRail(v, route, tick) : !this.motion.stepRoad(v, route, tick);
   }
 
-  /** 目的地を選んで乗客を発生させる(路線に接続された停留所のみ) */
+  /** Choose a destination and generate passengers (only for stops connected to a route) */
   fareDemandVer = -1;
   fareDemandBy = new Map<number, number>();
 
-  // ---- 他のファイルから呼ばれる操作(実体は上の各サービス) ----
+  // ---- Operations called from other files (the real work is in the services above) ----
   signalMask(idx: number): number {
     return this.signalsSys.signalMask(idx);
   }
@@ -739,7 +739,7 @@ export class Transit {
     return this.schedule.legsOf(route);
   }
 
-  // ---- 他のファイルから呼ばれる操作(実体は上の各サービス) ----
+  // ---- Operations called from other files (the real work is in the services above) ----
   mirrorStruct(d: { nextId: number; routes: Route[]; stops: Stop[]; depots: Depot[]; signals: [number, number][]; grants?: [number, number[]][] }): void {
     return this.mirror.mirrorStruct(d);
   }

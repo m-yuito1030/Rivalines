@@ -1,16 +1,16 @@
 /**
- * ダイヤ(運行図表)の計算。画面(スジ図の描画・待避の提案)とテストで共有する純粋関数。
- * 時間の単位は tick(1日 = DAY_TICKS)。路線の時刻表は「各オーダーの発車時刻 departTod + 車両ごとのずれ offset」が周期 period で繰り返す。
+ * Timetable (train diagram) calculations. Pure functions shared by the screen (drawing the diagram, suggesting passing loops) and the tests.
+ * Time is in ticks (1 day = DAY_TICKS). A route's timetable repeats with period `period`: each order's departure time departTod plus each vehicle's offset.
  */
-export const DAY = 30 * 60 * 10; // transit.DAY_TICKS と同値(循環importを避ける)
-export const MIN = DAY / 1440; // 1分
+export const DAY = 30 * 60 * 10; // same value as transit.DAY_TICKS (avoids a circular import)
+export const MIN = DAY / 1440; // one minute
 
 export interface DiaStop {
   id: number;
   name: string;
   x: number;
   y: number;
-  /** 番線数(待避ができるのは2以上の駅) */
+  /** Number of platform tracks (a station with 2 or more can host a passing loop) */
   tracks: number;
 }
 export interface DiaOrder {
@@ -18,7 +18,7 @@ export interface DiaOrder {
   kind: 'dwell' | 'full' | 'timed';
   departTod: number;
   dwell: number;
-  /** 経由点(停車しない) */
+  /** Waypoint (no stop) */
   way?: boolean;
 }
 export interface DiaRoute {
@@ -27,13 +27,13 @@ export interface DiaRoute {
   color: number;
   period: number;
   orders: DiaOrder[];
-  /** オーダーごとの「次の停車駅までの走行時間」(経由点は0) */
+  /** For each order, the travel time to the next stopping stop (0 for a waypoint) */
   legs: number[];
-  /** 車両(id, 発車時刻のずれ) */
+  /** Vehicles (id, departure offset) */
   vs: [number, number][];
 }
 
-/** 1編成の1周の予定: 停車駅ごとの到着・発車(tick。周期内の絶対時刻) */
+/** The plan for one lap of one train: arrival and departure at each stopping stop (ticks; absolute times within the period) */
 export interface RunPoint {
   order: number;
   stopId: number;
@@ -45,15 +45,15 @@ export interface Run {
   vehicleId: number;
   offset: number;
   points: RunPoint[];
-  /** 1周して最初の駅へ戻る到着時刻(線を閉じる用) */
+  /** Arrival time back at the first stop after one lap (to close the line) */
   backArr: number;
 }
 
 const mod = (a: number, p: number) => ((a % p) + p) % p;
-/** s + j*P のうち min 以上で最小のもの */
+/** The smallest value of s + j*P that is at least min */
 const nextOcc = (s: number, min: number, P: number) => s + Math.ceil((min - s) / P - 1e-9) * P;
 
-/** 路線の1編成(offset)の1周ぶんの予定を作る */
+/** Build the plan for one lap of one train (offset) of a route */
 export function buildRun(route: DiaRoute, vehicleId: number, offset: number): Run {
   const real = route.orders.map((o, i) => (o.way ? -1 : i)).filter((i) => i >= 0);
   const P = route.period;
@@ -78,29 +78,29 @@ export function buildRun(route: DiaRoute, vehicleId: number, offset: number): Ru
   return { routeId: route.id, vehicleId, offset, points, backArr: prevDep + prevLeg };
 }
 
-/** 路線の全編成の予定(編成がなければ offset=0 の想定線を1本) */
+/** Plans for all trains of a route (one assumed line with offset=0 if there are no trains) */
 export function routeRuns(route: DiaRoute): Run[] {
   return route.vs.length ? route.vs.map(([id, off]) => buildRun(route, id, off)) : [buildRun(route, 0, 0)];
 }
 
-/** 追い越し(待避)の提案 */
+/** A suggestion to overtake (use a passing loop) */
 export interface PassSuggestion {
-  /** 待避する(遅い)路線と、待たせる駅のオーダー番号 */
+  /** The slow route that waits in the loop, and the order number of the station where it waits */
   routeId: number;
   orderIdx: number;
   stopName: string;
-  /** 追い越す(速い)路線 */
+  /** The fast route that overtakes */
   byRouteId: number;
   byName: string;
-  /** そのオーダー以降の発車時刻を遅らせる量(tick) */
+  /** How much (ticks) to delay departures from that order onwards */
   delta: number;
-  /** この駅で何分待避するか(表示用) */
+  /** How many minutes it waits at this station (for display) */
   waitMin: number;
-  /** 待避できる駅がない(番線が足りない)場合の説明。あれば適用できない */
+  /** Explanation when no station can host a loop (not enough platform tracks). If present, the suggestion cannot be applied */
   problem?: string;
 }
 
-/** ルートの停車駅の座標列に沿った距離(tick補間用) */
+/** Distance along the route's stopping-stop coordinates (for interpolating by ticks) */
 function cumDist(stops: Map<number, DiaStop>, ids: number[]): number[] {
   const c = [0];
   for (let i = 1; i < ids.length; i++) {
@@ -112,9 +112,9 @@ function cumDist(stops: Map<number, DiaStop>, ids: number[]): number[] {
 }
 
 /**
- * 同じ線路を走る2路線について、速い列車が遅い列車に「駅と駅の間で追いつく」箇所を見つけ、
- * 遅い列車を番線のある駅で待避させる提案を返す。
- * 速い路線の停車駅が、遅い路線の停車駅の部分列になっている(普通/快速/特急のような)場合に判定できる。
+ * For two routes on the same track, find where the fast train catches up with the slow one between stations,
+ * and suggest having the slow train wait at a station with a passing loop.
+ * Works when the fast route's stops are a subsequence of the slow route's stops (like local / rapid / limited express).
  */
 export function suggestPassing(routes: DiaRoute[], stops: Map<number, DiaStop>): PassSuggestion[] {
   const out: PassSuggestion[] = [];
@@ -129,7 +129,7 @@ export function suggestPassing(routes: DiaRoute[], stops: Map<number, DiaStop>):
       if (B.id === A.id) continue;
       const realB = B.orders.map((o, i) => (o.way ? -1 : i)).filter((i) => i >= 0);
       if (realB.length < 2) continue;
-      // B の停車駅が A の停車駅列の中で単調増加に並ぶか(部分列)
+      // Whether B's stops appear in A's stop list in increasing order (a subsequence)
       const posB: number[] = [];
       let from = 0;
       let ok = true;
@@ -142,13 +142,13 @@ export function suggestPassing(routes: DiaRoute[], stops: Map<number, DiaStop>):
         posB.push(p);
         from = p;
       }
-      if (!ok || realB.length >= La.length) continue; // 部分列でない/停車駅が同じか多い(速くない)
+      if (!ok || realB.length >= La.length) continue; // not a subsequence / same number of stops or more (not faster)
       const runsB = routeRuns(B);
       for (const ra of runsA) {
         for (const rb of runsB) {
           for (let shift = -2; shift <= 2; shift++) {
             const dt = shift * B.period;
-            // B の各駅の通過時刻(A の駅列の添字ごと): 停車駅は到着/発車、飛ばす駅は距離で補間
+            // B's passing time at each station (per index of A's station list): arrival/departure at stops, interpolated by distance for skipped stations
             const passB: { arr: number; dep: number }[] = new Array(La.length);
             for (let m = 0; m < rb.points.length; m++) passB[posB[m]] = { arr: rb.points[m].arr + dt, dep: rb.points[m].dep + dt };
             for (let m = 0; m + 1 < rb.points.length; m++) {
@@ -162,15 +162,15 @@ export function suggestPassing(routes: DiaRoute[], stops: Map<number, DiaStop>):
                 passB[q] = { arr: t, dep: t };
               }
             }
-            // A の各区間で、B が後ろから追いつくか
+            // For each leg of A, whether B catches up from behind
             for (let k = 0; k + 1 < ra.points.length; k++) {
               const u = passB[k];
               const v = passB[k + 1];
               if (!u || !v) continue;
               const depA = ra.points[k].dep;
               const arrA = ra.points[k + 1].arr;
-              if (!(u.dep > depA && v.arr < arrA)) continue; // 追い越しの条件
-              // 待避駅: 追い越しの手前で、A が B より先に着き、番線が2以上の最後の駅
+              if (!(u.dep > depA && v.arr < arrA)) continue; // the overtaking condition
+              // Waiting station: the last station before the overtake where A arrives before B and that has two or more platform tracks
               let w = -1;
               for (let q = k; q >= 0; q--) {
                 if (!passB[q]) continue;

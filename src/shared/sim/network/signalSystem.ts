@@ -1,11 +1,11 @@
 import { Vehicle, dirBetween, signalPair } from './types';
 import type { Transit } from './transit';
 
-/** 信号・閉塞(鉄道の予約) */
+/** Signals and blocks (rail reservations) */
 export class SignalSystem {
   constructor(private readonly t: Transit) {}
 
-  /** 信号の方向ビット。直線の線路でなくなっていたら信号を取り除く */
+  /** A signal's direction bits. If the tile is no longer a straight track, remove the signal */
   signalMask(idx: number): number {
     const mk = this.t.signals.get(idx);
     if (!mk) return 0;
@@ -17,8 +17,8 @@ export class SignalSystem {
   }
 
   /**
-   * タイルの信号を切り替える: なし → 一方向 → 逆方向 → なし(両方向の信号はなし。単線では使わず、複線で上り下りを分ける)。
-   * 直線(南北/東西)の線路で、駅・橋・トンネルでないタイルのみ。戻り値は新しい方向ビット(置けなければ null)
+   * Cycle a tile's signal: none -> one direction -> opposite direction -> none (a two-way signal is the same as none; do not use it on single track, use it on double track to separate up and down).
+   * Only on straight (north-south / east-west) track that is not a station, bridge, or tunnel. Returns the new direction bits (null if it cannot be placed)
    */
   cycleSignal(x: number, y: number): number | null {
     const m = this.t.map;
@@ -36,7 +36,7 @@ export class SignalSystem {
     return next;
   }
 
-  /** 信号を指定の向きビットで置く(既存は上書き)。直線の線路で駅・橋でなければ true。向きが線路の方向でなければ false */
+  /** Place a signal with the given direction bits (overwrites an existing one). True if it is straight track that is not a station or bridge. False if the direction does not match the track */
   setSignal(x: number, y: number, mask: number): boolean {
     const m = this.t.map;
     if (!m.inBounds(x, y)) return false;
@@ -50,7 +50,7 @@ export class SignalSystem {
     return true;
   }
 
-  /** path[i] への進入が信号で制御されているか(path[i-1]→path[i] の向きの信号がある) */
+  /** Whether entering path[i] is controlled by a signal (a signal in the direction path[i-1] -> path[i] exists) */
   controlled(path: Uint32Array, i: number): boolean {
     if (!this.t.signals.size) return false;
     const d = dirBetween(path[i - 1], path[i], this.t.map.size);
@@ -58,8 +58,8 @@ export class SignalSystem {
   }
 
   /**
-   * 次に予約する範囲の末尾(path の添字)。信号がなければ終点まで、
-   * 信号の手前までなら信号の1つ手前まで、信号の直前なら次の信号の手前まで(= 信号の先の閉塞を確保)。
+   * The end of the next range to reserve (an index into path). With no signals, up to the end;
+   * if before a signal, up to just before that signal; if right before a signal, up to just before the next signal (= secure the block beyond the signal).
    */
   nextReserveEnd(v: Vehicle): number {
     const p = v.path;
@@ -76,7 +76,7 @@ export class SignalSystem {
     return p.length - 1;
   }
 
-  /** 前方の閉塞を予約する。他編成が使っていれば何もせず false(赤信号) */
+  /** Reserve the block ahead. If another train uses it, do nothing and return false (red signal) */
   extendReservation(v: Vehicle): boolean {
     if (v.resTo >= v.path.length - 1) return true;
     const end = this.nextReserveEnd(v);
@@ -89,7 +89,7 @@ export class SignalSystem {
     return true;
   }
 
-  /** 信号が赤か(進入先の閉塞がすでに予約されている) */
+  /** Whether the signal is red (the block being entered is already reserved) */
   signalIsRed(idx: number): boolean {
     return this.t.reserved.has(idx);
   }

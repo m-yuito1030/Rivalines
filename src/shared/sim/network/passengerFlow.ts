@@ -6,11 +6,11 @@ import { DEV } from '../economy/development';
 import { CATCH, DAY_TICKS, GEN_EVERY, OrderCond, PAX_RATE, Route, START_TOD, Stop, Vehicle, WAIT_CAP, todOf } from './types';
 import type { Transit } from './transit';
 
-/** 乗客の発生・待ち人数・積み降ろし・集客圏と施設の需要 */
+/** Passenger generation, waiting counts, boarding/alighting, catchment areas, and facility demand */
 export class PassengerFlow {
   constructor(private readonly t: Transit) {}
 
-  /** 集客圏の人口と所属する街を数え直す */
+  /** Recount the catchment population and the town it belongs to */
   refreshCatchment(s: Stop): void {
     const m = this.t.map;
     const R = CATCH[s.kind];
@@ -23,7 +23,7 @@ export class PassengerFlow {
         if (!m.inBounds(x, y)) continue;
         const i = m.idx(x, y);
         const b = m.building.get(i);
-        if (!b || m.construction.get(i)) continue; // 工事中の建物は、まだ人が使わない
+        if (!b || m.construction.get(i)) continue; // a building under construction is not used by anyone yet
         const tid = m.owner.get(i);
         const p = POP_PER_LEVEL[b & 3] * popMul(m.towns[tid - 1]);
         pop += p;
@@ -37,7 +37,7 @@ export class PassengerFlow {
     }
     s.pop = pop;
     if (best) s.townId = best;
-    // 大型施設(スタジアム・遊園地など)の需要
+    // Demand of large facilities (stadiums, amusement parks, etc.)
     const near = facilitiesNear(m, s.x, s.y, R);
     s.facs = near.map((f) => f.id);
     s.fpop = near.reduce((a, f) => a + facilityAttract(f), 0);
@@ -68,7 +68,7 @@ export class PassengerFlow {
     if (t) t.pax += n;
   }
 
-  /** 停留所に停まる路線の運賃から決まる需要の倍率(路線の平均。構造が変わったときだけ作り直す) */
+  /** Demand multiplier derived from the fares of the routes that stop at a stop (the routes' average; rebuilt only when the structure changes) */
   stopFareDemand(stopId: number): number {
     if (this.t.fareDemandVer !== this.t.version) {
       const sum = new Map<number, { s: number; n: number }>();
@@ -103,7 +103,7 @@ export class PassengerFlow {
     const picks = Math.min(3, dests.length);
     for (let k = 0; k < picks; k++) {
       const r = this.t.rng() * sum;
-      // 累積重みを二分探索
+      // Binary search over the cumulative weights
       let lo = 0;
       let hi = dests.length - 1;
       while (lo < hi) {
@@ -121,7 +121,7 @@ export class PassengerFlow {
     s.waiting += n;
   }
 
-  /** 路線変更で行けなくなった目的地の乗客を取り除く */
+  /** Remove passengers whose destination became unreachable after a route change */
   purgeUnreachable(s: Stop): void {
     const tbl = this.t.router.table(s.id, this.t.version);
     for (const [d, n] of s.wait) {
@@ -133,11 +133,11 @@ export class PassengerFlow {
   }
 
   stepLoad(v: Vehicle, route: Route, tick: number): void {
-    if (v.hold) return; // 分割で切り離された待機編成
+    if (v.hold) return; // a held train split off from another
     const order = route.orders[v.order];
     const stop = order && this.t.stops.get(order.stopId);
     if (!stop) return;
-    // この路線に乗るべき乗客を乗せる
+    // Board the passengers who should take this route
     if (v.load < v.cap && stop.waiting >= 1) {
       const tbl = this.t.router.table(stop.id, this.t.version);
       let boarded = 0;
@@ -151,7 +151,7 @@ export class PassengerFlow {
         boarded += take;
       }
       if (boarded > 0) {
-        this.t.onFare?.(v.mode, boarded * FARE[v.mode].base * fareMulOf(route), v.routeId, v.id); // 乗車時の基本運賃
+        this.t.onFare?.(v.mode, boarded * FARE[v.mode].base * fareMulOf(route), v.routeId, v.id); // base fare at boarding
         v.on = (v.on ?? 0) + boarded;
         stop.traffic = (stop.traffic ?? 0) + boarded;
         v.load += boarded;
@@ -165,7 +165,7 @@ export class PassengerFlow {
     if (ready) this.t.dispatch.depart(v, route, tick, true);
   }
 
-  /** 条件付きオーダーの条件が成り立つか */
+  /** Whether the condition of a conditional order holds */
   condHolds(v: Vehicle, route: Route, c: OrderCond, tick: number): boolean {
     let x: number;
     if (c.kind === 'load') x = v.cap > 0 ? (v.load / v.cap) * 100 : 0;

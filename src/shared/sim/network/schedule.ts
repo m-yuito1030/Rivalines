@@ -2,19 +2,19 @@ import { modelOf } from '../../data/models';
 import { DAY_TICKS, Departure, PERIOD_OPTIONS, RANKS, ROUTE_COLORS, Route, dirBetween, todOf } from './types';
 import type { Transit } from './transit';
 
-/** ダイヤ・発車案内・時刻表の自動作成・種別・路線の複製 */
+/** Timetable, departure boards, auto-building timetables, service classes, and route duplication */
 export class Schedule {
   constructor(private readonly t: Transit) {}
 
-  /** 停留所 i → 次の停留所 の走行見込み時間(tick)。経路がなければ null */
+  /** Expected travel time (ticks) from stop i to the next stop. null if there is no path */
   legTicks(route: Route, i: number): number | null {
     const a = this.t.stops.get(route.orders[i].stopId);
     const j = this.t.realAfter(route, i);
     const b = this.t.stops.get(route.orders[j].stopId);
     if (!a || !b) return null;
     const speed = modelOf(route.modelId).speed;
-    if (route.mode === 'air') return Math.hypot(a.x - b.x, a.y - b.y) / speed + 40; // 離着陸ぶん
-    // 経由点を通る経路: a → 経由点… → b
+    if (route.mode === 'air') return Math.hypot(a.x - b.x, a.y - b.y) / speed + 40; // plus takeoff and landing
+    // A path through waypoints: a -> waypoints... -> b
     const tiles = [a.idx];
     for (let k = (i + 1) % route.orders.length; k !== j; k = (k + 1) % route.orders.length) tiles.push(this.t.stops.get(route.orders[k].stopId)!.idx);
     tiles.push(b.idx);
@@ -29,8 +29,8 @@ export class Schedule {
   }
 
   /**
-   * 停留所の発車案内: この停留所に停まる各路線について、次に来る(停車中の)車両ごとの到着/発車までの tick を返す。
-   * 見込みは走行時間(legTicks)と停車時間の積算で、渋滞などは反映しない。
+   * Departure board for a stop: for each route that stops here, the ticks until arrival/departure of each upcoming (stopped) vehicle.
+   * The estimate adds up travel times (legTicks) and stop times; it does not account for congestion and the like.
    */
   departures(stopId: number, tick: number): Departure[] {
     const out: Departure[] = [];
@@ -47,9 +47,9 @@ export class Schedule {
           out.push({ routeId: route.id, vehicleId: v.id, eta: 0, stopped: true, leaveIn: Math.max(0, v.until - tick), toward: nextName(cur) });
           continue;
         }
-        // 現在の位置から次のオーダー到着までの残り
+        // Remaining time from the current position to arriving at the next order
         let acc: number;
-        let idx: number; // 次に到着するオーダー
+        let idx: number; // the order it will arrive at next
         if (v.state === 'load') {
           acc = Math.max(0, v.until - tick);
           const leg = this.legTicks(route, cur);
@@ -76,7 +76,7 @@ export class Schedule {
     return out.sort((a, b) => a.eta - b.eta);
   }
 
-  /** 時刻表(時刻指定オーダー)の次の発車: 路線ごとに最大 count 件、(現在から何tick後か) */
+  /** Next departures of a timetable (timed orders): up to `count` per route, as ticks from now */
   timetable(stopId: number, tick: number, count = 3): { routeId: number; etas: number[] }[] {
     const res: { routeId: number; etas: number[] }[] = [];
     for (const route of this.t.routes.values()) {
@@ -89,7 +89,7 @@ export class Schedule {
     return res;
   }
 
-  /** 走行時間から時刻表を自動作成する(全オーダーを時刻指定にし、周期を決める)。失敗したら false */
+  /** Auto-build a timetable from travel times (makes every order timed and decides the period). Returns false on failure */
   autoTimetable(routeId: number, startTod: number): boolean {
     const route = this.t.routes.get(routeId);
     if (!route) return false;
@@ -100,11 +100,11 @@ export class Schedule {
         legs.push(0);
         continue;
       }
-      const l = route.legMeasured?.[i] ?? this.legTicks(route, i); // 実測があればそれを使う
+      const l = route.legMeasured?.[i] ?? this.legTicks(route, i); // use the measured time if there is one
       if (l === null || l === undefined) return false;
       legs.push(l);
     }
-    const unit = DAY_TICKS / 1440; // 1分
+    const unit = DAY_TICKS / 1440; // one minute
     let t = startTod;
     let cycle = 0;
     for (let i = 0; i < n; i++) {
@@ -112,7 +112,7 @@ export class Schedule {
       const o = route.orders[i];
       o.kind = 'timed';
       o.departTod = Math.round((t % DAY_TICKS) / unit) * unit;
-      const leg = legs[i] * 1.15 + unit; // 余裕15%+1分
+      const leg = legs[i] * 1.15 + unit; // 15% margin + 1 minute
       const step = leg + o.dwell;
       t += step;
       cycle += step;
@@ -124,13 +124,13 @@ export class Schedule {
   }
 
   /**
-   * 種別を設定し、停車駅を自動で選ぶ: 始発・折り返し(最も遠い駅)は必ず停車、途中駅は人口の多い駅・番線の多い駅を優先して残し、残りを通過にする。
-   * 時刻表があれば走行時間から組み直す。普通(0)は全駅停車に戻す。
+   * Set the service class and pick stops automatically: the terminus and the turn-back stop (the farthest) always stop; of the intermediate stops, keep those with large population and more platforms, and make the rest pass.
+   * If there is a timetable, rebuild it from travel times. Local (0) restores every stop.
    */
   applyRank(routeId: number, rank: number): boolean {
     const r = this.t.routes.get(routeId);
     if (!r || rank < 0 || rank >= RANKS.length) return false;
-    // 通過に設定済みの駅も対象にするため、経由点でない全オーダーを候補にする
+    // Consider every non-waypoint order, so stations already set to pass are candidates too
     const cand = r.orders.map((o, i) => (this.t.stops.get(o.stopId)?.waypoint ? -1 : i)).filter((i) => i >= 0);
     const ids = [...new Set(cand.map((i) => r.orders[i].stopId))];
     if (ids.length < 2) return false;
@@ -167,8 +167,8 @@ export class Schedule {
   }
 
   /**
-   * 車両がこの先に辿る経路の予定(表示用)。現在向かっている/停車中の停留所から、次の停車駅へ最大 maxLegs 区間。
-   * 鉄道は途中の経由点・通過駅を順に通る。各区間はタイル index の列。航空は空
+   * The planned path the vehicle will follow (for display): from the stop it is heading to / stopped at, up to maxLegs legs to following stopping stops.
+   * A train passes through intermediate waypoints and skipped stations in order. Each leg is a list of tile indexes. Empty for aircraft
    */
   planAhead(vehicleId: number, maxLegs = 3): { legs: number[][]; stops: number[] } | null {
     const v = this.t.vehicles.find((x) => x.id === vehicleId);
@@ -213,7 +213,7 @@ export class Schedule {
     return { legs, stops };
   }
 
-  /** 路線を複製する。reverse=逆向き(オーダーを逆順に)、shiftTicks=時刻表をずらす量。車両は複製しない */
+  /** Duplicate a route. reverse = opposite direction (orders reversed), shiftTicks = how much to shift the timetable. Vehicles are not duplicated */
   cloneRoute(routeId: number, reverse: boolean, shiftTicks: number): Route | null {
     const src = this.t.routes.get(routeId);
     if (!src) return null;
@@ -238,7 +238,7 @@ export class Schedule {
     };
     this.t.routes.set(id, copy);
     if (reverse && copy.orders.some((o) => o.kind === 'timed')) {
-      // 逆向きの時刻表は、元の最後の発車の少しあとから、走行時間で組み直す
+      // A reversed timetable is rebuilt from travel times, starting a little after the original's last departure
       const last = [...src.orders].reverse().find((o) => o.kind === 'timed');
       if (last) this.autoTimetable(id, last.departTod + last.dwell + 5 * (DAY_TICKS / 1440) + shiftTicks);
     }
@@ -246,7 +246,7 @@ export class Schedule {
     return copy;
   }
 
-  /** ダイヤ画面用: 路線のオーダーごとの次の停車駅までの走行時間(実測があれば実測)。時刻指定がなければ空 */
+  /** For the timetable screen: travel time to the next stopping stop for each order of the route (measured if available). Empty if there are no timed orders */
   legsOf(route: Route): number[] {
     return route.orders.map((_, i) => (this.t.isWay(route, i) ? 0 : (route.legMeasured?.[i] ?? this.legTicks(route, i) ?? 0)));
   }
