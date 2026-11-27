@@ -1,9 +1,9 @@
 #!/bin/sh
-# 本稼働(live)と次期バージョン(next)の運用スクリプトの共通部分。直接は実行しない(他のスクリプトから . で読み込む)。
+# Shared part of the operation scripts for production (live) and the next version (next). Not run directly (sourced with . from other scripts).
 set -eu
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/.." && pwd)
-# 本稼働のコードを置くフォルダ(このリポジトリの隣)。git worktree で、リリースのタグを取り出して置く
+# The folder that holds the production code (next to this repository). The release tag is checked out there with git worktree
 LIVE_SRC=${LIVE_SRC:-$REPO/../rivalines-live}
 PROJECT=${PROJECT:-simulator-multi}
 export LIVE_SRC PROJECT

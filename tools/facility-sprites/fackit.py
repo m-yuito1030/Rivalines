@@ -372,7 +372,7 @@ GEO={'S':dict(w=64,h=116,hw=32,fs=.5,hs=.6,tsc=.75,big=False,pad=6),'M':dict(w=1
 HPAL=[(236,232,220),(214,196,160),(190,98,70),(176,176,182),(150,190,220),(130,190,170),(232,220,190),(120,170,150),(200,170,110),(150,160,176)]
 
 
-# ===== 新しい施設向けの拡張(屋根の飾り・地面) =====
+# ===== Extensions for the new facilities (roof decorations, ground) =====
 def crown(kind,ctr,Lt):
     x,y=ctr
     if kind=='marquee':
@@ -417,7 +417,7 @@ def mkground(layers,base=0):
     return f
 SEA=((60,140,200),(96,172,222))
 def Lsea(t0):
-    """t>t0 が海(砂浜の縁つき)"""
+    """t>t0 is sea (with a sandy beach edge)"""
     def f(s,t,dx,dy):
         if t>t0+.05: return ((SEA[0] if (dx+dy)%3 else SEA[1]),'water')
         if t>t0: return ((250,246,230),'sand')
@@ -425,7 +425,7 @@ def Lsea(t0):
 def Lwave(t0):
     return lambda s,t,dx,dy:(((250,252,255),'water') if t0+.05<t and (int(s*40)+dx)%9==0 and (dy%4==0) else None)
 def Lpiste(w,off=0.0,col=(250,252,255)):
-    """斜めのゲレンデ(雪面。両脇に目印の旗)"""
+    """A diagonal ski slope (snow surface, with marker flags on both sides)"""
     def f(s,t,dx,dy):
         d_=abs((s+t)-off)
         if d_<w: return ((col if int((s-t)*30)%2 else (204,226,246)),'snow')
@@ -466,7 +466,7 @@ def Ltrack(r0,r1):
         if r0<m<r1: return ((196,98,70) if (dx+dy)%2 else (186,90,64)),'track'
     return f
 def Ltank(s0,s1,t0,t1):
-    """水槽(青い水面。縁は白)"""
+    """A tank (blue water surface with a white rim)"""
     def f(s,t,dx,dy):
         if s0-.02<s<s1+.02 and t0-.02<t<t1+.02 and not(s0<s<s1 and t0<t<t1): return (236,236,230),'paved'
         if s0<s<s1 and t0<t<t1: return ((66,150,208) if (dx+dy)%3 else (110,184,228)),'water'
@@ -480,18 +480,18 @@ def Lcourt(s0,s1,t0,t1,col=(70,140,200)):
     return f
 
 
-# ===== 遊園地・スタジアム向けの部品 =====
-def W(r,**o): return dict(t='wheel',r=r,**o)            # 観覧車
-def TENT(r,h,**o): return dict(t='tent',r=r,h=h,**o)    # サーカステント
-def CAR(r,**o): return dict(t='carousel',r=r,**o)       # メリーゴーランド
-def COAST(L,h,**o): return dict(t='coaster',L=L,h=h,**o)  # ジェットコースター
-def SLIDE(L,h,**o): return dict(t='slide',L=L,h=h,**o)  # ウォータースライダー
-def BOWL(r,h,**o): return dict(t='bowl',r=r,h=h,**o)    # 円形のスタンド(競技場)
-def PBOX(L,R,h,**o): return dict(t='pbox',L=L,R=R,h=h,**o)  # 長方形のスタンド(中央がフィールド)
+# ===== Parts for the amusement park and stadium =====
+def W(r,**o): return dict(t='wheel',r=r,**o)            # def W(r,**o): return dict(t='wheel',r=r,**o)            # Ferris wheel
+def TENT(r,h,**o): return dict(t='tent',r=r,h=h,**o)    # def TENT(r,h,**o): return dict(t='tent',r=r,h=h,**o)    # circus tent
+def CAR(r,**o): return dict(t='carousel',r=r,**o)       # def CAR(r,**o): return dict(t='carousel',r=r,**o)       # carousel
+def COAST(L,h,**o): return dict(t='coaster',L=L,h=h,**o)  # def COAST(L,h,**o): return dict(t='coaster',L=L,h=h,**o)  # roller coaster
+def SLIDE(L,h,**o): return dict(t='slide',L=L,h=h,**o)  # def SLIDE(L,h,**o): return dict(t='slide',L=L,h=h,**o)  # water slide
+def BOWL(r,h,**o): return dict(t='bowl',r=r,h=h,**o)    # def BOWL(r,h,**o): return dict(t='bowl',r=r,h=h,**o)    # round stands (stadium)
+def PBOX(L,R,h,**o): return dict(t='pbox',L=L,R=R,h=h,**o)  # def PBOX(L,R,h,**o): return dict(t='pbox',L=L,R=R,h=h,**o)  # rectangular stands (the field in the middle)
 def _ellipse(cx,cy,rx,ry,fill,outline=None):
     d.ellipse([cx-rx,cy-ry,cx+rx,cy+ry],fill=(*fill,255),outline=(*(outline or mul(fill,.55)),255))
 def _pitch(cx,cy,rx,ry,kind):
-    """フィールドの描画(楕円の中)。kind: soccer / diamond / track / court / plain"""
+    """Draw a field (inside an ellipse). kind: soccer / diamond / track / court / plain"""
     if kind=='track':
         _ellipse(cx,cy,rx,ry,(188,92,66));_ellipse(cx,cy,rx*.74,ry*.74,(236,232,222));_ellipse(cx,cy,rx*.68,ry*.68,(104,170,76))
         line((cx-rx*.3,cy),(cx+rx*.3,cy),(240,240,236))

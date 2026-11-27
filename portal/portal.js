@@ -1,5 +1,5 @@
-// Rivalines のポータル: ログインして、本稼働と次期バージョンのどちらで遊ぶかを選ぶ。
-// ログインの情報(トークン)は、ゲーム画面と同じ localStorage の鍵に保存する(選んだあと、そのまま入れる)。
+// Rivalines portal: log in, then choose whether to play production or the next version.
+// The login information (token) is saved under the same localStorage key as the game screen (so after choosing, you can enter as is).
 (() => {
   const SESSION = 'simulator-multi-session';
   const LAST = 'rivalines-last-env';

@@ -1,11 +1,11 @@
-"""新しい施設(映画館・動物園/水族館・スキー場・ビーチ・アリーナ・コンベンション・ビジネスホテル・大学・ゴルフ場・病院・駅ビル)のスプライト。
-fackit.py(ホテル・公園と同じ描画部品)の上に、種類ごとのデザイン表を持つ。
-使い方: python3 newfac.py <種類> ... (引数なしで全種類)。出力は <種類>_out/(sprites, sheets/<種類>_preview_{S,M,L}.png)"""
+"""Sprites of the new facilities (cinema, zoo/aquarium, ski resort, beach, arena, convention centre, business hotel, university, golf course, hospital, station building).
+On top of fackit.py (the same drawing parts as hotels and parks), it holds a design table per kind.
+Usage: python3 newfac.py <kind> ... (all kinds with no arguments). Output goes to <kind>_out/ (sprites, sheets/<kind>_preview_{S,M,L}.png)"""
 import sys
 from fackit import *
 
 TYPES = {}
-VAR_BASE = (0, 2, 5, 8)  # 別色にするデザイン(各種類 +4)
+VAR_BASE = (0, 2, 5, 8)  # VAR_BASE = (0, 2, 5, 8)  # designs that get another color (+4 for each kind)
 def reg(name, names, geo=None):
     base = len(names)
     allnames = names + [names[b] + '(別色)' for b in VAR_BASE]
@@ -34,11 +34,11 @@ def export(typ):
     n = len(names)
     export3(typ, n, TYPES[typ]['geo'], lambda k, s: sprite(typ, k, s), lambda k: f'{k+1:02d} {k+1}', [[i + 1, names[i]] for i in range(n)], ['id', 'type'])
 
-# ---- 共通のパレット ----
+# ---- Shared palette ----
 WARM = [(236, 232, 220), (214, 196, 160), (190, 98, 70), (176, 176, 182), (150, 190, 220), (130, 190, 170), (232, 220, 190), (120, 170, 150), (200, 170, 110), (150, 160, 176)]
 def pk(i, lst=WARM): return lst[i % len(lst)]
 
-# ===== 映画館 =====
+# ===== Cinema =====
 CN = ['シネコン(箱型+看板)', '古典の劇場(円柱)', 'ガラスのモール併設', 'ドライブインシアター', 'IMAXドーム', 'L字の複合館', 'レンガの名画座', 'タワー上層シネマ', 'ネオンの小劇場', '野外スクリーン広場', 'ツイン館', '近未来の円筒館']
 @reg('cinema', CN)
 def cinema(a):
@@ -66,7 +66,7 @@ def sz(f):
     f._sz = True
     return f
 
-# ===== 動物園・水族館 =====
+# ===== Zoo / aquarium =====
 ZN = ['水族館(ガラスと大水槽)', '動物園のゲート', '大水槽パビリオン', 'ペンギン館', '熱帯ドーム温室', 'イルカショーのプール', 'ふれあい牧場', 'クジラの曲面館', 'サファリの広場', '爬虫類館(レンガ)', '海洋パーク(2棟)', 'アクアリウムタワー']
 @reg('zoo', ZN)
 def zoo(a):
@@ -88,7 +88,7 @@ def zoo(a):
     else: st = [S([C(18, 62, rc=(110, 190, 220), taper=.9)])]; cr = 'whale'; kind = 'glass'; pal = (100, 180, 220); cr = 'pennants'
     return dict(st=st, cr=cr, pal=pal, kind=kind, base=base, layers=LY, trees=['round', 'palm', 'bush'])
 
-# ===== スキー場 =====
+# ===== Ski resort =====
 KN = ['ゲレンデのロッジ', '山小屋のペンション', 'ゴンドラ駅', 'リゾートホテル併設', 'ログハウス', '山頂レストラン', 'チロル風の宿', 'スキーセンター(ガラス)', '温泉付きロッジ', 'リフト乗り場', '2棟の宿泊棟', 'モダン山岳リゾート']
 @reg('ski', KN)
 def ski(a):
@@ -110,7 +110,7 @@ def ski(a):
     else: st = [S([B(44, 12, R=24, kind='concrete'), B(30, 12, R=18, kind='glass')])]; kind = 'concrete'; cr = 'flag'; pal = (96, 104, 120)
     return dict(st=st, cr=cr, pal=pal, kind=kind, base=3, layers=LY, trees=['conifer', 'conifer', 'bush'], tn={'S': 0, 'M': 7, 'L': 18})
 
-# ===== ビーチ =====
+# ===== Beach =====
 BN = ['海の家', 'ビーチクラブ(ヤシ)', 'ライフセーバーの塔', 'マリンリゾート', 'サーフショップ', '桟橋とカフェ', 'ビーチバレーのコート', 'ヨットハーバー', '水上コテージ', 'テラス型ビーチハウス', '屋台村', '灯台のあるビーチ']
 @reg('beach', BN)
 def beach(a):
@@ -131,7 +131,7 @@ def beach(a):
     else: st = [S([C(8, 44, taper=.7, rc=(214, 60, 52))], off=(-6, -16)), S([B(18, 10, R=16, kind='plaster', roof=('hip', (90, 90, 100), 5))], off=(14, -2), crown=False)]; cr = 'none'; pal = (240, 236, 226)
     return dict(st=st, cr=cr, pal=pal, kind=kind, base=4, layers=LY, trees=['palm', 'palm', 'bush'], tn={'S': 0, 'M': 3, 'L': 8})
 
-# ===== アリーナ・コンサートホール =====
+# ===== Arena / concert hall =====
 AN = ['ドーム(円形)', 'アリーナ(楕円)', '野外ステージ', 'コンサートホール', 'ライブハウス', '多目的アリーナ+駐車場', '古典のオペラハウス', 'スタジアム型', 'ガラスのホール', '開閉屋根のドーム', 'フェスのテント村', '劇場+ネオン']
 @reg('arena', AN)
 def arena(a):
@@ -152,7 +152,7 @@ def arena(a):
     else: st = [S([B(40, 30, R=28, kind='stripe')])]; cr = 'neon'; kind = 'stripe'
     return dict(st=st, cr=cr, pal=pal, kind=kind, base=6 if a == 5 else 0, layers=LY, trees=['bush', 'round'])
 
-# ===== コンベンションセンター =====
+# ===== Convention centre =====
 VN = ['国際会議場(ガラス)', '巨大な展示ホール', 'ツイン展示棟', 'タワー+展示場', '円形ホール', 'ウォーターフロント', 'ガラスのピラミッド', '展示場+広場', 'メッセ(曲面)', 'コの字の会議棟', '高層の会議棟', '屋根付きの回廊']
 @reg('convention', VN)
 def convention(a):
@@ -173,7 +173,7 @@ def convention(a):
     else: st = [S([B(52, 12, R=36, kind='glass', roof=('gA', (196, 210, 224), 8))])]; cr = 'none'
     return dict(st=st, cr=cr, pal=pal, kind=kind, base=0, layers=LY, trees=['bush', 'round'])
 
-# ===== ビジネスホテル =====
+# ===== Business hotel =====
 HN = ['細長タワー', '駅前のビジネスホテル', 'ツインタワー', 'L字のホテル', 'カプセルホテル', '高層ガラスタワー', '低層チェーンホテル', 'ポディウム+客室棟', 'レンガの中層ホテル', '円筒タワー', '空港ホテル', 'コの字の客室棟']
 @reg('bizhotel', HN)
 def bizhotel(a):
@@ -194,7 +194,7 @@ def bizhotel(a):
     else: st = [S([B(14, 34, R=42, kind='concrete')], off=(-24, 0), crown=False), S([B(42, 34, R=14, kind='concrete')], off=(22, 0), crown=False), S([B(24, 34, R=24, kind='concrete')], off=(0, -18))]
     return dict(st=st, cr=cr, pal=pal, kind=kind, base=0, layers=LY, trees=['bush', 'round'])
 
-# ===== 大学 =====
+# ===== University =====
 UN = ['本館(時計塔)', 'コの字のキャンパス', 'レンガの古典校舎', '近代のガラス棟', '図書館(ドーム)', '理工学部(複数棟)', '講堂と広場', 'グラウンド併設', '研究棟タワー', '学生寮', '体育館', '中庭型キャンパス']
 @reg('campus', UN)
 def campus(a):
@@ -215,7 +215,7 @@ def campus(a):
     else: st = [S([B(46, 20, R=14, kind='plaster')], off=(-8, -20), crown=False), S([B(14, 20, R=46, kind='plaster')], off=(24, -2), crown=False), S([B(46, 20, R=14, kind='plaster')], off=(8, 18), crown=False)]; cr = 'clocktop'
     return dict(st=st, cr=cr, pal=pal, kind=kind, base=0, layers=LY, trees=['round', 'sakura', 'bush'])
 
-# ===== ゴルフ場 =====
+# ===== Golf course =====
 GN = ['クラブハウスとグリーン', '打ちっぱなし練習場', '池越えのホール', 'リゾートコース', 'ミニゴルフ', '丘のコース', '林間コース', '海沿いコース', '2階建ての練習場', 'ホテル併設のコース', 'パターゴルフ広場', 'クラシックなコース']
 @reg('golf', GN)
 def golf(a):
@@ -236,7 +236,7 @@ def golf(a):
     else: st = [S([B(30, 18, R=24, kind='columns', roof=('gA', (96, 110, 100), 6))], off=(-18, 12))]; kind = 'columns'; cr = 'flag'
     return dict(st=st, cr=cr, pal=pal, kind=kind, base=5, layers=LY, trees=['round', 'tall', 'bush'], tn={'S': 0, 'M': 6, 'L': 16})
 
-# ===== 病院 =====
+# ===== Hospital =====
 PN = ['総合病院(白い箱)', 'クリニック', '大学病院タワー', 'L字の病棟', 'ヘリポート付き', 'コの字の病院', 'レンガの古い病院', 'ガラスの病棟', 'ツイン棟', '円形病棟', 'リハビリセンター', '救急センター']
 @reg('hospital', PN)
 def hospital(a):
@@ -257,7 +257,7 @@ def hospital(a):
     else: st = [S([B(34, 18, R=30, kind='stripe', door=True)])]; kind = 'stripe'; cr = 'redcross'
     return dict(st=st, cr=cr, pal=pal, kind=kind, base=0, layers=LY, trees=['bush', 'round'])
 
-# ===== 駅ビル =====
+# ===== Station building =====
 SN = ['駅ビル(箱型)', '駅ナカの長い商業棟', '百貨店型の駅ビル', 'ガラスのコンコース', 'ホーム直結タワー', 'レンガの駅舎ビル', 'アーケード商店街', 'バスターミナル併設', 'ステーションシティ', '円弧のファサード', 'ペデストリアンデッキ', 'トレインビュー']
 @reg('stationmall', SN)
 def stationmall(a):
@@ -279,7 +279,7 @@ def stationmall(a):
     return dict(st=st, cr=cr, pal=pal, kind=kind, base=6, layers=LY, trees=['bush'], tn={'S': 0, 'M': 2, 'L': 5})
 
 
-# ===== 遊園地(S=3x3 M=4x4 L=5x5) と スタジアム(S=2x2 M=3x3 L=4x4): 大きな敷地用のサイズ =====
+# ===== Amusement park (S=3x3 M=4x4 L=5x5) and stadium (S=2x2 M=3x3 L=4x4): sizes for large sites =====
 AGEO = {'S': dict(w=192, h=260, hw=96, fs=1.5, hs=1.4, tsc=1.1, big=True, pad=10), 'M': dict(w=256, h=340, hw=128, fs=2, hs=1.85, tsc=1.3, big=True, pad=12), 'L': dict(w=320, h=420, hw=160, fs=2.5, hs=2.3, tsc=1.5, big=True, pad=14)}
 SGEO = {'S': GEO['M'], 'M': GEO['L'], 'L': dict(w=256, h=340, hw=128, fs=2, hs=1.85, tsc=1.3, big=True, pad=12)}
 def hut(t, c, pc=(236, 226, 204)): return S([B(11, 8, R=11, kind='plaster', pal=pc, roof=('hip', c, 5))], tile=t, crown=False)

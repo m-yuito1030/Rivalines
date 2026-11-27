@@ -1,10 +1,10 @@
 #!/bin/sh
-# 次期バージョンを、正式リリースして本稼働にする。
-#   1. main の今の状態に、タグ(版)を付けて push する
-#   2. 本稼働のデータを、バックアップする
-#   3. 本稼働のコードを、そのタグに切り替えて、本稼働を作り直す(本稼働のデータとアカウントは、そのまま引き継ぐ)
-#   4. 次期バージョンのデータを消して、次の版のために新しい世界で起動し直す
-# 使い方: scripts/release.sh v0.2.0
+# Officially release the next version and make it production.
+#   1. Tag the current state of main (the version) and push it
+#   2. Back up the production data
+#   3. Switch the production code to that tag and rebuild production (the production data and accounts carry over as they are)
+#   4. Wipe the next version's data and start it again in a fresh world for the next version
+# Usage: scripts/release.sh v0.2.0
 . "$(dirname "$0")/env-common.sh"
 TAG=${1:?"版を指定してください。例: scripts/release.sh v0.2.0"}
 case "$TAG" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "版は v主.副.修正 の形で指定してください(例: v0.2.0)" >&2; exit 1 ;; esac
