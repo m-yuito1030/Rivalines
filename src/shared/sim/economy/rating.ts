@@ -1,26 +1,26 @@
 import type { GameMap } from '../../world/gameMap';
 import { DAY_TICKS, type Transit, WAIT_CAP } from '../network/transit';
 
-/** 会社の評価: 0〜100 の点数と、その内訳(各 0〜1) */
+/** Company rating: a score of 0-100 and its breakdown (each 0-1) */
 export interface RatingParts {
-  /** 街の人口のうち、運行中の停留所の集客圏に入っている割合 */
+  /** Share of the towns' population that falls within the catchment of an operating stop */
   coverage: number;
-  /** 待ち人数の少なさ(停留所の待ち / 上限の半分) */
+  /** Few people waiting (waiting at stops / half the cap) */
   waiting: number;
-  /** 渋滞・停滞のなさ(停滞中の車両の割合) */
+  /** No congestion or stalls (share of stalled vehicles) */
   flow: number;
-  /** 定時性(時刻表の平均遅延) */
+  /** Punctuality (average delay against the timetable) */
   punctual: number;
 }
 export interface RatingState {
   score: number;
-  /** 最悪のため新規の開発ができない状態(ヒステリシスあり) */
+  /** The worst state: no new development allowed (with hysteresis) */
   locked: boolean;
   parts: RatingParts;
 }
 
 export const RATING_START = 65;
-/** この点数未満で「最悪」(開発不可)になり、LOCK_RELEASE 以上で解除される */
+/** Below this score the rating is "worst" (no development); it is lifted at LOCK_RELEASE and above */
 export const LOCK_BELOW = 15;
 export const LOCK_RELEASE = 25;
 export const RATING_NAMES: [number, string][] = [
@@ -34,7 +34,7 @@ export const ratingName = (score: number): string => RATING_NAMES.find(([lim]) =
 
 export const newRating = (): RatingState => ({ score: RATING_START, locked: false, parts: { coverage: 0, waiting: 1, flow: 1, punctual: 1 } });
 
-/** 運行中(車両のいる路線を通る)の停留所 */
+/** Stops that are operating (served by a route that has vehicles) */
 export function activeStopIds(t: Transit): Set<number> {
   const routesWithVehicles = new Set(t.vehicles.map((v) => v.routeId));
   const out = new Set<number>();
@@ -45,7 +45,7 @@ export function activeStopIds(t: Transit): Set<number> {
   return out;
 }
 
-/** 現在の状況から評価の目標点(0〜100)と内訳を求める。運行がなければ null(中立) */
+/** From the current situation, work out the target score (0-100) and the breakdown. Null (neutral) if nothing operates */
 export function measureRating(map: GameMap, t: Transit): { target: number; parts: RatingParts } | null {
   const active = activeStopIds(t);
   if (active.size === 0 || t.vehicles.length === 0) return null;
@@ -71,15 +71,15 @@ export function measureRating(map: GameMap, t: Transit): { target: number; parts
     }
   }
   const punctual = lateN ? Math.max(0, 1 - lateSum / lateN / (DAY_TICKS / 24)) : 1;
-  // 時刻表の路線がなければ定時性は評価に入れない(重みを他へ配分)
+  // Without timetabled routes, punctuality is left out of the rating (its weight goes to the others)
   const target = 100 * (lateN ? 0.3 * coverage + 0.3 * waiting + 0.25 * flow + 0.15 * punctual : 0.35 * coverage + 0.35 * waiting + 0.3 * flow);
   return { target, parts: { coverage, waiting, flow, punctual } };
 }
 
-/** 評価を1回更新する(なだらかに目標へ近づける)。運行がない間は中立(60)へゆっくり戻る */
+/** Update the rating once (approach the target gradually). While nothing operates, it drifts slowly back to neutral (60) */
 export function stepRating(r: RatingState, map: GameMap, t: Transit, creditPenalty = 0): void {
   const m = measureRating(map, t);
-  // 資金がマイナスだと信用が落ちる(最大20点)
+  // Negative funds hurt credit (up to 20 points)
   const target = Math.max(0, (m ? m.target : 60) - creditPenalty);
   if (m) r.parts = m.parts;
   r.score = Math.max(0, Math.min(100, r.score * 0.85 + target * 0.15));

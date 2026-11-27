@@ -9,43 +9,43 @@ import type { Rival } from './rivals';
 import { fiscalRange } from '../world/calendar';
 import { devIncome } from './development';
 
-/** 会社の経営(資金・売上・費用・融資・買収)。金額は円。 */
+/** A company's management (funds, sales, costs, loans, acquisitions). Amounts in yen. */
 export const START_CASH = 30_000_000;
-/** マルチプレイ: 他社の線路・道路を1タイル通るときの通行料 */
+/** Multiplayer: toll for passing one tile of another company's track or road */
 export const TOLL = { rail: 300, road: 80 } as const;
 
 export { FARE } from '../network/fares';
 
-/** 建設・設置の費用 */
+/** Construction and placement costs */
 export const PRICES = {
-  road: 2_000, // 道路1辺(タイル)
-  rail: 4_000, // 線路1辺
-  bridge: 30_000, // 橋 1タイル
-  tunnel: 50_000, // トンネル 1タイル
+  road: 2_000, // one road edge (tile)
+  rail: 4_000, // one rail edge
+  bridge: 30_000, // bridge, per tile
+  tunnel: 50_000, // tunnel, per tile
   stop: 10_000,
   stationBase: 50_000,
-  stationTile: 15_000, // ホーム1タイルあたり
+  stationTile: 15_000, // per platform tile
   waypoint: 500,
   signal: 8_000,
   depotRoad: 100_000,
   depotRail: 150_000,
   depotAir: 400_000,
   airport: 2_000_000,
-  terraform: 800, // 1タイル・1段
+  terraform: 800, // per tile per level
 } as const;
 
-/** 車両の価格: 道路・航空は1台あたり、鉄道は1両あたり(両数を掛ける) */
+/** Vehicle prices: per vehicle for road and air, per car for rail (multiplied by the car count) */
 export function vehiclePrice(model: VehicleModel, cars = 1): number {
   const per = model.mode === 'road' ? model.cap * 3000 : model.mode === 'rail' ? model.cap * 2500 * (0.8 + model.speed * 0.4) : model.cap * 20000;
   return Math.round((per * (model.mode === 'rail' ? cars : 1)) / 1000) * 1000;
 }
-/** 車両の運行費(1日あたり): 価格の3% */
+/** Vehicle running cost (per day): 3% of the price */
 export const RUNNING_RATE = 0.03;
 
-/** 株式: 発行済み株式数(固定) */
+/** Stock: number of issued shares (fixed) */
 export const SHARES = 100_000;
 
-/** 格付け(信用): 点数 → 区分。区分ごとの年利と融資上限の倍率 */
+/** Credit rating: score -> grade. The annual interest rate and the loan-limit multiplier per grade */
 export const GRADES = ['AAA', 'AA', 'A', 'BBB', 'BB', 'B', 'CCC', 'D'] as const;
 const GRADE_MIN = [85, 75, 65, 55, 45, 30, 15, 0];
 const GRADE_RATE = [0.03, 0.04, 0.05, 0.065, 0.08, 0.105, 0.13, 0.16];
@@ -53,21 +53,21 @@ const GRADE_MULT = [1.5, 1.3, 1.1, 1.0, 0.7, 0.4, 0.15, 0];
 export const gradeIndex = (score: number): number => GRADE_MIN.findIndex((m) => score >= m);
 export const gradeOf = (score: number): string => GRADES[gradeIndex(score)];
 
-/** 決算: 法人税率・インフラ(建設費を資産計上したもの)の年間償却率・配当性向の選択肢 */
+/** Fiscal year-end: corporate tax rate, yearly depreciation rate of infrastructure (construction costs capitalized), and the dividend payout options */
 export const TAX_RATE = 0.3;
 export const DEPRECIATION_RATE = 0.1;
 export const PAYOUT_OPTIONS = [0, 0.2, 0.4] as const;
 
-/** 融資 */
+/** Loans */
 export const LOAN_STEP = 1_000_000;
 export const LOAN_MAX_CAP = 500_000_000;
 
-/** 従業員教育: 研修レベル(0〜MAX)ごとに、運行費が下がり、接客で乗客が増える。研修には費用と日数がかかり、レベルに応じた人件費(研修費)が毎日かかる */
+/** Staff training: at each training level (0..MAX), running costs fall and service brings more passengers. Training costs money and days, and labor cost (training cost) according to the level is charged every day */
 export const TRAINING = { max: 5, costCut: 0.04, demandUp: 0.03, days: 7, dailyPerLevel: 20_000 } as const;
-/** 研修レベル level → level+1 にする費用 */
+/** Cost to go from training level to level+1 */
 export const trainingCost = (level: number): number => Math.round((2_000_000 * Math.pow(level + 1, 1.5)) / 100_000) * 100_000;
 
-/** 経営の分類(売上・費用のラベル) */
+/** Management categories (labels for sales and costs) */
 export const REVENUE_CATS = ['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'sale', 'toll-in', 'gift-in', 'realestate'] as const;
 export const COST_CATS = ['build', 'vehicle', 'running', 'upkeep', 'interest', 'acquire', 'tax', 'dividend', 'toll-out', 'gift-out', 'ad', 'training'] as const;
 export const CAT_LABEL: Record<string, string> = {
@@ -102,21 +102,21 @@ export interface DayRecord {
 
 type Ledger = Record<string, number>;
 
-/** 決算書(1事業年度の損益と、期末の財政状態) */
+/** Financial statement (profit and loss of one fiscal year, and the position at year end) */
 export interface FiscalReport {
   period: number;
   from: string;
   to: string;
-  /** 売上高(運賃+施設+子会社) */
+  /** Revenue (fares + facilities + subsidiaries) */
   revenue: number;
   running: number;
   upkeep: number;
-  /** 減価償却費(インフラの10%) */
+  /** Depreciation (10% of infrastructure) */
   depreciation: number;
-  /** 営業利益 = 売上高 - 運行費 - 維持費 - 減価償却費 */
+  /** Operating profit = revenue - running costs - upkeep - depreciation */
   opProfit: number;
   interest: number;
-  /** 特別利益(資産の売却) */
+  /** Extraordinary gains (sale of assets) */
   special: number;
   preTax: number;
   tax: number;
@@ -150,51 +150,51 @@ export interface CompanyState {
   trainingPending?: { to: number; left: number };
 }
 
-/** マルチプレイ: 施設の日次収益の更新を1回だけにするため、締めを行う最初の会社のIDを Simulation が設定する */
+/** Multiplayer: so facilities' daily earnings update only once, the Simulation sets the ID of the first company that does the close */
 export const FIRST_OWNER = { id: 0 };
 
 export class Company {
   cash = START_CASH;
-  /** 借入金(元本) */
+  /** Borrowings (principal) */
   loan = 0;
-  /** 今日の売上・費用(分類別) */
+  /** Today's sales and costs (by category) */
   today: Ledger = {};
-  /** 開始からの累計 */
+  /** Cumulative since the start */
   total: Ledger = {};
-  /** 直近30日の記録(新しい順に末尾へ) */
+  /** Records of the last 30 days (newest at the end) */
   history: DayRecord[] = [];
   lastDay = 0;
-  /** 信用の点数(0〜100)と、株価・株価の履歴 */
+  /** Credit score (0-100), share price, and price history */
   credit = 60;
   stock = 300;
   stockHistory: number[] = [];
-  /** 今期(事業年度)の売上・費用(分類別)。決算で締める */
+  /** This fiscal period's sales and costs (by category). Closed at year end */
   fy: Ledger = {};
-  /** 建設費を資産計上したインフラの簿価(毎期10%償却) */
+  /** Book value of infrastructure whose construction cost was capitalized (depreciated 10% per period) */
   infra = 0;
-  /** 繰越欠損金(赤字は翌期以降の黒字と相殺して税を減らす) */
+  /** Loss carried forward (a loss offsets later profits to reduce tax) */
   loss = 0;
-  /** 現在の期(第N期) */
+  /** Current period (period N) */
   period = 1;
-  /** 配当性向(当期純利益のうち配当に回す割合)。プレイヤーが選ぶ */
+  /** Dividend payout ratio (share of net profit paid as dividends). Chosen by the player */
   payout = 0;
-  /** 過去の決算書(新しいものが末尾。直近10期) */
+  /** Past financial statements (newest last; the latest 10 periods) */
   reports: FiscalReport[] = [];
-  /** 従業員の研修レベル(0〜TRAINING.max)と、研修中(完了までの残り日数) */
+  /** Staff training level (0..TRAINING.max), and training in progress (days left until it finishes) */
   training = 0;
   trainingPending?: { to: number; left: number };
 
-  /** 運行費にかかる倍率(研修で下がる) */
+  /** Multiplier on running costs (lowered by training) */
   get costMul(): number {
     return 1 - TRAINING.costCut * this.training;
   }
 
-  /** 停留所の乗客の発生にかかる倍率(接客の質。研修で上がる) */
+  /** Multiplier on passenger generation at stops (service quality; raised by training) */
   get serviceMul(): number {
     return 1 + TRAINING.demandUp * this.training;
   }
 
-  /** 研修を始める。始められなければ理由を返す(費用は先払い。完了までは今のレベルのまま) */
+  /** Start training. Returns the reason if it cannot be started (the cost is paid up front; the current level stays until it finishes) */
   startTraining(): string | null {
     if (this.trainingPending) return `研修中です(あと${this.trainingPending.left}日)`;
     if (this.training >= TRAINING.max) return 'これ以上は研修できません(最高レベル)';
@@ -216,40 +216,40 @@ export class Company {
     this.fy[cat] = (this.fy[cat] ?? 0) + amount;
   }
 
-  /** 資金が足りれば支払って true。足りなければ何もしない */
+  /** Pay if funds suffice and return true. Do nothing if they do not */
   spend(cat: string, amount: number): boolean {
     if (!this.afford(amount)) return false;
     this.pay(cat, amount);
     return true;
   }
 
-  /** 資金に関係なく支払う(運行費・利払いなど。残高はマイナスになりうる) */
+  /** Pay regardless of funds (running costs, interest, etc.; the balance may go negative) */
   pay(cat: string, amount: number): void {
     if (!(amount > 0)) return;
     this.cash -= amount;
     this.today[cat] = (this.today[cat] ?? 0) + amount;
     this.total[cat] = (this.total[cat] ?? 0) + amount;
     this.fy[cat] = (this.fy[cat] ?? 0) + amount;
-    if (cat === 'build') this.infra += amount; // 建設費は資産に計上する
+    if (cat === 'build') this.infra += amount; // construction cost is booked as an asset
   }
 
-  /** 純資産 = 現金 + 資産(施設・車両・基地の評価額)+ インフラの簿価 - 借入金 */
+  /** Net assets = cash + assets (valuation of facilities, vehicles, depots) + infrastructure book value - borrowings */
   netWorth(assets: number): number {
     return this.cash + assets + this.infra - this.loan;
   }
 
-  /** 融資の上限(純資産と格付けで変わる)。格付け D では借りられない */
+  /** Loan limit (depends on net assets and rating). Cannot borrow at rating D */
   maxLoan(credit: number, assets: number): number {
     const base = 10_000_000 + Math.max(0, this.netWorth(assets)) * 0.5;
     return Math.min(LOAN_MAX_CAP, Math.floor((base * GRADE_MULT[gradeIndex(credit)]) / LOAN_STEP) * LOAN_STEP);
   }
 
-  /** 年利(格付けが高いほど低い: 3%〜16%) */
+  /** Annual interest rate (the higher the rating, the lower: 3% to 16%) */
   interestRate(credit: number): number {
     return GRADE_RATE[gradeIndex(credit)];
   }
 
-  /** 借りる。借りられなければ理由を返す */
+  /** Borrow. Returns the reason if it cannot be borrowed */
   borrow(amount: number, credit: number, assets: number): string | null {
     if (!(amount > 0)) return '金額を指定してください';
     const limit = this.maxLoan(credit, assets);
@@ -259,7 +259,7 @@ export class Company {
     return null;
   }
 
-  /** 返済(現金の範囲で。amount=Infinity で全額)。返済できた額を返す */
+  /** Repay (within cash; amount=Infinity for all). Returns the amount repaid */
   repay(amount: number): number {
     const pay = Math.max(0, Math.min(amount, this.loan, this.cash));
     this.loan -= pay;
@@ -267,34 +267,34 @@ export class Company {
     return pay;
   }
 
-  /** 1日の締め: 運行費・維持費・利払いを払い、子会社の利益を受け取り、格付けと株価を更新して記録する */
+  /** Day close: pay running costs, upkeep, and interest, receive subsidiaries' profit, update rating and share price, and record */
   endOfDay(day: number, map: GameMap, transit: Transit, rating: number, rivals: Rival[] = [], ownerId?: number): void {
-    // 車両の運行費(マルチプレイでは自社の路線の車両だけ)
+    // Vehicle running costs (in multiplayer, only vehicles on the company's own routes)
     let running = 0;
     const mine = (routeId: number) => ownerId === undefined || transit.routes.get(routeId)?.owner === ownerId;
     for (const v of transit.vehicles) if (mine(v.routeId)) running += vehiclePrice(modelOf(v.modelId), v.cars) * RUNNING_RATE;
     this.pay('running', Math.round(running * this.costMul));
-    // 駅・停留所・基地・施設の維持費
+    // Upkeep of stations, stops, depots, and facilities
     let upkeep = 0;
     for (const s of transit.stops.values()) if (ownerId === undefined || s.owner === ownerId) upkeep += stopUpkeep(s);
     for (const d of transit.depots.values()) if (ownerId === undefined || d.owner === ownerId) upkeep += 500;
     for (const f of map.facilities) if ((f.owner ?? 'player') === 'player' && (ownerId === undefined || f.playerId === ownerId)) upkeep += facilityUpkeep(f);
     this.pay('upkeep', Math.round(upkeep));
-    // 研修費(レベルに応じた人件費)と、研修の進行
+    // Training cost (labor cost by level) and training progress
     this.pay('training', this.training * TRAINING.dailyPerLevel);
     if (this.trainingPending && --this.trainingPending.left <= 0) {
       this.training = this.trainingPending.to;
       this.trainingPending = undefined;
     }
-    // 利払い(日割り)
+    // Interest (prorated daily)
     this.pay('interest', Math.round((this.loan * this.interestRate(this.credit)) / 360));
-    // 子会社(買収した競合会社)の利益
+    // Profit of subsidiaries (acquired rivals)
     for (const r of rivals) if (r.acquired && (ownerId === undefined || r.acquiredBy === ownerId)) this.earn('subsidiary', r.profit);
-    // 沿線開発の不動産収入
+    // Real-estate income from line development
     let dev = 0;
     for (const s of transit.stops.values()) if (s.dev && !s.waypoint && (ownerId === undefined || s.owner === ownerId)) dev += devIncome(s);
     this.earn('realestate', dev);
-    // 施設の1日の収益を更新(買収額の目安に使う)。マルチプレイでは全社分を最初の会社の締めで1回だけ更新する
+    // Update facilities' daily earnings (a guide for acquisition prices). In multiplayer, the first company's close updates everyone's once
     if (ownerId === undefined || ownerId === FIRST_OWNER.id)
       for (const f of map.facilities) {
         f.income = (f.income ?? 0) * 0.8 + (f.dayIncome ?? 0) * 0.2;
@@ -309,7 +309,7 @@ export class Company {
     this.updateCreditAndStock(rating, assetValue(map, transit, rivals, ownerId));
   }
 
-  /** 直近の1日あたりの平均利益と、売上に対する利益率(-1〜1) */
+  /** Average profit per day recently, and the profit margin on sales (-1 to 1) */
   profitStats(days = 7): { avg: number; margin: number } {
     const h = this.history.slice(-days);
     if (!h.length) return { avg: 0, margin: 0 };
@@ -318,7 +318,7 @@ export class Company {
     return { avg: (rev - cost) / h.length, margin: rev > 0 ? Math.max(-1, Math.min(1, (rev - cost) / rev)) : cost > 0 ? -1 : 0 };
   }
 
-  /** 格付けの点数と株価を、その日の状況で更新する */
+  /** Update the rating score and share price from that day's situation */
   updateCreditAndStock(rating: number, assets: number): void {
     const nw = this.netWorth(assets);
     const lev = 100 * (1 - Math.max(0, Math.min(1, this.loan / Math.max(1, nw))));
@@ -326,7 +326,7 @@ export class Company {
     const prof = this.history.length ? 50 + 50 * Math.max(-1, Math.min(1, margin * 2)) : 60;
     const s = 0.4 * rating + 0.3 * lev + 0.3 * prof - (this.cash < 0 ? 15 : 0);
     this.credit = Math.max(0, Math.min(100, this.credit * 0.7 + s * 0.3));
-    // 株価 = (純資産 + 利益の120日分) / 株式数 × 信用による補正。急変しないよう均す
+    // Share price = (net assets + 120 days of profit) / shares x credit adjustment. Smoothed so it does not jump
     const target = Math.max(10, ((nw + 120 * Math.max(0, avg)) / SHARES) * (0.8 + 0.4 * (this.credit / 100)));
     this.stock = this.stock * 0.7 + target * 0.3;
     this.stockHistory.push(this.stock);
@@ -338,8 +338,8 @@ export class Company {
   }
 
   /**
-   * 決算: 第 period 期の損益を確定し、法人税(繰越欠損金で相殺)と配当を支払い、決算書を残す。
-   * 売上高 - 運行費 - 維持費 - 減価償却費 = 営業利益、 - 支払利息 + 特別利益(資産売却) = 税引前利益。
+   * Fiscal close: finalize period `period`'s profit and loss, pay corporate tax (offset by the loss carried forward) and dividends, and record the statement.
+   * Revenue - running costs - upkeep - depreciation = operating profit; - interest paid + extraordinary gains (asset sales) = pre-tax profit.
    */
   closeFiscalYear(period: number, assets: number): FiscalReport {
     const f = this.fy;
@@ -364,7 +364,7 @@ export class Company {
     const netIncome = preTax - tax;
     const dividend = netIncome > 0 && this.payout > 0 ? Math.round(Math.min(Math.max(0, this.cash), netIncome * this.payout)) : 0;
     this.pay('dividend', dividend);
-    // 決算の内容で株価が動く(好決算は上昇、赤字は下落。配当があると少し上乗せ)
+    // The share price moves with the results (good results raise it, a loss lowers it; a dividend adds a little)
     const reaction = Math.max(-0.1, Math.min(0.1, (netIncome / Math.max(1_000_000, nwBefore)) * 0.5)) + this.payout * 0.04;
     this.stock = Math.max(10, this.stock * (1 + reaction));
     if (this.stockHistory.length) this.stockHistory[this.stockHistory.length - 1] = this.stock;
@@ -398,12 +398,12 @@ export class Company {
     return rep;
   }
 
-  /** 旅客が運賃を払った */
+  /** A passenger paid a fare */
   fare(mode: Mode, amount: number): void {
     this.earn(`fare-${mode}`, amount);
   }
 
-  /** 到着した旅客が n 人: 停留所の集客圏にある自社施設の売上になる(他社の施設には入らない) */
+  /** n passengers arrived: they become sales of the company's own facilities in the stop's catchment (not of other companies' facilities) */
   visits(map: GameMap, stop: Stop, n: number, tick: number, payee?: (f: Facility) => Company | null): void {
     if (!stop.facs || !stop.facs.length) return;
     const hour = (todOf(tick) / DAY_TICKS) * 24;
@@ -418,7 +418,7 @@ export class Company {
       if ((f.owner ?? 'player') !== 'player') return;
       const to = payee ? payee(f) : this;
       if (!to) return;
-      // 駅から来た客も、料金で買う人が増減する(値上げへの敏感さは、1日の締めに計算した値)
+      // Visitors from the station also buy more or less depending on price (price sensitivity is the value computed at the day close)
       const amount =
         share * spec.conversion * spec.spend * priceMul(f) * demandMul(priceMul(f), f.elast ?? elasticity(f.type, 0, true)) * gradeSpendMul(facilityGrade(f)) * repMul(repOf(f));
       if (amount > 0) {
@@ -473,7 +473,7 @@ export class Company {
   }
 }
 
-/** 停留所・駅の維持費(1日) */
+/** Upkeep of stops and stations (per day) */
 export function stopUpkeep(s: Stop): number {
   if (s.waypoint) return 0;
   if (s.kind === 'road') return 300;
@@ -481,16 +481,16 @@ export function stopUpkeep(s: Stop): number {
   return s.station ? 2000 + s.station.len * s.station.tracks * 300 : 1500;
 }
 
-/** 施設の評価額(買収・売却の目安): 建設費の90% + 直近の1日の収益の60日分 */
+/** Facility valuation (a guide for acquisition and sale): 90% of construction cost + 60 days of the latest daily earnings */
 export function facilityValue(f: Facility): number {
   return Math.round((facilityBuildCost(f) * 0.9 + (f.income ?? 0) * 60) / 1000) * 1000;
 }
 
-/** 資産(施設・車両・基地)の評価額の合計。純資産と融資の上限に使う */
+/** Total valuation of assets (facilities, vehicles, depots). Used for net assets and the loan limit */
 export function assetValue(map: GameMap, transit: Transit, rivals: Rival[] = [], ownerId?: number): number {
   let a = 0;
   const all = ownerId === undefined;
-  for (const r of rivals) if (r.acquired && (all || r.acquiredBy === ownerId)) a += r.value * 0.7; // 子会社の評価
+  for (const r of rivals) if (r.acquired && (all || r.acquiredBy === ownerId)) a += r.value * 0.7; // valuation of subsidiaries
   for (const f of map.facilities) if ((f.owner ?? 'player') === 'player' && (all || f.playerId === ownerId)) a += facilityValue(f) * 0.7;
   for (const v of transit.vehicles) if (all || transit.routes.get(v.routeId)?.owner === ownerId) a += vehiclePrice(modelOf(v.modelId), v.cars) * 0.5;
   for (const d of transit.depots.values())

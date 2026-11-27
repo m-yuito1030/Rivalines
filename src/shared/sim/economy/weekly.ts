@@ -3,16 +3,16 @@ import type { GameMap } from '../../world/gameMap';
 import type { Transit } from '../network/transit';
 import type { Rival } from './rivals';
 
-/** 週間ランキング: 週の初めからの増分(純資産・旅客数・利益)で競う。7日ごとに結果を残して数え直すので、後から始めた会社にも見せ場がある */
+/** Weekly ranking: compete on gains since the start of the week (net assets, passengers, profit). Results are recorded and counting restarts every 7 days, so companies that joined later also get a chance to shine */
 export const WEEK_DAYS = 7;
 
-/** 会社の累計の指標 */
+/** A company's cumulative metrics */
 export interface Metrics {
-  /** 純資産 */
+  /** Net assets */
   nw: number;
-  /** 旅客数(累計) */
+  /** Passengers (cumulative) */
   pax: number;
-  /** 利益(売上 − 費用の累計) */
+  /** Profit (cumulative sales - expenses) */
   profit: number;
 }
 export interface WeeklyRow extends Metrics {
@@ -23,16 +23,16 @@ export interface WeeklyResult {
   rows: WeeklyRow[];
 }
 export interface WeeklyState {
-  /** 今週(第N週) */
+  /** This week (week N) */
   week: number;
   base: [number, Metrics][];
   last?: WeeklyResult;
 }
 
-/** 売上 − 費用の累計 */
+/** Cumulative sales - expenses */
 export const profitTotalOf = (c: Company): number => REVENUE_CATS.reduce((a, k) => a + (c.total[k] ?? 0), 0) - COST_CATS.reduce((a, k) => a + (c.total[k] ?? 0), 0);
 
-/** 会社 id の累計の指標(サーバー用) */
+/** Cumulative metrics of company `id` (for the server) */
 export function playerMetrics(sim: { map: GameMap; transit: Transit; rivals: Rival[]; players: Map<number, Company> }, id: number): Metrics {
   const co = sim.players.get(id)!;
   let pax = 0;
@@ -48,8 +48,8 @@ export class Weekly {
   last?: WeeklyResult;
 
   /**
-   * 日締め(day=今締めた日)。週の最後の日なら結果を確定して数え直す。
-   * 基準を持たない会社(途中参加)は、その日から数え始める。確定したら結果を返す
+   * Day close (day = the day just closed). On the last day of a week, finalize the result and start counting again.
+   * A company without a baseline (one that joined midway) starts counting from that day. Returns the result when finalized
    */
   onDay(day: number, ids: number[], metrics: (id: number) => Metrics): WeeklyResult | null {
     const boundary = (day + 1) % WEEK_DAYS === 0;
@@ -79,17 +79,17 @@ export class Weekly {
 export interface Standing {
   id: number;
   name: string;
-  /** 今週の増分 */
+  /** This week's gain */
   d: Metrics;
 }
 
-/** 今週の途中経過(現在の指標 − 週の初めの基準)。純資産の増加が多い順 */
+/** Progress so far this week (current metrics - the baseline at the start of the week). Largest net-asset gain first */
 export function standings(state: WeeklyState, players: { id: number; name: string; netWorth: number; passengers: number; profitTotal: number }[]): Standing[] {
   const base = new Map(state.base);
   return players.map((p) => ({ id: p.id, name: p.name, d: diff({ nw: p.netWorth, pax: p.passengers, profit: p.profitTotal }, base.get(p.id)) })).sort((a, b) => b.d.nw - a.d.nw);
 }
 
-/** 先週の結果の部門ごとの1位(部門: 純資産・旅客数・利益) */
+/** The top company per category in last week's result (categories: net assets, passengers, profit) */
 export function winners(r: WeeklyResult | undefined): { nw?: number; pax?: number; profit?: number } {
   const best = (k: keyof Metrics): number | undefined => (r && r.rows.length ? [...r.rows].sort((a, b) => b[k] - a[k])[0].id : undefined);
   return { nw: best('nw'), pax: best('pax'), profit: best('profit') };

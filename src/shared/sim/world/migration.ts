@@ -6,12 +6,12 @@ import { activeStopIds } from '../economy/rating';
 import type { Transit } from '../network/transit';
 import { POP_PER_LEVEL, popMul } from '../../world/town';
 
-/** 停留所の集客圏の半径(transit.ts の CATCH と同じ値) */
+/** Radius of a stop's catchment area (same value as CATCH in transit.ts) */
 const RADIUS = { road: 4, rail: 6, air: 10 } as const;
-/** 他の街への移住を考える距離(タイル) */
+/** Distance (tiles) within which people consider moving to another town */
 const NEIGHBOR_DIST = 60;
 
-/** 運行中の停留所の集客圏。(x,y) がどれかに入っていれば「サービスのある地域」 */
+/** Catchments of operating stops. If (x,y) is inside any of them, it is an "area with service" */
 export function servedAreas(t: Transit): { x: number; y: number; r: number }[] {
   const out: { x: number; y: number; r: number }[] = [];
   for (const id of activeStopIds(t)) {
@@ -24,9 +24,9 @@ export function servedAreas(t: Transit): { x: number; y: number; r: number }[] {
 const inAreas = (areas: { x: number; y: number; r: number }[], x: number, y: number) => areas.some((a) => Math.abs(a.x - x) <= a.r && Math.abs(a.y - y) <= a.r);
 
 /**
- * 人口移動: バス・鉄道などが通り始めた地域へ、サービスのない地域から住民がちらほら移る。
- * 街ごとに低い確率で、サービス圏外の建物を1棟(同じ段階で)取り壊し、サービス圏内の空き地(同じ街、なければ近くの街)へ建て直す。
- * @returns 移住した人数
+ * Migration: to areas where buses, trains, and the like have started running, residents trickle in from areas without service.
+ * For each town, with a low probability, demolish one building (of the same tier) outside the service area and rebuild it on empty land inside the service area (in the same town, or if none, in a nearby town).
+ * @returns the number of people who moved
  */
 export function migrateStep(map: GameMap, transit: Transit, rng: () => number, chance = 0.2): number {
   const areas = servedAreas(transit);
@@ -35,7 +35,7 @@ export function migrateStep(map: GameMap, transit: Transit, rng: () => number, c
   let moved = 0;
   for (const town of map.towns) {
     if (rng() >= chance || town.houses <= 4) continue;
-    // 移住元: 街の道路に面した、サービス圏外の建物
+    // Source: a building facing a town road, outside the service area
     let src: { x: number; y: number; level: number } | null = null;
     for (let tries = 0; tries < 20 && !src && town.roads.length; tries++) {
       const ri = town.roads[(rng() * town.roads.length) | 0];
@@ -48,7 +48,7 @@ export function migrateStep(map: GameMap, transit: Transit, rng: () => number, c
       if (level >= 1 && map.owner.get(map.idx(x, y)) === town.id && !served(x, y)) src = { x, y, level };
     }
     if (!src) continue;
-    // 移住先: まず同じ街のサービス圏内、なければ近くの街(近い順)のサービス圏内
+    // Destination: first inside the service area of the same town, otherwise in a nearby town (nearest first)
     const targets = [
       town,
       ...map.towns
