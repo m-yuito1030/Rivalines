@@ -152,6 +152,8 @@ export interface PlayerInfo {
   bio: string;
   color: number;
   online: boolean;
+  /** A computer-run company (no account: cannot be sent money, reported, or granted access) */
+  ai?: boolean;
   marketCap: number;
   price: number;
   netWorth: number;

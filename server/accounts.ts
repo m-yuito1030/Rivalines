@@ -1,6 +1,7 @@
 import { createHmac, randomBytes, scrypt, timingSafeEqual } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { AI_ID_BASE } from '../src/shared/sim/economy/aiCompanies';
 import { isReservedName } from './reservedNames';
 
 export interface Account {
@@ -207,6 +208,8 @@ export class Accounts {
     if (isReservedName(name)) return { ok: false, reason: 'その名前は使われています' }; // hide the reason for the ban: use the same wording as "already taken"
     if (!validPassword(password)) return { ok: false, reason: 'パスワードは6文字以上です' };
     if (this.byNameMap.has(name.toLowerCase())) return { ok: false, reason: 'その名前は使われています' };
+    // IDs above this are kept for the computer-run companies (the tile owner layers are 16-bit)
+    if (this.nextId >= AI_ID_BASE) return { ok: false, reason: '登録できる人数の上限に達しました' };
     const salt = randomBytes(16);
     const hash = await kdf(password, salt);
     const account: Account = {
