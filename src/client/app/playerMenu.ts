@@ -52,14 +52,14 @@ export class PlayerMenu {
     const pw = () => $<HTMLInputElement>('accPw').value;
     $('accChange').addEventListener('click', () => {
       void net.account('password', net.you, pw(), $<HTMLInputElement>('accNewPw').value).then((r) => {
-        d.notify(r.ok ? tr('パスワードを変更しました(ほかの端末は、ログインし直しが必要です)') : (r.reason ?? tr('失敗しました')));
+        d.notify(r.ok ? tr('パスワードを変更しました(ほかの端末は、ログインし直しが必要です)') : r.reason ? tr(r.reason) : tr('失敗しました'));
         if (r.ok) $<HTMLInputElement>('accNewPw').value = $<HTMLInputElement>('accPw').value = '';
       });
     });
     $('accLeave').addEventListener('click', () => {
       if (!window.confirm(tr('本当に退会しますか?アカウントと会社が消え、元に戻せません。'))) return;
       void net.account('leave', net.you, pw()).then((r) => {
-        if (!r.ok) return d.notify(r.reason ?? tr('失敗しました'));
+        if (!r.ok) return d.notify(r.reason ? tr(r.reason) : tr('失敗しました'));
         alert(tr('退会しました。ご利用ありがとうございました'));
         location.reload();
       });
