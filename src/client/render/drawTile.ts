@@ -4,7 +4,7 @@ import { drawBuildingSprite } from './buildingSprites';
 const HW = TILE_W / 2;
 const HH = TILE_H / 2;
 
-/** タイル内座標(u:+x方向, v:+y方向, 0..1) → キャンバス座標。(px,py)はタイル上面の頂点 */
+/** In-tile coordinates (u: +x direction, v: +y direction, 0..1) -> canvas coordinates. (px,py) is the vertex of the tile's top face */
 export const sx = (px: number, u: number, v: number) => px + (u - v) * HW;
 export const sy = (py: number, u: number, v: number) => py + (u + v) * HH;
 
@@ -20,7 +20,7 @@ function poly(ctx: CanvasRenderingContext2D, px: number, py: number, pts: number
   ctx.fill();
 }
 
-/** 壁面(2D面)上の四角形: face='L' は v=c 面(u方向に a0..a1)、face='R' は u=c 面(v方向に a0..a1)。z0..z1 は高さ(px) */
+/** A quadrilateral on a wall (2D face): face='L' is the v=c face (a0..a1 along u), face='R' is the u=c face (a0..a1 along v). z0..z1 is the height (px) */
 function wallQuad(ctx: CanvasRenderingContext2D, px: number, py: number, face: 'L' | 'R', c: number, a0: number, a1: number, z0: number, z1: number): void {
   const p = (a: number, z: number): [number, number] => (face === 'L' ? [sx(px, a, c), sy(py, a, c) - z] : [sx(px, c, a), sy(py, c, a) - z]);
   const [x0, y0] = p(a0, z0);
@@ -36,7 +36,7 @@ function wallQuad(ctx: CanvasRenderingContext2D, px: number, py: number, face: '
   ctx.fill();
 }
 
-/** 方向ごとの単位ベクトル(u,v) N,E,S,W */
+/** Unit vectors (u,v) for each direction N,E,S,W */
 const E = [
   [0, -1],
   [1, 0],
@@ -44,14 +44,14 @@ const E = [
   [-1, 0],
 ];
 
-// ---------------------------------------------------------------- 道路
+// ---------------------------------------------------------------- Roads
 const WALK = '#aaa8a1';
 const CURB = '#8a8882';
 const ASPHALT = '#484b52';
 const ASPHALT2 = '#51545b';
 const LINE = '#e9e2c0';
 
-/** 腕(中心→辺)の長方形。half=半幅, from..to=中心からの距離 */
+/** Rectangle of an arm (centre -> edge). half = half width, from..to = distance from the centre */
 function arm(ctx: CanvasRenderingContext2D, px: number, py: number, d: number, half: number, from: number, to: number): void {
   const [ex, ey] = E[d];
   const [nx, ny] = [-ey, ex];
@@ -64,13 +64,13 @@ function arm(ctx: CanvasRenderingContext2D, px: number, py: number, d: number, h
   ]);
 }
 
-/** 道路タイル。road=GameMap.road のビット値, hv=個体差(0..1)。歩道・縁石・センターライン・横断歩道・矢印・街灯つき */
+/** Road tile. road = the bit value of GameMap.road, hv = per-tile variation (0..1). With sidewalks, curbs, centre line, crosswalks, arrows, and street lamps */
 export function drawRoad(ctx: CanvasRenderingContext2D, px: number, py: number, road: number, hv = 0, detail = true): void {
   const c = 0.5;
   const arms = [0, 1, 2, 3].filter((d) => road & (1 << d));
-  const WS = 0.27; // 歩道を含む半幅
-  const WA = 0.2; // 車道の半幅
-  // 歩道(縁石色の外縁 → 歩道面)
+  const WS = 0.27; // half width including the sidewalk
+  const WA = 0.2; // half width of the roadway
+  // Sidewalk (outer edge in curb color -> sidewalk surface)
   ctx.fillStyle = CURB;
   poly(ctx, px, py, [
     [c - WS - 0.015, c - WS - 0.015],
@@ -87,7 +87,7 @@ export function drawRoad(ctx: CanvasRenderingContext2D, px: number, py: number, 
     [c - WS, c + WS],
   ]);
   for (const d of arms) arm(ctx, px, py, d, WS, 0, 0.5);
-  // 車道
+  // Roadway
   ctx.fillStyle = ASPHALT;
   poly(ctx, px, py, [
     [c - WA, c - WA],
@@ -97,11 +97,11 @@ export function drawRoad(ctx: CanvasRenderingContext2D, px: number, py: number, 
   ]);
   for (const d of arms) arm(ctx, px, py, d, WA, 0, 0.5);
   if (!detail) return;
-  // 路面のわずかな明暗
+  // Slight light and dark variation of the road surface
   ctx.fillStyle = ASPHALT2;
   for (const d of arms) arm(ctx, px, py, d, WA * 0.55, 0.05, 0.45);
 
-  // センターライン(双方向の腕のみ)/ 一方通行の矢印
+  // Centre line (two-way arms only) / one-way arrows
   for (const d of arms) {
     const twoWay = (road & (16 << d)) !== 0;
     const [ex, ey] = E[d];
@@ -114,7 +114,7 @@ export function drawRoad(ctx: CanvasRenderingContext2D, px: number, py: number, 
       ])
         arm(ctx, px, py, d, 0.012, a, b);
     } else if (!twoWay) {
-      // 流入側: 進行方向(=-腕方向)を示す白い矢印
+      // Inflow side: a white arrow showing the direction of travel (= opposite to the arm direction)
       const ax = c + ex * 0.2;
       const ay = c + ey * 0.2;
       ctx.fillStyle = '#f2f2f2';
@@ -126,7 +126,7 @@ export function drawRoad(ctx: CanvasRenderingContext2D, px: number, py: number, 
       ]);
     }
   }
-  // 交差点の横断歩道(3方向以上)
+  // Crosswalks at intersections (three or more directions)
   if (arms.length >= 3) {
     ctx.fillStyle = 'rgba(245,245,240,0.9)';
     for (const d of arms) {
@@ -147,7 +147,7 @@ export function drawRoad(ctx: CanvasRenderingContext2D, px: number, py: number, 
       }
     }
   }
-  // 街灯(直線区間でときどき)
+  // Street lamps (occasionally on straight stretches)
   if (arms.length === 2 && arms[0] + 2 === arms[1] && hv < 0.16) {
     const d = arms[0];
     const [nx, ny] = [-E[d][1], E[d][0]];
@@ -164,11 +164,11 @@ export function drawRoad(ctx: CanvasRenderingContext2D, px: number, py: number, 
   }
 }
 
-// ---------------------------------------------------------------- 線路
+// ---------------------------------------------------------------- Rails
 const BALLAST = '#8c8478';
 const BALLAST_DARK = '#6e675d';
 
-/** 8方向の単位ベクトルと、中心から辺(斜めは角)までの長さ */
+/** Unit vectors for the 8 directions, and the length from the centre to the edge (to the corner for diagonals) */
 const E8: [number, number][] = [
   [0, -1],
   [1, 0],
@@ -179,11 +179,11 @@ const E8: [number, number][] = [
   [-Math.SQRT1_2, Math.SQRT1_2],
   [-Math.SQRT1_2, -Math.SQRT1_2],
 ];
-// 斜めの腕は角の先まで少し長く描く(つなぎ先のタイルの上に重ねる)。角で細くなる先端が点でしか接せず、ネックレス状に途切れて見えるのを防ぐ
+// Diagonal arms are drawn a little longer, past the corner (overlapping the tile they connect to). This stops the tips, which taper at the corner and touch only at a point, from looking broken like a necklace
 const DIAG_LEN = Math.SQRT1_2 + 0.24;
 const ARM_LEN = [0.5, 0.5, 0.5, 0.5, DIAG_LEN, DIAG_LEN, DIAG_LEN, DIAG_LEN];
 
-/** 線路タイル。conn は rail ビット(下位4bit=N,E,S,W / 上位4bit=NE,SE,SW,NW の斜め)。バラスト・枕木・レール(ハイライトつき) */
+/** Rail tile. conn is the rail bits (low 4 bits = N,E,S,W / high 4 bits = diagonals NE,SE,SW,NW). Ballast, sleepers, and rails (with highlights) */
 export function drawRail(ctx: CanvasRenderingContext2D, px: number, py: number, conn: number): void {
   const c = 0.5;
   const arms = [0, 1, 2, 3, 4, 5, 6, 7].filter((d) => conn & (1 << d));
@@ -199,7 +199,7 @@ export function drawRail(ctx: CanvasRenderingContext2D, px: number, py: number, 
       [c - nx * half, c - ny * half],
     ]);
   };
-  // 中心の四角は、斜めの腕だけのタイルでは描かない(帯の両脇に角が飛び出して、つなぎ目に出っ張りができるため)
+  // Do not draw the centre square on a tile with only diagonal arms (corners would stick out on both sides of the band and leave bumps at the joints)
   const square = arms.length === 0 || arms.some((d) => d < 4);
   ctx.fillStyle = BALLAST_DARK;
   if (square)
@@ -224,7 +224,7 @@ export function drawRail(ctx: CanvasRenderingContext2D, px: number, py: number, 
     const [nx, ny] = [-ey, ex];
     const L = ARM_LEN[d];
     const k = L / 0.5;
-    // 枕木
+    // Sleepers
     ctx.fillStyle = '#5b4535';
     for (const t of [0.06, 0.16, 0.26, 0.36, 0.46]) {
       const cu = c + ex * t * k;
@@ -236,7 +236,7 @@ export function drawRail(ctx: CanvasRenderingContext2D, px: number, py: number, 
         [cu - nx * 0.17 - ex * 0.018, cv - ny * 0.17 - ey * 0.018],
       ]);
     }
-    // レール(暗い台座 + 明るい頭)
+    // Rails (a dark base + a bright head)
     for (const side of [-0.075, 0.075]) {
       ctx.fillStyle = '#3a3836';
       poly(ctx, px, py, [
@@ -256,8 +256,8 @@ export function drawRail(ctx: CanvasRenderingContext2D, px: number, py: number, 
   }
 }
 
-// ---------------------------------------------------------------- 空港
-/** 空港タイル(1=エプロン 2=滑走路 3=ターミナル) */
+// ---------------------------------------------------------------- Airport
+/** Airport tile (1 = apron, 2 = runway, 3 = terminal) */
 export function drawAirTile(ctx: CanvasRenderingContext2D, px: number, py: number, kind: number): void {
   ctx.fillStyle = kind === 2 ? '#43464c' : '#80848b';
   poly(ctx, px, py, [
@@ -267,7 +267,7 @@ export function drawAirTile(ctx: CanvasRenderingContext2D, px: number, py: numbe
     [0, 1],
   ]);
   if (kind === 2) {
-    // 縁線・中心線・進入端のしま
+    // Edge lines, centre line, and threshold stripes
     ctx.fillStyle = '#f2f2f2';
     poly(ctx, px, py, [
       [0, 0.04],
@@ -289,7 +289,7 @@ export function drawAirTile(ctx: CanvasRenderingContext2D, px: number, py: numbe
         [u, 0.53],
       ]);
   } else {
-    // エプロンの目地
+    // Joints of the apron
     ctx.strokeStyle = 'rgba(0,0,0,0.18)';
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -314,7 +314,7 @@ export function drawAirTile(ctx: CanvasRenderingContext2D, px: number, py: numbe
     wallQuad(ctx, px, py, 'L', z, a, z, 0, h);
     ctx.fillStyle = '#b9c0cc';
     wallQuad(ctx, px, py, 'R', z, a, z, 0, h);
-    // ガラス帯
+    // Glass band
     ctx.fillStyle = '#5a86b8';
     wallQuad(ctx, px, py, 'L', z, a + 0.05, z - 0.05, 8, 19);
     ctx.fillStyle = '#4a74a4';
@@ -344,7 +344,7 @@ export function drawAirTile(ctx: CanvasRenderingContext2D, px: number, py: numbe
         [0.4, 0.6],
       ],
       h + 5,
-    ); // 管制塔の基部
+    ); // base of the control tower
     ctx.fillStyle = '#8fc4ff';
     poly(
       ctx,
@@ -361,8 +361,8 @@ export function drawAirTile(ctx: CanvasRenderingContext2D, px: number, py: numbe
   }
 }
 
-// ---------------------------------------------------------------- 建物
-/** 壁色(明) */
+// ---------------------------------------------------------------- Buildings
+/** Wall colors (light) */
 const WALLS = ['#efe6d2', '#f3ecd9', '#dfe8ef', '#f1dcc8', '#e8e3dc', '#e4eadb', '#f0e0e0', '#ebe9e2'];
 const ROOFS = ['#b8503a', '#3f6ea8', '#7a5a8c', '#5c8a4a', '#9a7040', '#6e7076', '#a84a68', '#3f8a86'];
 const GLASS = ['#6e9ac4', '#7aa6cc', '#5f8fbb', '#86b0cf'];
@@ -386,7 +386,7 @@ function shadow(ctx: CanvasRenderingContext2D, px: number, py: number, a: number
   ]);
 }
 
-/** 窓の格子を壁面に描く */
+/** Draw a window grid on a wall */
 function windows(
   ctx: CanvasRenderingContext2D,
   px: number,
@@ -414,12 +414,12 @@ function windows(
 }
 
 /**
- * 建設中の建物(工事現場): 土の基礎・足場・シート・仮囲い。動く部分(砂ぼこり・火花)は constructionFx が毎フレーム重ねる。
- * level は完成後の段階(高いほど足場が高い)。hv=個体差
+ * A building under construction (a construction site): earth foundation, scaffolding, sheeting, and hoarding. The moving parts (dust, sparks) are overlaid every frame by constructionFx.
+ * level is the tier after completion (the higher, the taller the scaffolding). hv = per-tile variation
  */
 export function drawConstruction(ctx: CanvasRenderingContext2D, px: number, py: number, level: number, hv = 0): void {
   const h = level === 1 ? 14 : level === 2 ? 26 : 40;
-  // 土の基礎
+  // Earth foundation
   ctx.fillStyle = '#8a7358';
   poly(ctx, px, py, [
     [0.06, 0.06],
@@ -434,7 +434,7 @@ export function drawConstruction(ctx: CanvasRenderingContext2D, px: number, py: 
     [0.86, 0.86],
     [0.14, 0.86],
   ]);
-  // 建物の骨組み(コンクリートの箱を、途中の高さまで)
+  // The building's frame (a concrete box, up to part of the way)
   const done = h * (0.35 + 0.3 * hv);
   ctx.fillStyle = '#9aa0a6';
   wallQuad(ctx, px, py, 'L', 0.8, 0.2, 0.8, 0, done);
@@ -453,7 +453,7 @@ export function drawConstruction(ctx: CanvasRenderingContext2D, px: number, py: 
     ],
     done,
   );
-  // 足場(柱と横木)と、青いシート
+  // Scaffolding (posts and cross-beams) and the blue sheeting
   ctx.fillStyle = 'rgba(70,130,200,0.55)';
   wallQuad(ctx, px, py, 'L', 0.9, 0.1, 0.9, 2, h * 0.8);
   ctx.fillStyle = 'rgba(50,100,170,0.55)';
@@ -479,7 +479,7 @@ export function drawConstruction(ctx: CanvasRenderingContext2D, px: number, py: 
     ctx.lineTo(sx(px, 0.9, 0.1), sy(py, 0.9, 0.1) - z);
     ctx.stroke();
   }
-  // 仮囲いの黄黒のコーン代わりの印
+  // A yellow-and-black marker standing in for a cone around the hoarding
   ctx.fillStyle = '#ffb300';
   poly(
     ctx,
@@ -508,7 +508,7 @@ export function drawConstruction(ctx: CanvasRenderingContext2D, px: number, py: 
   );
 }
 
-/** 建物。b = level | variant<<2(level 1=戸建て 2=集合住宅 3=ビル)。hv=個体差(0..1) */
+/** A building. b = level | variant<<2 (level 1 = detached house, 2 = apartment block, 3 = tower). hv = per-tile variation (0..1) */
 export function drawBuilding(ctx: CanvasRenderingContext2D, px: number, py: number, b: number, hv = 0, detail = true): void {
   if (drawBuildingSprite(ctx, px, py, b, hv)) return;
   const level = b & 3;
@@ -517,7 +517,7 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, px: number, py: numb
   const wall = WALLS[variant];
   const roof = ROOFS[(variant + Math.floor(hv * 4)) & 7];
   if (level === 1) {
-    // 戸建て: 切妻屋根(向きは個体差)
+    // Detached house: gabled roof (direction varies per tile)
     const a = 0.2;
     const z = 0.8;
     const h = 13;
@@ -538,7 +538,7 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, px: number, py: numb
     const alongU = hv < 0.5;
     ctx.beginPath();
     if (alongU) {
-      // 棟が u 方向: 手前(+v)の屋根面と +u 側の妻面
+      // Ridge along u: the front (+v) roof face and the gable end on the +u side
       ctx.fillStyle = shadeHex(wall, 0.78);
       ctx.moveTo(sx(px, z, a), sy(py, z, a) - h);
       ctx.lineTo(sx(px, z, z), sy(py, z, z) - h);
@@ -576,13 +576,13 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, px: number, py: numb
       ctx.stroke();
     }
     if (detail && hv > 0.6) {
-      ctx.fillStyle = '#7a4a3a'; // 煙突
+      ctx.fillStyle = '#7a4a3a'; // chimney
       ctx.fillRect(sx(px, 0.62, 0.42) - 1.5, sy(py, 0.62, 0.42) - h - rh - 4, 3, 7);
     }
     return;
   }
   if (level === 2) {
-    // 集合住宅: 中層・窓の格子・屋上設備
+    // Apartment block: mid-rise, window grid, rooftop equipment
     const a = 0.16;
     const z = 0.84;
     const h = 30 + (variant & 1) * 4;
@@ -594,7 +594,7 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, px: number, py: numb
     if (detail) {
       windows(ctx, px, py, 'L', z, a + 0.04, z - 0.04, 5, h - 4, 3, 3, hv, false);
       windows(ctx, px, py, 'R', z, a + 0.04, z - 0.04, 5, h - 4, 3, 3, hv * 1.7, false);
-      ctx.fillStyle = shadeHex(wall, 0.6); // 床の帯
+      ctx.fillStyle = shadeHex(wall, 0.6); // floor band
       wallQuad(ctx, px, py, 'L', z, a, z, 0, 3);
       wallQuad(ctx, px, py, 'R', z, a, z, 0, 3);
     }
@@ -654,7 +654,7 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, px: number, py: numb
     }
     return;
   }
-  // ビル: ガラスのカーテンウォール・セットバック・アンテナ
+  // Tower: glass curtain wall, setbacks, antenna
   const a = 0.2;
   const z = 0.8;
   const h = 46 + (variant & 3) * 6;
@@ -665,7 +665,7 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, px: number, py: numb
   ctx.fillStyle = shadeHex(glass, 0.74);
   wallQuad(ctx, px, py, 'R', z, a, z, 0, h);
   if (detail) {
-    // 水平の窓帯と柱
+    // Horizontal window bands and pillars
     for (let zz = 4; zz < h - 2; zz += 6) {
       ctx.fillStyle = 'rgba(255,255,255,0.20)';
       wallQuad(ctx, px, py, 'L', z, a, z, zz, zz + 2);
@@ -675,7 +675,7 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, px: number, py: numb
     ctx.fillStyle = 'rgba(10,30,60,0.28)';
     for (const u of [0.35, 0.5, 0.65]) wallQuad(ctx, px, py, 'L', z, u - 0.006, u + 0.006, 0, h);
     ctx.fillStyle = 'rgba(255,255,255,0.18)';
-    wallQuad(ctx, px, py, 'L', z, a, a + 0.05, 0, h); // 角のハイライト
+    wallQuad(ctx, px, py, 'L', z, a, a + 0.05, 0, h); // corner highlight
   }
   ctx.fillStyle = '#c9ced6';
   poly(
@@ -690,7 +690,7 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, px: number, py: numb
     ],
     h,
   );
-  // セットバックした上層
+  // Upper floors set back
   const t1 = 0.32;
   const t2 = 0.68;
   const hh2 = 9;
@@ -723,8 +723,8 @@ export function drawBuilding(ctx: CanvasRenderingContext2D, px: number, py: numb
   }
 }
 
-// ---------------------------------------------------------------- 高低差・橋・トンネル
-const LIFT_PX = 8; // 1段の高さ(constants.LEVEL_PX と同値)
+// ---------------------------------------------------------------- Height differences, bridges, tunnels
+const LIFT_PX = 8; // height of one level (same value as constants.LEVEL_PX)
 
 function liftedQuad(ctx: CanvasRenderingContext2D, px: number, py: number, pts: [number, number, number][]): void {
   ctx.beginPath();
@@ -739,8 +739,8 @@ function liftedQuad(ctx: CanvasRenderingContext2D, px: number, py: number, pts: 
 }
 
 /**
- * スロープ: 1段高い隣(方向 d)へ向かう路面を、中心(高さ0)→辺(1段=8px)で持ち上げて描く。
- * 低い側のタイルに重ねる。kind='road' はアスファルト、'rail' はバラスト+レール。
+ * Slope: draw a road surface heading to the neighbour one level higher (direction d), lifted from the centre (height 0) to the edge (1 level = 8 px).
+ * Overlaid on the lower tile. kind='road' is asphalt, 'rail' is ballast + rails.
  */
 export function drawRamp(ctx: CanvasRenderingContext2D, px: number, py: number, d: number, kind: 'road' | 'rail'): void {
   const c = 0.5;
@@ -779,21 +779,21 @@ export function drawRamp(ctx: CanvasRenderingContext2D, px: number, py: number, 
 }
 
 /**
- * 橋の中間タイル。px,py は地面(段)基準の頂点、lift は地面から路面までの高さ(px)。
- * 橋脚 → 桁(厚み) → 路面(道路/線路) → 欄干 の順に描く。
+ * A middle tile of a bridge. px,py is the vertex at ground (level) height, lift is the height from the ground to the road surface (px).
+ * Drawn in the order piers -> girder (thickness) -> road surface (road/rail) -> railings.
  */
 export function drawBridgeTile(ctx: CanvasRenderingContext2D, px: number, py: number, lift: number, road: number, rail: number, hv: number): void {
   const bits = road ? road : rail;
   const alongX = !!(bits & 10); // E/W
   const half = 0.3;
-  // 橋脚(タイル中心の柱)
+  // Piers (a column at the tile centre)
   const cxp = sx(px, 0.5, 0.5);
   const cyp = sy(py, 0.5, 0.5);
   ctx.fillStyle = '#8d8a84';
   ctx.fillRect(cxp - 3, cyp - lift, 6, lift + 2);
   ctx.fillStyle = '#6f6c67';
   ctx.fillRect(cxp + 1, cyp - lift, 2, lift + 2);
-  // 桁の厚み
+  // Thickness of the girder
   const gird = alongX
     ? [
         [0, 0.5 - half],
@@ -821,7 +821,7 @@ export function drawBridgeTile(ctx: CanvasRenderingContext2D, px: number, py: nu
   }
   if (road) drawRoad(ctx, px, py - lift, road, hv, false);
   else drawRail(ctx, px, py - lift, rail);
-  // 欄干(両側の細い線)
+  // Railings (thin lines on both sides)
   ctx.fillStyle = '#b9b6ae';
   for (const sd of [-0.29, 0.29]) {
     const a: [number, number] = alongX ? [0, 0.5 + sd] : [0.5 + sd, 0];
@@ -837,11 +837,11 @@ export function drawBridgeTile(ctx: CanvasRenderingContext2D, px: number, py: nu
 }
 
 /**
- * トンネル口: 見える側(E/S)の崖の壁面の根元に、暗い口とレンガ色の縁を描く。
- * drop = この(高い)タイルの上面から、外側の路面までの高さ(px)
+ * Tunnel portal: at the foot of the cliff wall on the visible side (E/S), draw a dark opening with a brick-colored rim.
+ * drop = the height (px) from the top face of this (higher) tile to the road surface outside
  */
 export function drawTunnelPortal(ctx: CanvasRenderingContext2D, px: number, py: number, d: number, drop: number): void {
-  if (d !== 1 && d !== 2) return; // 北・西側の壁は画面に描かれない
+  if (d !== 1 && d !== 2) return; // walls on the north and west sides are not drawn on screen
   const [ex, ey] = E[d];
   const [nx, ny] = [-ey, ex];
   const c = 0.5;
