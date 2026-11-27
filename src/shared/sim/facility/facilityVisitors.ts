@@ -48,9 +48,10 @@ export function adAvailable(f: Facility, day: number): string | null {
 /**
  * Day close: decide each facility's visitors and turn the company's own (player) facilities' share into sales.
  * pay: the company that receives a facility's sales (multiplayer: the facility's owner; solo: the player). If null, it is not counted as sales (other companies' and towns' facilities).
+ * visitorMul: a national policy's multiplier on visitors (e.g. tourism promotion).
  * Returns: total visitors
  */
-export function dailyVisitors(map: GameMap, transit: Transit, day: number, rng: () => number, pay: (f: Facility, amount: number) => void): number {
+export function dailyVisitors(map: GameMap, transit: Transit, day: number, rng: () => number, pay: (f: Facility, amount: number) => void, visitorMul = 1): number {
   const fs = map.facilities.filter((f) => VISITOR_TYPES.includes(f.type));
   if (!fs.length) return 0;
   const cell = 32;
@@ -107,7 +108,7 @@ export function dailyVisitors(map: GameMap, transit: Transit, day: number, rng: 
     // Quality: novelty (popularity falls as it ages) and reputation (moves gradually toward satisfaction) affect visitors. Reputation is decided by price, equipment, stations, and crowding
     f.renov ??= day;
     const fresh = freshness(f, day);
-    v *= fresh * repMul(repOf(f));
+    v *= fresh * repMul(repOf(f)) * visitorMul;
     f.rep = nextRep(repOf(f), satisfaction({ grade: gradeOf(f), priceMul: priceMul(f), served: station, crowded: v >= cap * 0.95, fresh }));
     f.visits = (f.visits ?? 0) + v;
     total += v;

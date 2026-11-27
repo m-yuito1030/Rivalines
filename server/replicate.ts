@@ -310,6 +310,7 @@ export class Replicator {
         pacts: sim.pacts.toJSON(),
         auctions: sim.auctions.toJSON(),
         weekly: sim.weekly.toJSON(),
+        gov: sim.govInfoFor(c.id),
       });
     }
   }

@@ -6,7 +6,7 @@ import type { NewFacilityType } from './world/facilities';
 import type { PactState } from './sim/economy/pacts';
 import type { AuctionState } from './sim/economy/auctions';
 import type { WeeklyState } from './sim/economy/weekly';
-
+import type { GovInfo } from './sim/economy/government';
 export type Pt = { x: number; y: number };
 
 /** Kinds of elements to demolish */
@@ -195,6 +195,8 @@ export type ServerMsg =
       pacts: PactState;
       auctions: AuctionState;
       weekly: WeeklyState;
+      /** The government: the current and next national policy, the stance, the treasury, and this company's standing */
+      gov?: GovInfo;
     }
   | { type: 'towns'; towns: unknown[] }
   | { type: 'fac'; facilities: unknown[] }

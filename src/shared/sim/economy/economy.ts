@@ -68,8 +68,8 @@ export const TRAINING = { max: 5, costCut: 0.04, demandUp: 0.03, days: 7, dailyP
 export const trainingCost = (level: number): number => Math.round((2_000_000 * Math.pow(level + 1, 1.5)) / 100_000) * 100_000;
 
 /** Management categories (labels for sales and costs) */
-export const REVENUE_CATS = ['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'sale', 'toll-in', 'gift-in', 'realestate'] as const;
-export const COST_CATS = ['build', 'vehicle', 'running', 'upkeep', 'interest', 'acquire', 'tax', 'dividend', 'toll-out', 'gift-out', 'ad', 'training'] as const;
+export const REVENUE_CATS = ['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'sale', 'toll-in', 'gift-in', 'realestate', 'subsidy'] as const;
+export const COST_CATS = ['build', 'vehicle', 'running', 'upkeep', 'interest', 'acquire', 'tax', 'dividend', 'toll-out', 'gift-out', 'ad', 'training', 'levy'] as const;
 export const CAT_LABEL: Record<string, string> = {
   'fare-road': '運賃(バス)',
   'fare-rail': '運賃(鉄道)',
@@ -92,6 +92,8 @@ export const CAT_LABEL: Record<string, string> = {
   'gift-out': '資金支援(送金)',
   ad: '広告費',
   training: '従業員の研修費',
+  subsidy: '政府の補助金',
+  levy: '大企業への課税',
 };
 
 export interface DayRecord {
@@ -183,6 +185,10 @@ export class Company {
   /** Staff training level (0..TRAINING.max), and training in progress (days left until it finishes) */
   training = 0;
   trainingPending?: { to: number; left: number };
+  /** Set by the government each day (not saved; it is derived from the date): construction cost multiplier, running cost multiplier, and the corporate tax rate for the next fiscal close */
+  buildMul = 1;
+  govRunMul = 1;
+  taxRate = TAX_RATE;
 
   /** Multiplier on running costs (lowered by training) */
   get costMul(): number {
@@ -218,8 +224,10 @@ export class Company {
 
   /** Pay if funds suffice and return true. Do nothing if they do not */
   spend(cat: string, amount: number): boolean {
-    if (!this.afford(amount)) return false;
-    this.pay(cat, amount);
+    // A national policy can make construction cheaper (or dearer)
+    const real = cat === 'build' ? Math.round(amount * this.buildMul) : amount;
+    if (!this.afford(real)) return false;
+    this.pay(cat, real);
     return true;
   }
 
@@ -273,7 +281,7 @@ export class Company {
     let running = 0;
     const mine = (routeId: number) => ownerId === undefined || transit.routes.get(routeId)?.owner === ownerId;
     for (const v of transit.vehicles) if (mine(v.routeId)) running += vehiclePrice(modelOf(v.modelId), v.cars) * RUNNING_RATE;
-    this.pay('running', Math.round(running * this.costMul));
+    this.pay('running', Math.round(running * this.costMul * this.govRunMul));
     // Upkeep of stations, stops, depots, and facilities
     let upkeep = 0;
     for (const s of transit.stops.values()) if (ownerId === undefined || s.owner === ownerId) upkeep += stopUpkeep(s);
@@ -344,9 +352,9 @@ export class Company {
   closeFiscalYear(period: number, assets: number): FiscalReport {
     const f = this.fy;
     const sum = (cats: readonly string[]) => cats.reduce((a, k) => a + (f[k] ?? 0), 0);
-    const revenue = sum(['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'toll-in', 'realestate']);
+    const revenue = sum(['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'toll-in', 'realestate', 'subsidy']);
     const running = f.running ?? 0;
-    const upkeep = (f.upkeep ?? 0) + (f['toll-out'] ?? 0) + (f.ad ?? 0) + (f.training ?? 0);
+    const upkeep = (f.upkeep ?? 0) + (f['toll-out'] ?? 0) + (f.ad ?? 0) + (f.training ?? 0) + (f.levy ?? 0);
     const depreciation = Math.round(this.infra * DEPRECIATION_RATE);
     this.infra -= depreciation;
     const opProfit = revenue - running - upkeep - depreciation;
@@ -357,7 +365,7 @@ export class Company {
     if (preTax > 0) {
       const used = Math.min(this.loss, preTax);
       this.loss -= used;
-      tax = Math.round((preTax - used) * TAX_RATE);
+      tax = Math.round((preTax - used) * this.taxRate);
     } else this.loss += -preTax;
     const nwBefore = this.netWorth(assets);
     this.pay('tax', tax);

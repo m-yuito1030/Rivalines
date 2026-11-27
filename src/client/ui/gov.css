@@ -1,0 +1,11 @@
+/* The government badge (national policy) and its details */
+#gov { background: #000a; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+#gov.alert { background: #5a3d1ccc; color: #ffe2b8; }
+#govInfo { position: absolute; top: 76px; right: 8px; width: 300px; max-width: calc(100vw - 16px); background: #101c2c; border: 1px solid #345; border-radius: 10px; padding: 10px 12px; font-size: 12px; line-height: 1.5; pointer-events: auto; z-index: 8; }
+#govInfo[hidden] { display: none; }
+#govInfo h4 { margin: 0 0 4px; font-size: 14px; color: #ffcf5a; }
+#govInfo .gp { margin: 6px 0; padding: 6px 8px; background: #0b1420; border: 1px solid #345; border-radius: 6px; }
+#govInfo .gp b { color: #9fd0ff; }
+#govInfo .muted { color: #789; }
+#govInfo .gx { float: right; background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; width: 26px; height: 26px; cursor: pointer; }
+@media (pointer: coarse), (max-width: 820px) { #govInfo { top: calc(90px + env(safe-area-inset-top)); } #gov { font-size: 11px; } }

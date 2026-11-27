@@ -128,8 +128,8 @@ export class FinancePanel extends ModalPanel {
     const dt = this.getDate();
     const f = c.fy;
     const fsum = (cats: readonly string[]) => cats.reduce((a, k) => a + (f[k] ?? 0), 0);
-    const fRev = fsum(['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'realestate']);
-    const fOp = fRev - (f.running ?? 0) - (f.upkeep ?? 0); // depreciation is fixed at the end of the period
+    const fRev = fsum(['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'realestate', 'subsidy']);
+    const fOp = fRev - (f.running ?? 0) - (f.upkeep ?? 0) - (f.levy ?? 0); // depreciation is fixed at the end of the period
     h += `<h3>${tr('決算(第{period}期 {year}年{month}月{day}日 / Q{quarter} ・ 3月末決算)', { period: dt.period, year: dt.year, month: dt.month, day: dt.day, quarter: dt.quarter })}</h3>`;
     h += `<div class="fgrid"><div>${tr('期首来の売上')}</div><div class="n">${yen(fRev)}</div><div>${tr('期首来の営業利益(減価償却前)')}</div><div class="n ${fOp < 0 ? 'neg' : ''}">${yen(fOp)}</div><div>${tr('インフラの簿価(毎期10%償却) / 繰越欠損金')}</div><div class="n">${yen(c.infra)} / ${yen(c.loss)}</div><div>${tr('法人税率')}</div><div class="n">${tr('{TAX_RATE}%(繰越欠損金で相殺)', { TAX_RATE: Math.round(TAX_RATE * 100) })}</div></div>`;
     h += `<div class="frow">${tr('配当性向:')} ${PAYOUT_OPTIONS.map((p) => `<button data-fa="payout" data-amount="${p}" class="${c.payout === p ? 'on' : ''}">${Math.round(p * 100)}%</button>`).join('')}<span class="muted"> ${tr('決算で当期純利益の何割を配当に回すか(株価にやや好影響)')}</span></div>`;

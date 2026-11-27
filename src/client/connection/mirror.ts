@@ -6,6 +6,7 @@ import type { MyVeh, PlayerInfo, ServerMsg } from '../../shared/protocol';
 import type { PactState } from '../../shared/sim/economy/pacts';
 import type { AuctionState } from '../../shared/sim/economy/auctions';
 import type { WeeklyState } from '../../shared/sim/economy/weekly';
+import type { GovInfo } from '../../shared/sim/economy/government';
 import type { Route, Stop, Depot, Vehicle } from '../../shared/sim/network/transit';
 
 /** Reflect the world that arrived from the server into the GameMap / Simulation used for drawing and UI (the client does not advance the world) */
@@ -20,6 +21,8 @@ export class Mirror {
   auctions: AuctionState = { lots: [], rights: [], nextId: 1 };
   /** Weekly ranking */
   weekly: WeeklyState = { week: 1, base: [] };
+  /** The government's current state as sent by the server (null before the first message) */
+  gov: GovInfo | null = null;
   /** Whether the first structure and finance data have arrived */
   ready = { struct: false, misc: false, towns: false };
   onFirst: (() => void) | null = null;
@@ -102,6 +105,7 @@ export class Mirror {
         this.pacts = msg.pacts ?? this.pacts;
         this.auctions = msg.auctions ?? this.auctions;
         this.weekly = msg.weekly ?? this.weekly;
+        this.gov = msg.gov ?? this.gov;
         this.ready.misc = true;
         break;
       case 'towns':
