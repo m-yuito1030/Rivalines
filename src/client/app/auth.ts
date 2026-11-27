@@ -1,7 +1,7 @@
 import { Simulation, type SimState } from '../../shared/sim/simulation';
 import { makeWorldMap } from '../../shared/world/bigTerrain';
 import type { GameMap } from '../../shared/world/gameMap';
-import { BASE, net } from '../connection/net';
+import { BASE, net, toLoginScreen } from '../connection/net';
 import { Mirror } from '../connection/mirror';
 import { $, sleep } from './dom';
 import { tr } from '../i18n';
@@ -156,7 +156,7 @@ export function initAuth(startGame: StartGame): void {
   }
   resumeOther.addEventListener('click', () => {
     net.logout();
-    location.reload();
+    toLoginScreen();
   });
   {
     const saved = net.saved();
@@ -174,7 +174,7 @@ export function initAuth(startGame: StartGame): void {
     if (code === 4001 || code === 4005) {
       alert(tr(code === 4005 ? '利用停止または退会により、切断されました' : '運営により切断されました(パスワードの変更を含む)。もう一度ログインしてください'));
       net.logout();
-      location.reload();
+      toLoginScreen();
       return;
     }
     // On a network switch, a phone going to the background, a server restart, and so on: wait until it is back and rejoin automatically (the login is saved, so it just resumes)
