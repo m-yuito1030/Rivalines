@@ -186,8 +186,6 @@ export const JA_UI: Catalog = {
   'ui.uname.placeholder': '2～16文字',
   'ui.startForm.t2': 'パスワード',
   'ui.upw.placeholder': '6文字以上',
-  'ui.codeRow': '招待コード',
-  'ui.ucode.placeholder': '新規登録時に必要です。',
   'ui.go': 'ログイン',
   'ui.register': '新規登録',
   'ui.startForm.t3': '新規登録すると、',

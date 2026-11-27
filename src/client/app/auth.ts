@@ -72,7 +72,7 @@ export function initAuth(startGame: StartGame): void {
     errEl.textContent = '';
     authBusy(true);
     try {
-      const r = await net.auth(kind, $<HTMLInputElement>('uname').value, $<HTMLInputElement>('upw').value, $<HTMLInputElement>('ucode').value.trim());
+      const r = await net.auth(kind, $<HTMLInputElement>('uname').value, $<HTMLInputElement>('upw').value);
       if (!r.ok) {
         errEl.textContent = r.reason ? tr(r.reason) : tr('失敗しました');
         return authBusy(false);
@@ -92,14 +92,13 @@ export function initAuth(startGame: StartGame): void {
   $('register').addEventListener('click', () => void doAuth('register'));
   void fetch(`${BASE}api/status`)
     .then((r) => r.json())
-    .then((s: { world: { size: number }; accounts: number; maxOnline: number; online: number; invite?: boolean }) => {
+    .then((s: { world: { size: number }; accounts: number; maxOnline: number; online: number }) => {
       note.textContent = tr('サーバー稼働中: {size}² / 登録{accounts}人 / オンライン{online}/{max}人', {
         size: s.world.size,
         accounts: s.accounts,
         online: s.online,
         max: s.maxOnline,
       });
-      $('codeRow').hidden = !s.invite; // 招待コードが必要なサーバーだけ、入力欄を出す
     })
     .catch(() => (note.textContent = tr('サーバーに接続できません')));
   const serverUp = () =>
