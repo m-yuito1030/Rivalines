@@ -9,10 +9,10 @@ import { net } from '../connection/net';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
-/** 入札: 街ごとの独占権の競り。落札した会社だけが、その街の範囲にその種類の施設を建てられる */
+/** Auctions: bidding for monopoly rights per town. Only the winning company may build that kind of facility within the town's area */
 export class AuctionPanel extends ModalPanel {
   private pressed = false;
-  /** 入札額の入力(万円)。再描画しても保つ */
+  /** The bid amount input (in 10,000 yen). Kept across redraws */
   private inputs = new Map<number, string>();
 
   constructor(

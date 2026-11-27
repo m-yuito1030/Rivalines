@@ -25,8 +25,8 @@ interface Group {
 }
 
 /**
- * 一覧画面: 街(段階ごと)と、機器(駅・バス停・空港・経由点・車両基地・施設)をグループ別に並べる。
- * 項目をタップすると、その場所へ移動する。検索で名前を絞り込める。
+ * List screen: towns (by tier) and equipment (stations, bus stops, airports, waypoints, depots, facilities) arranged in groups.
+ * Tapping an item moves to that place. A search narrows the names.
  */
 export class ListPanel extends ModalPanel {
   private tab: 'town' | 'equip' | 'veh' = 'town';
@@ -88,7 +88,7 @@ export class ListPanel extends ModalPanel {
     this.render();
   }
 
-  /** 以前の呼び名(ウィンドウ管理用) */
+  /** The earlier name (for window management) */
   show(): void {
     this.open();
   }
@@ -132,7 +132,7 @@ export class ListPanel extends ModalPanel {
     for (const f of this.map.facilities) {
       const spec = FACILITY_SPECS[f.type];
       const own = (f.owner ?? 'player') === 'player' ? (f.playerId === net.id ? tr('自社') : tr('他のプレイヤー')) : f.owner === 'public' ? tr('公共') : tr('民間');
-      if (this.mineOnly && !((f.owner ?? 'player') === 'player' && f.playerId === net.id)) continue; // 自社のみ: 民間・公共・他のプレイヤーの施設は出さない
+      if (this.mineOnly && !((f.owner ?? 'player') === 'player' && f.playerId === net.id)) continue; // own only: do not show private, public, or other players' facilities
       let grp = facG.get(f.type);
       if (!grp) facG.set(f.type, (grp = g(`f-${f.type}`, `${spec.icon} ${spec.name}`)));
       grp.items.push({ name: f.name, sub: own, x: f.x0, y: f.y0 });
@@ -141,7 +141,7 @@ export class ListPanel extends ModalPanel {
     return [rail, bus, air, way, dRail, dRoad, dAir, ...facs];
   }
 
-  /** 車両: 路線ごと(自社の全車両。視界の外も含む)。タップで現在位置へ */
+  /** Vehicles: per route (all of the company's vehicles, including out-of-view ones). Tap to go to the current position */
   private vehGroups(): Group[] {
     const by = new Map<number, Group>();
     const ST = [tr('走行中'), tr('停車中'), tr('経路なし'), tr('待機')];
@@ -176,7 +176,7 @@ export class ListPanel extends ModalPanel {
     html += '</div>';
     for (const gr of groups) {
       const shown = gr.items.filter((i) => this.match(i.name));
-      if (!shown.length) continue; // 空のグループは出さない
+      if (!shown.length) continue; // do not show empty groups
       const isOpen = this.openGroups.has(gr.key) || (!!this.q && shown.length > 0);
       html += `<div class="lgroup"><button class="lhead" data-gk="${gr.key}">${isOpen ? '▼' : '▶'} ${esc(gr.title)} <em>${shown.length}</em></button>`;
       if (isOpen) {
@@ -189,7 +189,7 @@ export class ListPanel extends ModalPanel {
       html += '</div>';
     }
     if (html === this.last && !force) return;
-    // 検索中の入力欄を壊さないよう、入力欄にフォーカスがあるときは一覧部分だけ差し替える
+    // So the search input is not destroyed, replace only the list part when the input has focus
     const active = document.activeElement;
     if (active && (active as HTMLElement).dataset?.lq !== undefined && this.body.contains(active)) {
       const list = this.body.querySelector('.llist');

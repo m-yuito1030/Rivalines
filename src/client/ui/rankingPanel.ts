@@ -11,7 +11,7 @@ import { net } from '../connection/net';
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const ICON = { road: '🚌', rail: '🚆', air: '✈' } as const;
 type Tab = 'company' | 'week' | 'town' | 'stop' | 'route';
-/** 言語を切り替えたときに変わるよう、呼ぶたびに訳す */
+/** Translate on every call, so it follows a language switch */
 const tabs = (): [Tab, string][] => [
   ['company', tr('🏢 会社')],
   ['week', tr('📅 週間')],
@@ -20,7 +20,7 @@ const tabs = (): [Tab, string][] => [
   ['route', tr('🛤 路線')],
 ];
 
-/** ランキング画面: 会社(時価総額)・街(人口)・駅/停留所(乗降人数)・路線(利益) */
+/** Ranking screen: companies (market cap), towns (population), stations/stops (boardings and alightings), routes (profit) */
 export class RankingPanel extends ModalPanel {
   private tab: Tab = 'company';
   private pressed = false;

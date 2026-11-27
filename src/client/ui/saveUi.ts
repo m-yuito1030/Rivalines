@@ -8,7 +8,7 @@ export interface SlotHandlers {
   onDelete: (key: string) => void;
 }
 
-/** スロット一覧を描画する。onSave を渡すと「保存」ボタンも出る(ゲーム中のみ) */
+/** Draw the slot list. If onSave is passed, a "Save" button also appears (only in game) */
 export function renderSlots(el: HTMLElement, metas: Record<string, SaveMeta>, h: SlotHandlers): void {
   el.replaceChildren();
   for (const key of SLOTS) {
