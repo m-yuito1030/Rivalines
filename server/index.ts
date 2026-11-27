@@ -26,8 +26,7 @@ const MAX_ONLINE = Number(process.env.MAX_ONLINE ?? process.env.MAX_USERS ?? 100
 /** サーバー全体で、1時間に新規登録できる人数(ボットに大量登録されないための安全弁) */
 const REGISTER_PER_HOUR = Number(process.env.REGISTER_PER_HOUR ?? 300);
 const SAVE_FILE = `${DATA}/world.sav`;
-/** 招待コード(設定すると、新規登録に必要になる。公開サーバーで、見知らぬ人に登録枠を使い切られないようにする) */
-const INVITE_CODE = process.env.INVITE_CODE ?? '';
+/** 鍵の比較(長さが違えば不一致。内容は、時間の差で推測されないよう一定の時間で比べる) */
 const sameCode = (a: string, b: string): boolean => {
   const x = Buffer.from(a);
   const y = Buffer.from(b);
@@ -156,7 +155,6 @@ const server = createServer(async (req, res) => {
       const password = String(b.password ?? '');
       if (url === '/api/register') {
         if (accounts.readOnly) return json(res, 403, { ok: false, reason: '新規登録は本稼働側で行ってください(同じ名前とパスワードで、こちらでも遊べます)' });
-        if (INVITE_CODE && !sameCode(String(b.code ?? ''), INVITE_CODE)) return json(res, 403, { ok: false, reason: '招待コードが違います' });
         if (!registrations.tryTake()) return json(res, 429, { ok: false, reason: '新規登録が混み合っています。しばらくしてからもう一度お試しください' });
         const r = await accounts.register(name, password);
         if (!r.ok) return json(res, 400, r);
@@ -437,7 +435,6 @@ function status() {
     accounts: accounts.count,
     online: clients.size, // 人数だけ(名前は出さない)
     maxOnline: MAX_ONLINE,
-    invite: !!INVITE_CODE,
     perf: { simMs: +perf.sim.toFixed(1), replMs: +perf.repl.toFixed(1), loopMs: +perf.loop.toFixed(1), throttled: sim.throttled },
   };
 }

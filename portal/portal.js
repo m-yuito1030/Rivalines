@@ -63,7 +63,6 @@
     for (const b of document.querySelectorAll('#authForm button')) b.disabled = true;
     try {
       const body = { name: $('uname').value, password: $('upw').value };
-      if (kind === 'register') body.code = $('ucode').value;
       const r = await fetch(`/api/${kind}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       const j = await r.json().catch(() => ({ ok: false, reason: 'サーバーの応答が正しくありません' }));
       if (!j.ok) {
@@ -95,10 +94,6 @@
       location.href = `/${b.dataset.env}/`;
     });
   }
-  // 招待コードが必要なサーバーでは、入力欄を出す
-  status('live').then((s) => {
-    if (s && s.invite) $('codeRow').hidden = false;
-  });
   setInterval(() => !$('choose').hidden && refresh(), 15000);
   show();
 })();

@@ -193,8 +193,6 @@ export const EN_UI: Catalog = {
   'ui.uname.placeholder': '2–16 characters',
   'ui.startForm.t2': 'Password',
   'ui.upw.placeholder': '6+ characters',
-  'ui.codeRow': 'Invitation code',
-  'ui.ucode.placeholder': 'Required to sign up.',
   'ui.go': 'Log in',
   'ui.register': 'Sign up',
   'ui.startForm.t3': 'By signing up, you agree to the ',
