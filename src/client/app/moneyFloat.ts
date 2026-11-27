@@ -2,14 +2,14 @@ import { CAT_LABEL, REVENUE_CATS } from '../../shared/sim/economy/economy';
 import { tr } from '../i18n';
 
 type Ledger = Record<string, number>;
-/** タイル座標(小数)→ 画面の座標。画面の外・見えないときは null */
+/** Tile coordinates (fractional) -> screen coordinates. null if off screen or not visible */
 export type ToScreen = (tx: number, ty: number) => { x: number; y: number } | null;
-/** 浮かぶ数字が指す場所(タイル座標)。稼いだ車両の動きに合わせて毎フレーム呼ばれる */
+/** The place (tile coordinates) the floating number points to. Called every frame to follow a moving vehicle that earned */
 type Anchor = () => { x: number; y: number } | null;
 
-/** 自分で操作したときに出る費用(建設費・車両購入・広告・買収・研修)。毎日かかる運行費や維持費は、頻繁すぎるので出さない */
+/** Costs that appear when you act yourself (construction, buying vehicles, advertising, acquisitions, training). Daily running costs and upkeep are not shown, since they are too frequent */
 const SPEND_CATS = ['build', 'vehicle', 'ad', 'acquire', 'training'];
-/** 稼いだものの上に出すので、累計の増え方からは出さない収入(運賃と施設の売上) */
+/** Shown above whatever earned them, so income not derived from the cumulative increase (fares and facility sales) */
 const TARGETED = new Set(['fare-road', 'fare-rail', 'fare-air', 'facility']);
 const LIFE_MS = 1800;
 
@@ -21,16 +21,16 @@ interface Float {
   label: string;
   key: string;
   anchor: Anchor | null;
-  /** 場所が分からないときの、画面上の位置(現金の表示の下) */
+  /** The position on screen when the place is unknown (below the cash display) */
   fixed: { x: number; y: number };
   last: { x: number; y: number } | null;
 }
 
 /**
- * お金の増減を、画面上に一瞬だけ表示する。
- * - 車両が運賃を稼いだら、その車両の上に緑のプラス。施設が1日の売上を稼いだら、その施設の上に緑のプラス。
- * - 建てたときの費用は、建てた場所の上に赤のマイナス(場所が分からないときは現金の表示の下)。
- * 累計(total)の増え方を見て出すので、日付が変わって「今日」の集計が戻っても、誤って出ない。
+ * Briefly show changes in money on screen.
+ * - When a vehicle earns a fare, a green plus above that vehicle. When a facility earns its daily sales, a green plus above that facility.
+ * - Construction costs show as a red minus above where you built (below the cash display if the place is unknown).
+ * It is based on how the cumulative total grows, so when the date changes and "today"'s totals reset, nothing is shown by mistake.
  */
 export class MoneyFloat {
   private prev: Ledger | null = null;
@@ -43,21 +43,21 @@ export class MoneyFloat {
     private toScreen: ToScreen,
   ) {}
 
-  /** 建てた場所を覚えておく(そのあと届く費用を、この場所の上に出す) */
+  /** Remember where something was built (costs that arrive afterwards are shown above this place) */
   setSpendAt(x: number, y: number): void {
     this.spendAt = { x, y, at: performance.now() };
   }
 
-  /** 稼いだものの上に、緑のプラスを出す(同じものが短い間にまた稼いだら、数字を足す) */
+  /** Show a green plus above whatever earned (if the same thing earns again soon, add to the number) */
   earn(key: string, amount: number, label: string, anchor: Anchor): void {
     this.add(true, amount, label, key, anchor);
   }
 
-  /** 累計の記録(total)を渡す。前回からの増減のうち、場所が決まっていないものを表示する */
+  /** Pass the cumulative record (total). Of the increases and decreases since last time, show those whose place is not decided */
   update(total: Ledger): void {
     const prev = this.prev;
     this.prev = { ...total };
-    if (!prev) return; // 最初の1回は基準にするだけ(ログイン直後に、これまでの累計が一度に出ないように)
+    if (!prev) return; // the first time is just the baseline (so the cumulative total up to now does not appear at once right after login)
     const now = performance.now();
     const items: { cat: string; amount: number; plus: boolean }[] = [];
     for (const cat of REVENUE_CATS) {
@@ -69,7 +69,7 @@ export class MoneyFloat {
       const d = (total[cat] ?? 0) - (prev[cat] ?? 0);
       if (d > 0) items.push({ cat, amount: d, plus: false });
     }
-    // 一度に出すのは大きい順に3つまで(画面を埋めない)
+    // Show at most three at once, largest first (so the screen does not fill up)
     items.sort((a, b) => b.amount - a.amount);
     const at = this.spendAt && now - this.spendAt.at < 5000 ? this.spendAt : null;
     for (const it of items.slice(0, 3)) {
@@ -79,7 +79,7 @@ export class MoneyFloat {
     }
   }
 
-  /** 毎フレーム: 浮かぶ数字を、稼いだものの位置に合わせて動かし、時間が来たら消す */
+  /** Every frame: move the floating numbers to follow the place that earned, and remove them when their time is up */
   tick(now: number = performance.now()): void {
     for (let i = this.floats.length - 1; i >= 0; i--) {
       const f = this.floats[i];
@@ -98,7 +98,7 @@ export class MoneyFloat {
         }
       } else p = f.fixed;
       if (!p) {
-        f.el.style.display = 'none'; // 画面の外
+        f.el.style.display = 'none'; // off screen
         continue;
       }
       const k = age / LIFE_MS;

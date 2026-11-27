@@ -7,14 +7,14 @@ import type { GameMap } from '../../shared/world/gameMap';
 import { LEVEL_PX } from '../../shared/world/constants';
 
 const KEY = 'simulator-stopnames';
-/** 駅名・停留所名を出す最小のズーム(引きすぎると文字だらけになるので、小さい停留所ほど寄ったときだけ) */
+/** The minimum zoom to show station and stop names (zoomed out too far it would be all text, so smaller stops show only when close) */
 const MIN_ZOOM: Record<Mode, number> = { rail: 0.15, air: 0.15, road: 0.3 };
 const FILL: Record<Mode, number> = { road: 0xfff0b3, rail: 0xb8e0ff, air: 0xd7ffd0 };
 
-/** ズーム zoom で、種別 kind の名前を出すか */
+/** Whether to show the name of kind `kind` at zoom `zoom` */
 export const stopLabelVisibleAt = (kind: Mode, zoom: number): boolean => zoom >= MIN_ZOOM[kind];
 
-/** 駅・バス停・空港の名前を地図の上に表示する(表示/非表示は切り替えられ、設定は保存される) */
+/** Show the names of stations, bus stops, and airports over the map (can be toggled, and the setting is saved) */
 export class StopLabels {
   private texts = new Map<number, Text>();
   private on: boolean;
@@ -47,9 +47,9 @@ export class StopLabels {
     if (!this.on) for (const t of this.texts.values()) t.visible = false;
   }
 
-  /** 毎フレーム: 画面に入っている停留所の名前を置く(w,h=画面の大きさ) */
+  /** Every frame: place the names of stops that are on screen (w,h = the screen size) */
   update(camera: { x: number; y: number; zoom: number }, w: number, h: number): void {
-    // 撤去された停留所のラベルを片付ける
+    // Clean up labels of demolished stops
     for (const [id, t] of this.texts) {
       if (!this.transit.stops.has(id)) {
         t.destroy();

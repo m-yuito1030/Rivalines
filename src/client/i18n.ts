@@ -1,7 +1,7 @@
 /**
- * 画面の言語。ブラウザの言語設定から自動で決め、本人が選んだ言語を優先する(選んだ言語は保存される)。
- * 画面の固定の文は index.html の data-i18n / data-i18n-title / data-i18n-placeholder で、
- * プログラムで出す文は t('キー') で、言語ごとの文に差し替える。
+ * The display language. Decided automatically from the browser's language settings, with the player's own choice taking priority (the choice is saved).
+ * Fixed sentences on the screen are swapped per language via data-i18n / data-i18n-title / data-i18n-placeholder in index.html,
+ * and sentences produced by the program via t('key').
  */
 import { LANG_CODES, LOCALES, type LangCode, type Locale, type Params, detectLang, isLangCode } from '../shared/i18n';
 
@@ -21,29 +21,29 @@ const listeners = new Set<(l: Locale) => void>();
 export const locale = (): Locale => current;
 export const lang = (): LangCode => current.code;
 
-/** 現在の言語で、キーの文を取り出す */
+/** Get the sentence for a key in the current language */
 export const t = (key: string, params?: Params): string => current.t(key, params);
-/** 日本語の文を、現在の言語に訳す(訳がなければ日本語のまま) */
+/** Translate a Japanese sentence into the current language (stays Japanese if there is no translation) */
 export const tr = (ja: string, params?: Params): string => current.tr(ja, params);
 export const tn = (key: string, n: number, params?: Params): string => current.tn(key, n, params);
 export const money = (n: number): string => current.money(n);
 export const num = (n: number): string => current.number(n);
 
-/** 言語が変わったときに呼ばれる関数を登録する(動的に作った文を、作り直すため) */
+/** Register a function to call when the language changes (to rebuild dynamically created sentences) */
 export function onLangChange(fn: (l: Locale) => void): void {
   listeners.add(fn);
 }
 
-/** index.html の固定の文を、現在の言語に差し替える */
+/** Swap the fixed sentences in index.html for the current language */
 export function applyDom(root: ParentNode = document): void {
   document.documentElement.lang = current.tag;
   root.querySelectorAll<HTMLElement>('[data-i18n]').forEach((el) => {
     const text = current.t(el.dataset.i18n!);
     el.textContent = text;
-    // ドロップダウンのボタンは、選んだ道具がなければ、この文(▾を除く)を表示に戻す
+    // If no tool is selected, a dropdown button goes back to showing this sentence (without the down arrow)
     if (el.dataset.def !== undefined) el.dataset.def = text.replace(/\s*▾$/, '');
   });
-  // 利用規約・プライバシーポリシーは、日本語以外では英語のページを開く(訳がある言語を足したら、ここを増やす)
+  // For languages other than Japanese, the terms and privacy policy open the English pages (add here when a language with a translation is added)
   root.querySelectorAll<HTMLAnchorElement>('a[data-legal]').forEach((a) => {
     const page = a.dataset.legal!;
     a.href = current.code === 'ja' ? `./${page}.html` : `./${page}.en.html`;
@@ -52,21 +52,21 @@ export function applyDom(root: ParentNode = document): void {
   root.querySelectorAll<HTMLInputElement>('[data-i18n-placeholder]').forEach((el) => (el.placeholder = current.t(el.dataset.i18nPlaceholder!)));
 }
 
-/** 言語を切り替える(保存し、画面を差し替え、登録された関数に知らせる) */
+/** Switch the language (save it, swap the screen, and notify the registered functions) */
 export function setLang(code: string): void {
   if (!isLangCode(code) || code === current.code) return;
   current = LOCALES[code];
   try {
     localStorage.setItem(SAVED, code);
   } catch {
-    /* 保存できなくても、このページでは切り替わる */
+    /* Even if saving fails, it switches on this page */
   }
   applyDom();
   syncLangSelects();
   listeners.forEach((fn) => fn(current));
 }
 
-/** 言語の選択欄(.lang-select)に、言語の一覧を入れて、切り替えに結びつける */
+/** Fill the language selector (.lang-select) with the list of languages and wire it up to switching */
 function syncLangSelects(): void {
   document.querySelectorAll<HTMLSelectElement>('select.lang-select').forEach((sel) => {
     if (!sel.options.length) {
@@ -82,7 +82,7 @@ function syncLangSelects(): void {
   });
 }
 
-/** 起動時に1回呼ぶ */
+/** Call once at startup */
 export function initI18n(): void {
   applyDom();
   syncLangSelects();

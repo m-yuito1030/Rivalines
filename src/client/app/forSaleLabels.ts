@@ -7,7 +7,7 @@ import type { GameMap } from '../../shared/world/gameMap';
 import { askingPrice, isForSale, listingLeft } from '../../shared/sim/facility/listings';
 import { yen } from '../../shared/sim/economy/economy';
 
-/** 売り出し中だと分かるように、物件の上に「売出 ¥価格 あとN日」を出す(拡大したときだけ。引きすぎると文字だらけになる) */
+/** So it is clear a property is for sale, show "For sale ¥price N days left" above it (only when zoomed in; zoomed far out it would be all text) */
 export const FORSALE_MIN_ZOOM = 0.18;
 
 export class ForSaleLabels {
@@ -26,7 +26,7 @@ export class ForSaleLabels {
       for (const f of this.map.facilities) {
         if (!isForSale(f)) continue;
         const label = this.labelFor(f);
-        // 敷地の中心の少し上(施設の高さぶん)
+        // A little above the centre of the site (by the facility's height)
         const cx = f.x0 + f.w / 2;
         const cy = f.y0 + f.h / 2;
         const wp = Camera.tileToWorld(cx, cy);
@@ -46,7 +46,7 @@ export class ForSaleLabels {
     }
     for (const [id, t] of this.texts) {
       if (seen.has(id)) continue;
-      // 売り出しが終わった(購入・取り壊し)物件のラベルは片付ける
+      // Clean up the labels of properties no longer for sale (bought or demolished)
       if (!this.map.facilities.some((f) => f.id === id && isForSale(f))) {
         t.destroy();
         this.texts.delete(id);

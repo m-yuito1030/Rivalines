@@ -4,7 +4,7 @@ import { $ } from './dom';
 import { onLangChange, tr } from '../i18n';
 import { drawStationPreview, loadStationSprites } from '../render/stationSprites';
 
-/** 駅の設置オプション(番線数・ホーム長・デザイン・向き)の入力欄 */
+/** Inputs for the station placement options (platform tracks, platform length, design, orientation) */
 export class StationPicker {
   readonly opts: StationOptions = { axis: 1, len: 4, tracks: 1, design: STATION_KIT_BASE + 12 };
   private readonly el = $('stationOpts');
@@ -21,7 +21,7 @@ export class StationPicker {
       el.addEventListener('input', sync);
       sync();
     };
-    // デザイン 80 種(様式20 × 変種4)を様式ごとのグループで選べるようにする。選んだものの見本を出す
+    // Let the 80 designs (20 styles x 4 variants) be chosen in groups by style. Show a preview of the chosen one
     const designSel = $<HTMLSelectElement>('optDesign');
     const fillDesigns = () => {
       designSel.innerHTML = '';
@@ -53,12 +53,12 @@ export class StationPicker {
       preview();
     });
     bindOpt('optAxis', (v) => ((opts.axis = v as 0 | 1), preview()));
-    // 言語が変わったら、デザインの名前の一覧と説明を作り直す
+    // When the language changes, rebuild the list of design names and the description
     onLangChange(() => {
       fillDesigns();
       designSel.dispatchEvent(new Event('input'));
     });
-    // 画像の読み込みが終わってから、もう一度見本を描く
+    // After the images finish loading, draw the preview again
     void loadStationSprites().then(preview);
   }
 
@@ -66,7 +66,7 @@ export class StationPicker {
     this.el.hidden = !on;
   }
 
-  /** (x,y) に置けるか(プレビュー用) */
+  /** Whether it can be placed at (x,y) (for the preview) */
   plan(map: GameMap, x: number, y: number, occupied: (idx: number) => boolean): StationPlan {
     return planStation(map, x, y, this.opts, occupied);
   }

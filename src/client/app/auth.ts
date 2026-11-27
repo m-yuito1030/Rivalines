@@ -6,17 +6,17 @@ import { Mirror } from '../connection/mirror';
 import { $, sleep } from './dom';
 import { tr } from '../i18n';
 
-/** 世界に入ったあとの処理(ゲーム画面の起動)。main から渡す */
+/** What to do after entering a world (starting the game screen). Passed in from main */
 export type StartGame = (map: GameMap, sim: Simulation, mirror: Mirror, startAt: { x: number; y: number }, cam?: { x: number; y: number; zoom: number }) => Promise<void>;
 
 /**
- * ログイン・新規登録・保存済みログインでの再開・切断時の自動再接続。
- * ログインに成功したら世界を受信して startGame を呼ぶ。
+ * Login, registration, resuming with a saved login, and automatic reconnection when disconnected.
+ * On a successful login, receive the world and call startGame.
  */
 export function initAuth(startGame: StartGame): void {
   const note = $('note');
   const errEl = $('err');
-  /** クライアントが持つ「ミラー」用の空の状態(世界はサーバーが進める) */
+  /** An empty state for the client's "mirror" (the server advances the world) */
   const emptyState = (): SimState => ({
     tick: 0,
     speed: 1,
@@ -26,11 +26,11 @@ export function initAuth(startGame: StartGame): void {
     rivals: [],
   });
 
-  /** ログイン後、世界に入る */
+  /** After login, enter the world */
   async function enterWorld(token: string): Promise<void> {
     note.textContent = tr('サーバーに接続中...');
     const init = await net.connect(token);
-    // サーバーの版と、いま開いている画面の版が違うとき(更新のあとも古い画面を開いたままのとき)は、再読み込みを促す
+    // When the server's version differs from the version of the page now open (a stale page left open after an update), prompt a reload
     if (init.version && init.version !== __APP_VERSION__) {
       $('updateText').textContent = tr('新しい版({version})が出ました。画面を再読み込みしてください。', { version: init.version });
       const btn = $<HTMLButtonElement>('updateReload');
@@ -56,7 +56,7 @@ export function initAuth(startGame: StartGame): void {
   }
 
   const authBusy = (b: boolean) => document.querySelectorAll<HTMLButtonElement>('#startForm button').forEach((x) => (x.disabled = b));
-  /** 再ビルド後に古い画面が残っていて、消えた配信物を読めなかった場合は、画面を読み直す(1回だけ) */
+  /** If a stale page is left after a rebuild and cannot read a distributed file that is gone, reload the page (only once) */
   const reloadOnStale = () => {
     if (sessionStorage.getItem('stale-reload')) return;
     sessionStorage.setItem('stale-reload', '1');
@@ -105,7 +105,7 @@ export function initAuth(startGame: StartGame): void {
     fetch(`${BASE}api/status`)
       .then((r) => r.ok)
       .catch(() => false);
-  /** 保存済みのログインで入り直す。サーバーが落ちている間は待って再試行し、トークンが無効なときだけログイン画面に戻す */
+  /** Re-enter with the saved login. While the server is down, wait and retry; go back to the login screen only when the token is invalid */
   async function resume(token: string): Promise<void> {
     for (let i = 0; i < 90; i++) {
       try {
@@ -113,7 +113,7 @@ export function initAuth(startGame: StartGame): void {
         return;
       } catch {
         if (await serverUp()) {
-          net.logout(); // サーバーは生きているのに入れない = トークンが無効
+          net.logout(); // the server is up but we cannot get in = the token is invalid
           note.textContent = '';
           return;
         }
@@ -139,7 +139,7 @@ export function initAuth(startGame: StartGame): void {
       location.reload();
       return;
     }
-    // 回線の切り替え・スマホのバックグラウンド・サーバーの再起動などで切れたとき: 戻るまで待って自動で入り直す(ログインは保存済みなのでそのまま再開)
+    // On a network switch, a phone going to the background, a server restart, and so on: wait until it is back and rejoin automatically (the login is saved, so it just resumes)
     const bar = document.createElement('div');
     bar.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:100;background:#b3261e;color:#fff;padding:10px;text-align:center;font-size:14px';
     bar.textContent = tr('接続が切れました。再接続しています…');

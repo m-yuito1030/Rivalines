@@ -4,19 +4,19 @@ import type { ClientMsg, Cmd, CmdResult, ServerMsg } from '../../shared/protocol
 const SESSION = 'simulator-multi-session';
 
 /**
- * このページの置き場所(例: / や /next/)。API と WebSocket は、ここからの相対にする。
- * 本稼働(/live/)と次期バージョン(/next/)は、同じサーバー名の別のパスで配信され、それぞれ別の世界につながる。
+ * Where this page is served from (e.g. / or /next/). The API and WebSocket are relative to it.
+ * Production (/live/) and the next version (/next/) are served under different paths of the same server name, and each connects to its own world.
  */
 export const BASE = location.pathname.replace(/[^/]*$/, '');
 
-/** サーバーとの接続(ログイン・コマンド送信・受信メッセージの配信) */
+/** The connection to the server (login, sending commands, and delivering received messages) */
 export class Net {
   private ws: WebSocket | null = null;
   private req = 0;
   private pending = new Map<number, (r: CmdResult) => void>();
   onMessage: (m: ServerMsg) => void = () => {};
   onClose: (code: number) => void = () => {};
-  /** チャットの受信。画面の準備ができるまでに届いた分は、取っておいて、設定されたときに渡す */
+  /** Receiving chat. Messages that arrive before the screen is ready are held and handed over when the handler is set */
   private chatHandler: ((m: Extract<ServerMsg, { type: 'chat' | 'chatlog' }>) => void) | null = null;
   private chatBuf: Extract<ServerMsg, { type: 'chat' | 'chatlog' }>[] = [];
   setChatHandler(fn: (m: Extract<ServerMsg, { type: 'chat' | 'chatlog' }>) => void): void {
@@ -26,7 +26,7 @@ export class Net {
   you = '';
   id = 0;
 
-  /** 保存済みのセッション(ログインの省略) */
+  /** The saved session (to skip the login) */
   saved(): { token: string; name: string } | null {
     try {
       return JSON.parse(localStorage.getItem(SESSION) ?? 'null');
@@ -51,7 +51,7 @@ export class Net {
     return j;
   }
 
-  /** 接続して、サーバーの最初のメッセージ(init)を待つ */
+  /** Connect and wait for the server's first message (init) */
   connect(token: string): Promise<Extract<ServerMsg, { type: 'init' }>> {
     return new Promise((resolve, reject) => {
       const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -85,7 +85,7 @@ export class Net {
         for (const f of this.pending.values()) f({ ok: false, msg: tr('接続が切れました') });
         this.pending.clear();
         if (!inited) {
-          // セッションは消さない(サーバーが一時的に落ちているだけかもしれない)。無効かどうかは呼び出し側が判断する
+          // Do not delete the session (the server may just be down for a moment). The caller decides whether it is invalid
           reject(
             new Error(
               e.code === 4003
@@ -104,7 +104,7 @@ export class Net {
     if (this.ws?.readyState === 1) this.ws.send(JSON.stringify(m));
   }
 
-  /** 操作をサーバーへ送り、結果を待つ */
+  /** Send an action to the server and wait for the result */
   cmd(cmd: Cmd): Promise<CmdResult> {
     return new Promise((resolve) => {
       if (this.ws?.readyState !== 1) return resolve({ ok: false, msg: tr('接続が切れています') });
@@ -117,7 +117,7 @@ export class Net {
     });
   }
 
-  /** 会社名・プロフィール・色を保存する */
+  /** Save the company name, profile, and color */
   profile(company: string, bio: string, color: number): Promise<CmdResult> {
     return new Promise((resolve) => {
       if (this.ws?.readyState !== 1) return resolve({ ok: false, msg: tr('接続が切れています') });
@@ -130,7 +130,7 @@ export class Net {
     });
   }
 
-  /** 全体チャットに発言する */
+  /** Post to the public chat */
   chat(text: string): Promise<CmdResult> {
     return new Promise((resolve) => {
       if (this.ws?.readyState !== 1) return resolve({ ok: false, msg: tr('接続が切れています') });
@@ -143,7 +143,7 @@ export class Net {
     });
   }
 
-  /** 他のプレイヤーを運営に通報する */
+  /** Report another player to the operators */
   report(target: number, reason: string): Promise<CmdResult> {
     return new Promise((resolve) => {
       if (this.ws?.readyState !== 1) return resolve({ ok: false, msg: tr('接続が切れています') });
@@ -156,7 +156,7 @@ export class Net {
     });
   }
 
-  /** パスワードの変更 / 退会(どちらも、現在のパスワードで確認する) */
+  /** Change the password / leave (both are confirmed with the current password) */
   async account(kind: 'password' | 'leave', name: string, password: string, newPassword = ''): Promise<{ ok: boolean; reason?: string }> {
     const r = await fetch(`${BASE}api/${kind}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, password, newPassword }) });
     const j = (await r.json()) as { ok: boolean; reason?: string; token?: string; name?: string };

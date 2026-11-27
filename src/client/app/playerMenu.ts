@@ -8,13 +8,13 @@ import { $, esc } from './dom';
 interface Deps {
   transit: Transit;
   players: () => PlayerInfo[];
-  /** 結果の通知(トースト) */
+  /** Notification of a result (toast) */
   notify: (msg: string) => void;
-  /** 開く前に、ほかのウィンドウを閉じる */
+  /** Before opening, close the other windows */
   beforeOpen: () => void;
 }
 
-/** メニュー: プレイヤー一覧(送金・全駅の許可)、自社の会社名・プロフィール・色の設定、ログアウト */
+/** Menu: the player list (remittances, granting access to all stations), setting your own company's name, profile, and color, and logout */
 export class PlayerMenu {
   private readonly menu = $('menu');
   private readonly list = $('menuPlayers');
@@ -70,7 +70,7 @@ export class PlayerMenu {
     });
   }
 
-  /** メニューを閉じる */
+  /** Close the menu */
   close(): void {
     this.menu.hidden = true;
   }
