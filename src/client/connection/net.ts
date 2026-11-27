@@ -9,6 +9,15 @@ const SESSION = 'simulator-multi-session';
  */
 export const BASE = location.pathname.replace(/[^/]*$/, '');
 
+/**
+ * Go back to the login screen. When this page is one world of the entrance (/live/ or /next/), that is the portal one level up (where you log in and choose a world);
+ * otherwise (a single-world setup, or the dev server) the page's own login form, by reloading.
+ */
+export function toLoginScreen(): void {
+  if (BASE !== '/') location.href = new URL('../', location.href).href;
+  else location.reload();
+}
+
 /** The connection to the server (login, sending commands, and delivering received messages) */
 export class Net {
   private ws: WebSocket | null = null;

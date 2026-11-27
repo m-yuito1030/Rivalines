@@ -1,7 +1,7 @@
 import type { PlayerInfo } from '../../shared/protocol';
 import type { Transit } from '../../shared/sim/network/transit';
 import { yen } from '../../shared/sim/economy/economy';
-import { net } from '../connection/net';
+import { net, toLoginScreen } from '../connection/net';
 import { tr } from '../i18n';
 import { $, esc } from './dom';
 
@@ -61,12 +61,12 @@ export class PlayerMenu {
       void net.account('leave', net.you, pw()).then((r) => {
         if (!r.ok) return d.notify(r.reason ? tr(r.reason) : tr('失敗しました'));
         alert(tr('退会しました。ご利用ありがとうございました'));
-        location.reload();
+        toLoginScreen();
       });
     });
     $('logoutBtn').addEventListener('click', () => {
       net.logout();
-      location.reload();
+      toLoginScreen();
     });
   }
 
