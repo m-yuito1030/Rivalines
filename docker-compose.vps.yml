@@ -56,17 +56,17 @@ services:
       APP_VERSION: "${LIVE_VERSION:-dev}"
     volumes:
       - rivalines-data:/data
-    # The next version's trial world (fixed at 2048x2048; its data may be wiped). It uses the live side's accounts read-only
+    # The next version's trial world (fixed at 4096x4096; its data may be wiped). It uses the live side's accounts read-only
   server-next:
     build: { context: ., target: server }
     container_name: rivalines-server-next
     restart: unless-stopped
     stop_grace_period: 30s
-    mem_limit: 400m # a small world (about 150 MB of memory). At most 30 concurrent connections
+    mem_limit: 400m # a fixed-size world (about 160 MB of memory at start). At most 30 concurrent connections
     pids_limit: 200
     security_opt: [no-new-privileges:true]
     environment:
-      WORLD_SIZE: "2048"
+      WORLD_SIZE: "4096"
       WORLD_PREGEN: "1"
       SPEED: "${SPEED:-0.5}"
       MAX_ONLINE: "30"
