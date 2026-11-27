@@ -44,6 +44,7 @@ import { InfoPanel, type Selection, findSelection } from './ui/infoPanel';
 import { findVehicle } from './ui/vehicleSelect';
 import { TransitLayer } from './render/transitLayer';
 import { ChatPanel } from './ui/chatPanel';
+import { GovPanel } from './ui/govPanel';
 import { NewsPanel } from './ui/newsPanel';
 import { ConstructionFx } from './render/constructionFx';
 import { LEVEL_PX, SEA_LEVEL } from '../shared/world/constants';
@@ -579,6 +580,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     () => isTouch && closeWindows(),
   );
   const newsPanel = new NewsPanel();
+  const govPanel = new GovPanel((m) => tools.onMessage?.(m));
   const showDots = () => {
     const news = newsPanel.hasUnread;
     $('menuBtn').classList.toggle('unread', news);
@@ -785,6 +787,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       cashEl.className = sim.company.cash < 0 ? 'neg' : '';
     }
     if (uiTick) moneyFloat.update(sim.company.total);
+    if (uiTick) govPanel.update(mirror.gov);
     const dayNo = Math.floor((sim.tick + START_TOD) / DAY_TICKS);
     const wx = weatherOf(map.seed, dayNo);
     if (dayNo !== lastEventDay) {

@@ -1,10 +1,11 @@
 import type { GameMap } from '../world/gameMap';
+import { Government, POLICIES, type GovInfo, classify, corporateTaxRate, policyOfDay, policyOfMonth, runningMul, stanceOfDay, LEVY_BASE, STANCES } from './economy/government';
 import { TOWN_REGION, growTown, makeRng, placeTowns, placeTownsRegion, type Rng } from '../world/towns';
 import { Transit, type TransitSave } from './network/transit';
 import type { Town } from '../world/town';
 import { type RatingState, newRating, stepRating } from './economy/rating';
 import { migrateStep } from './world/migration';
-import { Company, FIRST_OWNER, RUNNING_RATE, TOLL, type CompanyState, vehiclePrice } from './economy/economy';
+import { Company, FIRST_OWNER, RUNNING_RATE, TAX_RATE, TOLL, type CompanyState, vehiclePrice } from './economy/economy';
 import { Pacts, type PactState } from './economy/pacts';
 import { Weekly, type WeeklyState, playerMetrics } from './economy/weekly';
 import { AUCTION_TYPES, Auctions, OPEN_EVERY_DAYS, type AuctionState } from './economy/auctions';
@@ -33,6 +34,8 @@ export interface SimState {
   pacts?: PactState;
   auctions?: AuctionState;
   weekly?: WeeklyState;
+  /** Multiplayer: the government's treasury */
+  gov?: { treasury: number };
   /** Multiplayer: each company's finances */
   players?: [number, CompanyState][];
   transit: TransitSave;
@@ -76,6 +79,8 @@ export class Simulation {
   readonly auctions = new Auctions();
   /** Multiplayer: weekly ranking */
   readonly weekly = new Weekly();
+  /** Multiplayer: the government (policies and the levy on large companies are derived from the date; only the treasury is state) */
+  readonly gov = new Government();
   multi = false;
   /** Cumulative number of people who moved to areas where service started */
   migrated = 0;
@@ -86,6 +91,7 @@ export class Simulation {
     let c = this.players.get(id);
     if (!c) {
       c = new Company();
+      c.buildMul = POLICIES[policyOfDay(this.map.seed, this.day)].buildMul;
       this.players.set(id, c);
     }
     return c;
@@ -208,6 +214,7 @@ export class Simulation {
         this.map.construction.set(i, 1);
       }
       if (restore.weekly) this.weekly.load(restore.weekly);
+      this.gov.load(restore.gov);
       this.rivals = restore.rivals ?? createRivals(this.rivalRng, this.multi ? 20 : 4);
       if (restore.rivalRng !== undefined) this.rivalRng.setState(restore.rivalRng);
       if (restore.pubRng !== undefined) this.pubRng.setState(restore.pubRng);
@@ -253,6 +260,7 @@ export class Simulation {
       auctions: this.auctions.toJSON(),
       sites: [...this.map.sites],
       weekly: this.weekly.toJSON(),
+      gov: this.gov.toJSON(),
       players: [...this.players].map(([id, c]) => [id, c.toJSON()] as [number, CompanyState]),
       towns: this.map.towns,
       townRegions: [...this.map.townRegions],
@@ -314,21 +322,37 @@ export class Simulation {
     if ((this.tick + TICKS_PER_DAY / 4) % TICKS_PER_DAY === 0) {
       const ended = (this.tick + TICKS_PER_DAY / 4) / TICKS_PER_DAY - 1; // the day being closed (start date = 0)
       // Facility visitors (decided by surrounding population, stops, rivals, and advertising). Book sales as today's before closing the day
-      dailyVisitors(this.map, this.transit, ended, this.facRng, (f, amount) => {
-        const c = this.multi ? (f.playerId ? this.playerCompany(f.playerId) : null) : this.company;
-        if (c && (!this.multi || this.online.has(f.playerId!))) {
-          c.earn('facility', amount);
-          if (this.multi) this.facilityEarn.set(f.id, (this.facilityEarn.get(f.id) ?? 0) + amount);
-        }
-      });
+      dailyVisitors(
+        this.map,
+        this.transit,
+        ended,
+        this.facRng,
+        (f, amount) => {
+          const c = this.multi ? (f.playerId ? this.playerCompany(f.playerId) : null) : this.company;
+          if (c && (!this.multi || this.online.has(f.playerId!))) {
+            c.earn('facility', amount);
+            if (this.multi) this.facilityEarn.set(f.id, (this.facilityEarn.get(f.id) ?? 0) + amount);
+          }
+        },
+        this.multi ? POLICIES[policyOfDay(this.map.seed, ended)].visitorMul : 1,
+      );
       if (this.multi) {
+        // The national policy of the day being closed sets the running-cost multiplier (a larger fleet pays more under an environmental policy)
+        const policy = policyOfDay(this.map.seed, ended);
+        const fleet = new Map<number, number>();
+        for (const v of this.transit.vehicles) {
+          const owner = this.transit.routes.get(v.routeId)?.owner;
+          if (owner) fleet.set(owner, (fleet.get(owner) ?? 0) + 1);
+        }
         let first = true;
         for (const [id, c] of this.players) {
           if (!this.online.has(id)) continue; // a disconnected company is left frozen
           if (first) FIRST_OWNER.id = id;
           first = false;
+          c.govRunMul = runningMul(policy, fleet.get(id) ?? 0);
           c.endOfDay(ended, this.map, this.transit, this.rating.score, this.rivals, id);
         }
+        this.governmentDay(ended);
       } else this.company.endOfDay(ended, this.map, this.transit, this.rating.score, this.rivals);
       // Listed properties: set listing dates and demolish those past their deadline, clearing the land
       processListings(this.map, this.day);
@@ -343,7 +367,15 @@ export class Simulation {
       const pa = fiscalPeriodOf(a.year, a.month);
       if (pa !== fiscalPeriodOf(b.year, b.month)) {
         if (this.multi) {
-          for (const [id, c] of this.players) if (this.online.has(id)) c.closeFiscalYear(pa, assetValue(this.map, this.transit, this.rivals, id));
+          // Corporate tax: large companies pay a higher rate, depending on the government's stance and policy
+          const cls = classify(this.rankedOnline());
+          const policy = policyOfDay(this.map.seed, ended);
+          const stance = stanceOfDay(this.map.seed, ended);
+          for (const [id, c] of this.players) {
+            if (!this.online.has(id)) continue;
+            c.taxRate = corporateTaxRate(TAX_RATE, cls.get(id) ?? 'none', policy, stance);
+            c.closeFiscalYear(pa, assetValue(this.map, this.transit, this.rivals, id));
+          }
         } else {
           const rep = this.company.closeFiscalYear(pa, assetValue(this.map, this.transit, this.rivals));
           this.onFiscalClose?.(rep);
@@ -357,6 +389,45 @@ export class Simulation {
         r.dayRevenue = 0;
       }
     }
+  }
+
+  /** The online companies with their net assets (for the government's size classes) */
+  private rankedOnline(): { id: number; netWorth: number }[] {
+    const out: { id: number; netWorth: number }[] = [];
+    for (const id of this.online) {
+      const c = this.players.get(id);
+      if (c) out.push({ id, netWorth: c.netWorth(assetValue(this.map, this.transit, this.rivals, id)) });
+    }
+    return out;
+  }
+
+  /** Multiplayer: government work at a day close. At month end the large companies pay the levy and the treasury is paid out to the small ones; the next day's construction multiplier is set */
+  private governmentDay(ended: number): void {
+    const seed = this.map.seed;
+    if (calendarOf(ended).month !== calendarOf(ended + 1).month) {
+      const r = this.gov.monthly(this.rankedOnline(), policyOfDay(seed, ended), stanceOfDay(seed, ended));
+      for (const [id, amount] of r.levies) this.players.get(id)?.pay('levy', amount);
+      for (const [id, amount] of r.subsidies) this.players.get(id)?.earn('subsidy', amount);
+    }
+    const next = POLICIES[policyOfDay(seed, ended + 1)].buildMul;
+    for (const c of this.players.values()) c.buildMul = next;
+  }
+
+  /** What to show a player about the government right now */
+  govInfoFor(id: number): GovInfo {
+    const seed = this.map.seed;
+    const day = this.day;
+    const d = calendarOf(day);
+    const nm = d.month === 12 ? { y: d.year + 1, m: 1 } : { y: d.year, m: d.month + 1 };
+    const ranked = this.rankedOnline();
+    const size = classify(ranked).get(id) ?? 'none';
+    const policy = policyOfDay(seed, day);
+    const stance = stanceOfDay(seed, day);
+    const nw = ranked.find((c) => c.id === id)?.netWorth ?? 0;
+    const levy = size === 'large' && nw > 0 ? Math.round(nw * LEVY_BASE * POLICIES[policy].levyMul * STANCES[stance].levyMul) : 0;
+    let changeDay = day + 1;
+    while (changeDay - day < 40 && calendarOf(changeDay).month === d.month) changeDay++;
+    return { policy, next: policyOfMonth(seed, nm.y, nm.m), stance, treasury: this.gov.treasury, size, levy, changeDay };
   }
 
   /** Multiplayer: settle auctions and open new ones (once per day close; starting from the most populous towns, decided by the date) */
