@@ -12,13 +12,13 @@ export function rename(cmd: Extract<Cmd, { t: 'rename' }>, ctx: CommandContext):
   const name = clampName(cmd.name);
   if (!name) return fail(tr('名前を入力してください'));
   if (cmd.kind === 'facility') {
-    // 施設: 自社の施設だけ。運営や公式と紛らわしい名前は使えない(禁止の理由は、ユーザー名・会社名と同じく伏せる)
+    // Facilities: your own only. Names that could be mistaken for the operators or an official account are refused (the reason for the refusal is hidden, as for user and company names)
     const f = ctx.map.facilities.find((x) => x.id === cmd.id);
     if (!f) return fail(tr('見つかりません'));
     if ((f.owner ?? 'player') !== 'player' || f.playerId !== who) return fail(tr('自社の施設ではありません'));
     if (isReservedName(name)) return fail(tr('この名前は使えません'));
     f.name = name;
-    ctx.map.facilityVer++; // 施設の一覧を、接続中の全員に送り直す
+    ctx.map.facilityVer++; // resend the facility list to everyone connected
     return { ok: true };
   }
   const e = cmd.kind === 'stop' ? t.stops.get(cmd.id) : t.depots.get(cmd.id);

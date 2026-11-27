@@ -2,13 +2,13 @@ import { deflateRawSync } from 'node:zlib';
 import { appendFileSync } from 'node:fs';
 
 /**
- * 通信量の計測(どれだけ送っているか。クラウドの通信料・サーバーの選び方・圧縮の要否を、実測で決めるため)。
- * 数えるのは「合計の大きさ」と「メッセージの種類ごとの大きさ」だけで、だれが・どこから、という情報は持たない(個人情報は取らない)。
- * 大きさは、JSON の文字列を UTF-8 にしたバイト数(圧縮しない場合に、実際に回線を流れる量)。
- * あわせて、一部のメッセージだけ実際に圧縮してみて、圧縮した場合の割合も見積もる(WebSocket の圧縮を入れる価値があるか)。
+ * Traffic measurement (how much is sent; to decide cloud transfer costs, which server to pick, and whether compression is needed, from measurements).
+ * Only the "total size" and the "size per message kind" are counted; nothing about who or from where is kept (no personal information is collected).
+ * Size is the number of bytes of the JSON string as UTF-8 (what actually flows over the wire when not compressed).
+ * In addition, a sample of messages is really compressed to estimate the ratio when compressed (whether WebSocket compression is worth adding).
  */
 
-/** メッセージの種類(JSON の最初の "type")を取り出す。見つからなければ 'other' */
+/** Extract the message kind (the first "type" in the JSON). 'other' if not found */
 export function msgType(data: string): string {
   const m = /^\{"type":"([A-Za-z_]+)"/.exec(data.slice(0, 48));
   return m ? m[1] : 'other';
@@ -17,7 +17,7 @@ export function msgType(data: string): string {
 interface Bucket {
   msgs: number;
   bytes: number;
-  /** 圧縮の見積もり用: 試しに圧縮した件数・元の大きさ・圧縮後の大きさ */
+  /** For the compression estimate: how many were trial-compressed, the original size, and the compressed size */
   sampled: number;
   sampleRaw: number;
   sampleZip: number;
@@ -25,18 +25,18 @@ interface Bucket {
 const bucket = (): Bucket => ({ msgs: 0, bytes: 0, sampled: 0, sampleRaw: 0, sampleZip: 0 });
 
 export interface TrafficSnapshot {
-  /** 計測した時間(秒) */
+  /** Measured time (seconds) */
   seconds: number;
-  /** 接続していた時間の合計(人·秒) */
+  /** Total time connected (person-seconds) */
   playerSeconds: number;
   out: { msgs: number; bytes: number };
   in: { msgs: number; bytes: number };
   byType: Record<string, { msgs: number; bytes: number; share: number; zipRatio: number | null }>;
-  /** 1 人が接続している間の、1 秒あたりの平均(バイト) */
+  /** The average per second while one person is connected (bytes) */
   perPlayer: { outBps: number; inBps: number };
-  /** 圧縮した場合の、送信量に対する割合の見積もり(0〜1。見積もれないとき null) */
+  /** Estimated ratio to the sent volume if compressed (0-1; null if it cannot be estimated) */
   zipRatio: number | null;
-  /** 同時接続 n 人が、ずっと(24 時間 × 30 日)つながっているとして、1 か月に外へ出る量(GB) */
+  /** The outgoing volume per month (GB), if n concurrent players stay connected all the time (24 hours x 30 days) */
   monthlyOutGB: Record<string, number>;
 }
 
@@ -48,10 +48,10 @@ export class TrafficMeter {
   private startedAt = Date.now();
   private nth = 0;
 
-  /** 圧縮を試す間隔(N 件に 1 件)。重い処理なので、間引く */
+  /** Interval for trying compression (one in N messages). It is heavy, so it is thinned out */
   constructor(private sampleEvery = 64) {}
 
-  /** 送ったメッセージ 1 件を数える */
+  /** Count one sent message */
   sent(data: string | Buffer | ArrayBuffer | Uint8Array): void {
     const isStr = typeof data === 'string';
     const bytes = isStr ? Buffer.byteLength(data) : (data as Uint8Array).byteLength;
@@ -72,13 +72,13 @@ export class TrafficMeter {
     }
   }
 
-  /** 受け取ったメッセージ 1 件を数える */
+  /** Count one received message */
   received(bytes: number): void {
     this.inn.msgs++;
     this.inn.bytes += bytes;
   }
 
-  /** 経過時間(秒)のあいだ、n 人が接続していた */
+  /** Over the elapsed time (seconds), n people were connected */
   presence(players: number, dtSec: number): void {
     this.playerSeconds += players * dtSec;
   }
@@ -106,7 +106,7 @@ export class TrafficMeter {
     };
   }
 
-  /** 計測を最初からやり直す(1 時間ごとの記録のあとに呼ぶ) */
+  /** Start measuring from scratch (call after the hourly record) */
   reset(): void {
     this.out = bucket();
     this.inn = { msgs: 0, bytes: 0 };
@@ -115,7 +115,7 @@ export class TrafficMeter {
     this.startedAt = Date.now();
   }
 
-  /** 画面や記録に出す、1 行の要約 */
+  /** A one-line summary for the screen and the record */
   summary(s: TrafficSnapshot = this.snapshot()): string {
     const mb = (n: number) => (n / 1e6).toFixed(1);
     const top = Object.entries(s.byType)
@@ -127,7 +127,7 @@ export class TrafficMeter {
     return `${s.seconds}秒 平均${avgPlayers.toFixed(1)}人: 出 ${mb(s.out.bytes)}MB 入 ${mb(s.in.bytes)}MB / 1人あたり 出 ${(s.perPlayer.outBps / 1000).toFixed(1)}KB/s 入 ${(s.perPlayer.inBps / 1000).toFixed(2)}KB/s${zip} (${top})`;
   }
 
-  /** 1 時間分などの区切りの記録を、1 行の JSON で追記する(再起動しても残る。個人を特定する情報は入らない) */
+  /** Append a periodic record (e.g. one hour's worth) as one line of JSON (it survives restarts; nothing that identifies a person is included) */
   append(file: string, s: TrafficSnapshot = this.snapshot()): void {
     const line = {
       at: new Date().toISOString(),

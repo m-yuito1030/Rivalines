@@ -9,14 +9,14 @@ export interface Account {
   salt: string;
   hash: string;
   createdAt: number;
-  /** 会社の色 */
+  /** Company color */
   color: number;
-  /** 会社名(表示名。なければアカウント名)とプロフィール(自己紹介) */
+  /** Company name (display name; falls back to the account name) and profile (self-introduction) */
   company?: string;
   bio?: string;
-  /** 最後に見ていた場所(タイル)。次のログインでここから始まる */
+  /** Last place viewed (tile). The next login starts here */
   last?: { x: number; y: number };
-  /** 利用停止(BAN)。理由は本人に見せる */
+  /** Suspension (ban). The reason is shown to the player */
   banned?: { reason: string; at: number };
 }
 
@@ -25,39 +25,39 @@ const kdf = (pw: string, salt: Buffer) => new Promise<Buffer>((res, rej) => scry
 export const validName = (n: string) => /^[\p{L}\p{N}_\-]{2,16}$/u.test(n);
 export const validPassword = (p: string) => p.length >= 6 && p.length <= 72;
 
-/** アカウントの保存の設定 */
+/** Account storage settings */
 export interface AccountsOptions {
   /**
-   * 追随モード: 別のサーバー(本稼働側)が持つアカウントを、読み取り専用で使う。そのディレクトリの accounts.json と token.secret を読む。
-   * 新規登録・停止(BAN)・パスワード変更などは、本稼働側だけができる。この世界ごとの値(会社名・プロフィール・色・最後の場所)だけを、自分のデータ置き場の profiles.json に持つ。
+   * Follower mode: use the accounts owned by another server (the live one), read-only. Reads accounts.json and token.secret from that directory.
+   * Registration, bans, and password changes can only be done on the live side. Only the per-world values (company name, profile, color, last place) are kept, in profiles.json in this world's own data directory.
    */
   followFrom?: string;
-  /** 追随モードで、本稼働側のファイルの更新を確かめる間隔(ミリ秒) */
+  /** In follower mode, how often (ms) to check whether the live side's files changed */
   refreshMs?: number;
 }
 
-/** 追随モードで、世界ごとに持つ値 */
+/** Per-world values kept in follower mode */
 type Overlay = Pick<Account, 'color' | 'company' | 'bio' | 'last'>;
 
-/** アカウントの保存(JSONファイル。書き込みは一時ファイル経由で原子的に) */
+/** Account storage (a JSON file; writes go through a temporary file so they are atomic) */
 export class Accounts {
   private list: Account[] = [];
-  /** ID・名前(小文字)から引く索引。アカウントが多くても、毎回全員を探さない */
+  /** Indexes by ID and by lower-cased name, so a large number of accounts does not mean scanning everyone each time */
   private byIdMap = new Map<number, Account>();
   private byNameMap = new Map<string, Account>();
-  /** トークンの署名鍵(データ置き場に保存する。サーバーを再起動してもログインが切れない) */
+  /** Token signing key (stored in the data directory, so logins survive a server restart) */
   private secret: Buffer;
-  /** 次に振るアカウントID。消したアカウントのIDを使い回さない(別の人が前の人の施設を引き継がないように)。専用ファイルに保存する */
+  /** The next account ID to hand out. IDs of deleted accounts are never reused (so a new person cannot inherit a previous player's facilities). Stored in its own file */
   private nextId = 1;
   private readonly idFile: string;
-  /** 追随モード(本稼働側のアカウントを読み取り専用で使う)の状態 */
+  /** State of follower mode (using the live side's accounts read-only) */
   private readonly followDir?: string;
   private readonly refreshMs: number;
   private overlay: Record<number, Partial<Overlay>> = {};
   private sharedMtime = 0;
   private checkedAt = 0;
 
-  /** 追随モードか(新規登録・停止・パスワード変更はできない) */
+  /** Whether this is follower mode (registration, bans, and password changes are not possible) */
   get readOnly(): boolean {
     return !!this.followDir;
   }
@@ -96,7 +96,7 @@ export class Accounts {
     return `${dirname(this.file)}/profiles.json`;
   }
 
-  /** 追随モード: 本稼働側の accounts.json を読み直し、この世界ごとの値を重ねる */
+  /** Follower mode: re-read the live side's accounts.json and overlay this world's own values */
   private loadShared(): void {
     const sharedFile = `${this.followDir}/accounts.json`;
     this.list = existsSync(sharedFile) ? (JSON.parse(readFileSync(sharedFile, 'utf8')) as Account[]) : [];
@@ -114,7 +114,7 @@ export class Accounts {
     }
   }
 
-  /** 追随モード: 本稼働側のファイルが変わっていたら読み直す(登録・停止などがすぐ反映される) */
+  /** Follower mode: re-read the live side's files if they changed (so registrations and bans take effect immediately) */
   private refresh(): void {
     if (!this.followDir) return;
     const now = Date.now();
@@ -125,7 +125,7 @@ export class Accounts {
     if (m !== this.sharedMtime) this.loadShared();
   }
 
-  /** 追随モード: この世界ごとの値を記録する */
+  /** Follower mode: record this world's own values */
   private recordOverlay(a: Account): void {
     this.overlay[a.id] = { color: a.color, company: a.company ?? '', bio: a.bio ?? '', last: a.last };
   }
@@ -135,7 +135,7 @@ export class Accounts {
     this.byNameMap.set(a.name.toLowerCase(), a);
   }
 
-  /** 署名には、パスワードのハッシュの一部も混ぜる(パスワードを変えると、それまでのトークンが全部無効になる) */
+  /** The signature also mixes in part of the password hash (changing the password invalidates every earlier token) */
   private sign(body: string, a: Account): string {
     return createHmac('sha256', this.secret)
       .update(`${body}.${a.hash.slice(0, 16)}`)
@@ -155,19 +155,19 @@ export class Accounts {
     writeFileSync(this.idFile, String(this.nextId));
   }
 
-  /** 会社名・プロフィール・色の設定。不正なら理由を返す */
+  /** Set company name, profile, and color. On invalid input, returns the reason */
   setProfile(id: number, p: { company?: unknown; bio?: unknown; color?: unknown }): string | null {
     const a = this.byId(id);
     if (!a) return 'アカウントがありません';
     const clean = (s: unknown, max: number): string | null => {
       if (typeof s !== 'string') return null;
-      const v = s.replace(/[\u0000-\u001f\u007f<>]/g, '').trim(); // 制御文字・タグは除く
+      const v = s.replace(/[\u0000-\u001f\u007f<>]/g, '').trim(); // strip control characters and tags
       return [...v].length > max ? null : v;
     };
     const company = clean(p.company, 20);
     const bio = clean(p.bio, 120);
     if (company === null) return '会社名は20文字までです';
-    if (company && isReservedName(company)) return 'その名前は使われています'; // 禁止の理由は伏せ、使用済みと同じ文言にする
+    if (company && isReservedName(company)) return 'その名前は使われています'; // hide the reason for the ban: use the same wording as "already taken"
     if (bio === null) return 'プロフィールは120文字までです';
     if (!Number.isInteger(p.color) || (p.color as number) < 0 || (p.color as number) > 0xffffff) return '色が正しくありません';
     a.company = company || undefined;
@@ -185,7 +185,7 @@ export class Accounts {
     if (this.followDir) this.recordOverlay(a);
   }
 
-  /** 保存(切断時・定期) */
+  /** Save (on disconnect and periodically) */
   flush(): void {
     this.save();
   }
@@ -200,11 +200,11 @@ export class Accounts {
     return this.byIdMap.get(id);
   }
 
-  /** 新規登録。登録できる人数に上限はない(上限があるのは同時接続の数だけ) */
+  /** Register. There is no cap on the number of accounts (only concurrent connections are capped) */
   async register(name: string, password: string): Promise<{ ok: true; account: Account } | { ok: false; reason: string }> {
     if (this.followDir) return { ok: false, reason: '新規登録は本稼働側で行ってください(同じ名前とパスワードで、こちらでも遊べます)' };
     if (!validName(name)) return { ok: false, reason: '名前は2〜16文字(文字・数字・_-)です' };
-    if (isReservedName(name)) return { ok: false, reason: 'その名前は使われています' }; // 禁止の理由は伏せ、使用済みと同じ文言にする
+    if (isReservedName(name)) return { ok: false, reason: 'その名前は使われています' }; // hide the reason for the ban: use the same wording as "already taken"
     if (!validPassword(password)) return { ok: false, reason: 'パスワードは6文字以上です' };
     if (this.byNameMap.has(name.toLowerCase())) return { ok: false, reason: 'その名前は使われています' };
     const salt = randomBytes(16);
@@ -217,7 +217,7 @@ export class Accounts {
       createdAt: Date.now(),
       color: Math.floor(Math.random() * 0xffffff),
     };
-    // 検査のあとに await(ハッシュ計算)があるので、同時に同じ名前が登録されていないか、保存の直前にもう一度確かめる
+    // There is an await (the hash computation) after the checks, so check once more right before saving that nobody registered the same name meanwhile
     if (this.byNameMap.has(name.toLowerCase())) return { ok: false, reason: 'その名前は使われています' };
     account.id = this.nextId++;
     this.list.push(account);
@@ -229,14 +229,14 @@ export class Accounts {
   async verify(name: string, password: string): Promise<Account | null> {
     this.refresh();
     const a = this.byNameMap.get(name.toLowerCase());
-    // 存在しない名前でも同じ時間をかける(ユーザー名の探り出し対策)
+    // Take the same time even for a name that does not exist (defends against username probing)
     const salt = a ? Buffer.from(a.salt, 'hex') : Buffer.alloc(16);
     const h = await kdf(password, salt);
     if (!a) return null;
     return timingSafeEqual(h, Buffer.from(a.hash, 'hex')) ? a : null;
   }
 
-  /** ログイン用のトークン(アカウントID・期限・署名)。サーバーに状態を持たないので、再起動しても有効 */
+  /** Login token (account ID, expiry, signature). The server keeps no state, so it stays valid across restarts */
   issueToken(id: number): string {
     const a = this.byId(id);
     if (!a) return '';
@@ -258,14 +258,14 @@ export class Accounts {
     return this.byNameMap.get(name.toLowerCase());
   }
 
-  /** 名前(または #ID)からアカウントを探す */
+  /** Find an account by name (or #ID) */
   find(who: string): Account | undefined {
     return /^#\d+$/.test(who) ? this.byId(Number(who.slice(1))) : this.byName(who);
   }
 
-  /** 利用停止にする / 解除する */
+  /** Suspend / lift the suspension */
   setBan(id: number, reason: string | null): boolean {
-    if (this.followDir) return false; // 停止・解除は本稼働側だけ
+    if (this.followDir) return false; // suspending and lifting can only be done on the live side
     const a = this.byId(id);
     if (!a) return false;
     a.banned = reason === null ? undefined : { reason: reason.slice(0, 100), at: Date.now() };
@@ -273,7 +273,7 @@ export class Accounts {
     return true;
   }
 
-  /** 不適切な会社名・プロフィールを消す(会社名は、アカウント名に戻る) */
+  /** Remove an inappropriate company name and profile (the company name reverts to the account name) */
   clearText(id: number): boolean {
     if (this.followDir) return false;
     const a = this.byId(id);
@@ -284,7 +284,7 @@ export class Accounts {
     return true;
   }
 
-  /** パスワードの変更(本人は現在のパスワードで確認、管理者は確認なし)。変えると、発行済みのトークンは無効になる */
+  /** Change the password (the owner confirms with the current one; an operator needs no confirmation). Changing it invalidates every issued token */
   async setPassword(id: number, password: string): Promise<string | null> {
     if (this.followDir) return 'パスワードの変更は本稼働側で行ってください';
     const a = this.byId(id);
@@ -298,7 +298,7 @@ export class Accounts {
     return null;
   }
 
-  /** アカウントを消す(世界の会社のデータの片付けは、呼ぶ側で) */
+  /** Delete the account (the caller cleans up the world's company data) */
   remove(id: number): boolean {
     if (this.followDir) return false;
     const a = this.byId(id);

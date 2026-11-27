@@ -3,7 +3,7 @@ import { dirname } from 'node:path';
 
 export interface Report {
   id: number;
-  /** 通報した人・された人(アカウントID)と、その時点の名前(消えたあとでも読めるように) */
+  /** Reporter and reported account IDs, plus their names at the time (so the report stays readable after the account is gone) */
   from: number;
   fromName: string;
   target: number;
@@ -16,7 +16,7 @@ const MAX_STORED = 500;
 const PER_DAY = 5;
 const DAY = 24 * 3600 * 1000;
 
-/** プレイヤーからの通報(運営が見る)。公開しない・個人情報は持たない(ID・名前・理由・時刻だけ) */
+/** Reports from players (read by the operators). Never public; holds no personal data (only IDs, names, reason, time) */
 export class Reports {
   private list: Report[] = [];
   private nextId = 1;
@@ -28,7 +28,7 @@ export class Reports {
     }
   }
 
-  /** 通報する。できなければ理由 */
+  /** File a report. On failure, returns the reason */
   add(from: { id: number; name: string }, target: { id: number; name: string }, reason: unknown, now = Date.now()): string | null {
     if (from.id === target.id) return '自分は通報できません';
     if (typeof reason !== 'string') return '理由を書いてください';
@@ -38,7 +38,7 @@ export class Reports {
     if (this.list.filter((r) => r.from === from.id && now - r.at < DAY).length >= PER_DAY) return `通報は1日${PER_DAY}件までです`;
     if (this.list.some((r) => r.from === from.id && r.target === target.id && now - r.at < DAY)) return 'この人は、すでに通報しました';
     this.list.push({ id: this.nextId++, from: from.id, fromName: from.name, target: target.id, targetName: target.name, reason: text, at: now });
-    if (this.list.length > MAX_STORED) this.list.splice(0, this.list.length - MAX_STORED); // 古いものから捨てる
+    if (this.list.length > MAX_STORED) this.list.splice(0, this.list.length - MAX_STORED); // drop the oldest
     this.save();
     return null;
   }
@@ -47,7 +47,7 @@ export class Reports {
     return [...this.list];
   }
 
-  /** 対応済みにして消す(ID を指定。target を指定すると、その人への通報をまとめて) */
+  /** Mark as handled and remove (by id, or by target to remove every report about that account) */
   dismiss(spec: { id?: number; target?: number }): number {
     const before = this.list.length;
     this.list = this.list.filter((r) => !(spec.id !== undefined ? r.id === spec.id : r.target === spec.target));
