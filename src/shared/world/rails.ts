@@ -2,7 +2,7 @@ import { CONN, DX8, DY8, isDiag, opposite8 } from './directions';
 import type { GameMap } from './gameMap';
 import { crossingOk } from './tileRules';
 
-/** 斜め接続(x,y)→d の角を共有する2タイル(C,D)を結ぶ、交差する側の斜め方向 */
+/** The crossing diagonal direction between the two tiles (C, D) that share the corner of diagonal connection (x,y)->d */
 function crossingDir(d: number): number {
   const dx = DX8[d];
   const dy = DY8[d];
@@ -10,21 +10,21 @@ function crossingDir(d: number): number {
   return -1;
 }
 
-/** (x,y) から方向 d(0..7)へ線路をつなげられるか */
+/** Whether rail can be connected from (x,y) in direction d (0..7) */
 export function canConnectRail(map: GameMap, x: number, y: number, d: number, slope = false): boolean {
   const nx = x + DX8[d];
   const ny = y + DY8[d];
   if (!map.inBounds(x, y) || !map.inBounds(nx, ny)) return false;
   const lv = map.levelAt(x, y);
   const nl = map.levelAt(nx, ny);
-  // 高低差1段までは直線のみスロープで接続できる(斜めは同じ高さのみ)
+  // Up to a one-level height difference only straight track can connect with a slope (diagonals only at the same height)
   if (lv === 0 || nl === 0 || (lv !== nl && !(slope && !isDiag(d) && Math.abs(lv - nl) === 1))) return false;
   const a = map.idx(x, y);
   const b = map.idx(nx, ny);
   if (map.span.get(a) || map.span.get(b)) return false;
   if (map.building.get(a) || map.building.get(b) || map.air.get(a) || map.air.get(b)) return false;
   if (isDiag(d)) {
-    // 角を共有する2タイルを結ぶ斜め線路とは交差できない
+    // Cannot cross a diagonal track that connects the two tiles sharing a corner
     if (!map.inBounds(x + DX8[d], y) || !map.inBounds(x, y + DY8[d])) return false;
     const e = crossingDir(d);
     if (map.rail.get(map.idx(x + DX8[d], y)) & CONN(e)) return false;
@@ -56,8 +56,8 @@ export function disconnectRail(map: GameMap, x: number, y: number, d: number): v
 }
 
 /**
- * 線路ドラッグのタイル列。始点→終点がおおむね45度(比が 0.5〜2)なら斜め、そうでなければ軸方向の直線。
- * d は各タイルから次のタイルへの方向(0..7)。
+ * The tile list of a rail drag. If start -> end is roughly 45 degrees (ratio 0.5 to 2), diagonal; otherwise a straight line along the axis.
+ * d is the direction (0..7) from each tile to the next.
  */
 export function railLineTiles(x0: number, y0: number, x1: number, y1: number): { x: number; y: number; d: number }[] {
   const dx = x1 - x0;
@@ -81,7 +81,7 @@ export function railLineTiles(x0: number, y0: number, x1: number, y1: number): {
   return out;
 }
 
-/** 最小ヒープ(自動敷設の探索用) */
+/** Min-heap (for the auto-laying search) */
 class Heap {
   private k: number[] = [];
   private v: number[] = [];
@@ -126,8 +126,8 @@ class Heap {
 }
 
 /**
- * 線路の自動敷設の経路: (a)→(b) を8方向で結ぶ。既存の線路の辺は安く、新設は高く、スロープ(1段差)は割高にして、
- * 置けない辺(建物・交差・水・段差2以上・斜めの段差)は通らない。見つからなければ null。探索は最大 60000 ノード・距離 600 まで。
+ * The path for auto-laying rail: connect (a) -> (b) in 8 directions. Existing track edges are cheap, new ones expensive, and slopes (one-level difference) costly,
+ * and edges that cannot be placed (buildings, crossings, water, differences of two or more levels, diagonal height differences) are not used. Null if none is found. The search is limited to 60000 nodes and distance 600.
  */
 export function autoRailPath(map: GameMap, a: { x: number; y: number }, b: { x: number; y: number }): { x: number; y: number; d: number }[] | null {
   if (!map.inBounds(a.x, a.y) || !map.inBounds(b.x, b.y)) return null;

@@ -1,7 +1,7 @@
 /**
- * building バイトの形式: bit0-1 = 段階(1=S 2=M 3=L(2x2)。0 は 2x2 建物の付属タイル)
- *                        bit2-6 = 種類(0..24)  bit7 = オフィス
- * 付属タイル: 0x40 | ((アンカーまでの dx + 2*dy) << 2)。アンカーは 2x2 の最前面(x,y が最大)のタイル。
+ * Format of the building byte: bits 0-1 = tier (1 = S, 2 = M, 3 = L (2x2). 0 is an attached tile of a 2x2 building)
+ *                              bits 2-6 = kind (0..24)  bit 7 = office
+ * Attached tile: 0x40 | ((dx to the anchor + 2*dy) << 2). The anchor is the frontmost tile (largest x,y) of the 2x2.
  */
 export const SPRITE_VARIANTS = 25;
 export const OFFICE_BIT = 128;

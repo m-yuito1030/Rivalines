@@ -5,7 +5,7 @@ import { lineTiles } from './roads';
 
 export const SPAN_BRIDGE = 16;
 export const SPAN_TUNNEL = 32;
-/** 橋・トンネルの最大長(中間タイル数) */
+/** Max length of a bridge/tunnel (number of middle tiles) */
 export const MAX_SPAN = 12;
 
 export type SpanMode = 'road' | 'rail';
@@ -13,9 +13,9 @@ export interface SpanPlan {
   ok: boolean;
   kind?: 'bridge' | 'tunnel';
   reason?: string;
-  /** 始点→終点の向き(0..3) */
+  /** Direction from start to end (0..3) */
   d: number;
-  /** 始点、中間…、終点のタイル index */
+  /** Tile indexes of the start, the middle tiles, and the end */
   tiles: number[];
   level: number;
 }
@@ -23,8 +23,8 @@ export interface SpanPlan {
 const fail = (reason: string, d = 0, tiles: number[] = [], level = 0): SpanPlan => ({ ok: false, reason, d, tiles, level });
 
 /**
- * (x0,y0)→(x1,y1) の橋/トンネルを検討する。両端は同じ高さの陸(建物・空港なし)、
- * 中間は橋なら全て低い(水含む)、トンネルなら全て高い空きタイル。
+ * Consider a bridge/tunnel from (x0,y0) to (x1,y1). Both ends are land of the same height (no buildings or airport);
+ * for a bridge the middle must be all lower (water included), for a tunnel all higher, empty tiles.
  */
 export function planSpan(map: GameMap, x0: number, y0: number, x1: number, y1: number, mode: SpanMode): SpanPlan {
   const line = lineTiles(x0, y0, x1, y1);
@@ -80,7 +80,7 @@ export function buildSpan(map: GameMap, x0: number, y0: number, x1: number, y1: 
   return plan;
 }
 
-/** (x,y) が橋/トンネルの中間タイルなら全体を撤去、端点なら隣接する橋/トンネルを撤去 */
+/** If (x,y) is a middle tile of a bridge/tunnel, remove the whole thing; if an end point, remove the adjacent bridge/tunnel */
 export function removeSpansAround(map: GameMap, x: number, y: number): boolean {
   const i = map.idx(x, y);
   if (map.span.get(i)) return removeSpanChain(map, i);

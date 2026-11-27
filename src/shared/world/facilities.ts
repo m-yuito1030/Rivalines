@@ -1,8 +1,8 @@
 import type { GameMap } from './gameMap';
 import { gradeCapMul, gradeOf, gradeUpkeepMul } from './facilityQuality';
 
-/** 大型施設(スタジアム・遊園地など)。周辺の停留所の乗客需要が増える */
-/** あとから加わった、デザインと大きさを選んで建てる施設(映画館・動物園・スキー場・ビーチ・アリーナ・コンベンション・ビジネスホテル・大学・ゴルフ場・病院・駅ビル) */
+/** Large facilities (stadiums, amusement parks, etc.). They raise passenger demand at nearby stops */
+/** Facilities added later where the player picks the design and size (cinema, zoo, ski resort, beach, arena, convention centre, business hotel, university, golf course, hospital, station building) */
 export const NEW_FACILITY_TYPES = ['cinema', 'zoo', 'ski', 'beach', 'arena', 'convention', 'bizhotel', 'campus', 'golf', 'hospital', 'stationmall'] as const;
 export type NewFacilityType = (typeof NEW_FACILITY_TYPES)[number];
 export type FacilityType = 'stadium' | 'amusement' | 'mall' | 'park' | 'department' | 'hotel' | 'school' | 'cityhall' | 'sight' | NewFacilityType;
@@ -11,22 +11,22 @@ export interface FacilitySpec {
   type: FacilityType;
   name: string;
   icon: string;
-  /** 敷地(タイル) */
+  /** Site (tiles) */
   w: number;
   h: number;
-  /** 需要(停留所の集客圏の人口に換算した人数) */
+  /** Demand (people, converted to the population of a stop's catchment) */
   attract: number;
-  /** 人が集まる時間帯 [開始時, 終了時)。外は 15% */
+  /** Hours when people gather [start, end). Outside it is 15% */
   hours: [number, number];
   desc: string;
-  /** 建設費(円)・維持費(1日)・来場1人あたりの売上(円)・来場者のうち買い物などをする割合 */
+  /** Construction cost (yen), upkeep (per day), sales per visitor (yen), and the share of visitors who shop or otherwise spend */
   cost: number;
   upkeep: number;
   spend: number;
   conversion: number;
-  /** 公共施設(街が自動で建てる。プレイヤーは建てられず、撤去も買収もできない) */
+  /** Public facility (built automatically by towns. Players cannot build, demolish, or acquire it) */
   public?: boolean;
-  /** 人が集まる時間帯が複数あるとき [開始時, 終了時) の一覧(hours の代わり)。外の時間帯の係数は base */
+  /** When there are several busy periods: a list of [start, end) (used instead of hours). The coefficient outside is base */
   windows?: [number, number][];
   base?: number;
 }
@@ -338,13 +338,13 @@ export const FACILITY_SPECS: Record<FacilityType, FacilitySpec> = {
   },
 };
 /**
- * スプライトで描く施設(学校・市役所・百貨店・ショッピングモール)。design が決まっているものだけ。
- * design が無い古いセーブの百貨店・モール(4×3)は従来の手続き描画のまま。
+ * Facilities drawn with sprites (school, town hall, department store, shopping mall). Only those whose design is decided.
+ * Department stores and malls (4x3) in old saves without a design keep the earlier procedural drawing.
  */
 export const SPRITE_TYPES: FacilityType[] = ['school', 'cityhall', 'department', 'mall', 'sight', 'hotel', 'park', ...NEW_FACILITY_TYPES, 'amusement', 'stadium'];
 
 export type FacilitySize = 'S' | 'M' | 'L';
-/** デザインを選べる施設(プレイヤーが好きなデザインと大きさで建てられる)と、デザインの数 */
+/** Facilities whose design can be chosen (players can build them with any design and size), and the number of designs */
 export const DESIGN_COUNT: Partial<Record<FacilityType, number>> = {
   department: 20,
   mall: 20,
@@ -355,16 +355,16 @@ export const DESIGN_COUNT: Partial<Record<FacilityType, number>> = {
   stadium: 16,
 };
 export const CHOOSABLE: FacilityType[] = ['hotel', 'park', 'department', 'mall', ...NEW_FACILITY_TYPES, 'amusement', 'stadium'];
-/** 大きさ S/M/L が 1x1 / 2x2 / 3x3 タイルの施設(ほかのスプライト施設は 1x1 / 1x1 / 2x2) */
+/** Facilities whose sizes S/M/L are 1x1 / 2x2 / 3x3 tiles (other sprite facilities are 1x1 / 1x1 / 2x2) */
 export const SIZED3: FacilityType[] = ['hotel', 'park', ...NEW_FACILITY_TYPES];
-/** 大きさごとにセルが違う(敷地が n×n タイル)スプライト施設。SIZED3 に加えて、敷地の大きい遊園地・スタジアム */
+/** Sprite facilities whose cells differ by size (the site is n x n tiles). In addition to SIZED3, the large amusement park and stadium */
 export const SIZED_TYPES: FacilityType[] = [...SIZED3, 'amusement', 'stadium'];
-/** 大きさ S/M/L の一辺のタイル数(ここにない SIZED3 は 1/2/3)。大きな施設は、従来の大きさ(遊園地 5×5・スタジアム 4×4)が L */
+/** Side length in tiles of sizes S/M/L (SIZED3 members not listed here use 1/2/3). For large facilities, the earlier size (amusement park 5x5, stadium 4x4) is L */
 const SIDE_TILES: Partial<Record<FacilityType, Record<FacilitySize, number>>> = {
   amusement: { S: 3, M: 4, L: 5 },
   stadium: { S: 2, M: 3, L: 4 },
 };
-/** 大きさによる倍率(建設費・維持費・来場者の上限)。ホテル・公園は S=1x1 M=2x2 L=3x3、百貨店・モールは S/M=1x1 L=2x2 */
+/** Multiplier by size (construction cost, upkeep, visitor cap). Hotels and parks: S=1x1 M=2x2 L=3x3; department stores and malls: S/M=1x1 L=2x2 */
 const SIZE_MUL: Partial<Record<FacilityType, Record<FacilitySize, number>>> = {
   hotel: { S: 0.4, M: 0.7, L: 1 },
   park: { S: 0.4, M: 0.7, L: 1 },
@@ -377,32 +377,32 @@ const SIZE_MUL: Partial<Record<FacilityType, Record<FacilitySize, number>>> = {
 };
 export const sizeMul = (type: FacilityType, size: FacilitySize | undefined): number => (size ? (SIZE_MUL[type]?.[size] ?? 1) : 1);
 
-/** 施設の敷地(タイル)。大きさ S/M/L: ホテル・公園は 1x1 / 2x2 / 3x3、ほかのスプライト施設は 1x1 / 1x1 / 2x2 */
+/** A facility's site (tiles). Sizes S/M/L: hotels and parks 1x1 / 2x2 / 3x3, other sprite facilities 1x1 / 1x1 / 2x2 */
 export function facilityDims(type: FacilityType, size: FacilitySize): { w: number; h: number } {
   const side = SIDE_TILES[type]?.[size];
   if (side) return { w: side, h: side };
   if (SIZED3.includes(type)) return size === 'L' ? { w: 3, h: 3 } : size === 'M' ? { w: 2, h: 2 } : { w: 1, h: 1 };
   return size === 'L' ? { w: 2, h: 2 } : { w: 1, h: 1 };
 }
-/** 大きさ・デザインを持つ(スプライトの)施設の建設費と維持費(1日)。古い手続き描画の施設は大きさがなく、従来どおり */
+/** Construction cost and upkeep (per day) of facilities with a size and design (sprite-drawn). Old procedurally drawn facilities have no size and stay as before */
 export const facilityCost = (type: FacilityType, size?: FacilitySize): number => Math.round((FACILITY_SPECS[type].cost * sizeMul(type, size)) / 1000) * 1000;
 export const facilityUpkeep = (f: Pick<Facility, 'type' | 'size' | 'design' | 'grade'>): number =>
   Math.round(FACILITY_SPECS[f.type].upkeep * (f.design !== undefined && CHOOSABLE.includes(f.type) ? sizeMul(f.type, f.size) : 1) * gradeUpkeepMul(gradeOf(f)));
 export const isSpriteFacility = (f: Facility): boolean => SPRITE_TYPES.includes(f.type) && f.design !== undefined && f.size !== undefined;
 
-/** 大きさ S/M は1タイル、L は 2x2 タイル */
+/** Sizes S and M are one tile, L is 2x2 tiles */
 export const spriteDims = (size: 'S' | 'M' | 'L'): { w: number; h: number } => (size === 'L' ? { w: 2, h: 2 } : { w: 1, h: 1 });
-/** 施設の建設費(大きさ・デザインがあれば大きさで変わる) */
+/** A facility's construction cost (varies with size when it has a size and design) */
 export const facilityBuildCost = (f: Pick<Facility, 'type' | 'size' | 'design'>): number =>
   f.design !== undefined && CHOOSABLE.includes(f.type) ? facilityCost(f.type, f.size) : FACILITY_SPECS[f.type].cost;
 
-/** デザイン変更の費用: 建設費の何割か */
+/** Redesign cost: a fraction of the construction cost */
 export const REDESIGN_RATE = 0.15;
-/** 建てた施設のデザイン変更の費用(大きさは変えられない) */
+/** Cost of redesigning a built facility (the size cannot change) */
 export const redesignCost = (f: Pick<Facility, 'type' | 'size' | 'design'>): number => Math.round((facilityBuildCost(f) * REDESIGN_RATE) / 1000) * 1000;
 /**
- * デザインを変えられる施設か(同じ大きさのまま)。スプライト施設(design と size がある)は可。
- * 古い手続き描画の施設(design なし)は、敷地が L と同じ大きさなら、L のスプライトに替えられる。変えられなければ理由
+ * Whether a facility's design can be changed (at the same size). Sprite facilities (with design and size) can.
+ * Old procedurally drawn facilities (no design) can be replaced by an L sprite if their site is the same size as L. If not, the reason
  */
 export function redesignRule(f: Pick<Facility, 'type' | 'size' | 'design' | 'w' | 'h'>): { ok: true; size: FacilitySize } | { ok: false; reason: string } {
   if (!CHOOSABLE.includes(f.type)) return { ok: false, reason: 'この施設はデザインを変えられません' };
@@ -412,61 +412,61 @@ export function redesignRule(f: Pick<Facility, 'type' | 'size' | 'design' | 'w' 
   return { ok: false, reason: 'この施設は古い形式で、デザインを変えられません' };
 }
 
-/** 百貨店・モールは大きさで需要が変わる(S=0.5 M=0.75 L=1)。ほかの施設は一定 */
+/** Department stores and malls change demand with size (S=0.5 M=0.75 L=1). Other facilities are constant */
 export function facilityAttract(f: Facility): number {
-  const a = FACILITY_SPECS[f.type].attract * gradeCapMul(gradeOf(f)); // グレードが高いほど人を呼べる
+  const a = FACILITY_SPECS[f.type].attract * gradeCapMul(gradeOf(f)); // the higher the grade, the more people it draws
   if ((CHOOSABLE.includes(f.type) || f.type === 'sight') && f.design !== undefined) return a * sizeMul(f.type, f.size);
   return a;
 }
 
-/** プレイヤーが建てられる施設(公共施設は含まない) */
+/** Facilities players can build (public facilities excluded) */
 export const FACILITY_TYPES = (Object.keys(FACILITY_SPECS) as FacilityType[]).filter((t) => !FACILITY_SPECS[t].public);
 
 export interface Facility {
   id: number;
   type: FacilityType;
-  /** 左上(最小 x,y)のタイル */
+  /** Top-left (smallest x,y) tile */
   x0: number;
   y0: number;
   w: number;
   h: number;
   name: string;
-  /** 持ち主: player=自社 / city=他社(買収できる)。なければ自社 */
+  /** Owner: player = the player's own / city = another company (can be acquired). The player's own if absent */
   owner?: 'player' | 'city' | 'public';
-  /** 公共施設の見た目: 大きさ S/M(1x1) L(2x2) と、デザイン番号(学校0〜19・市役所0〜99)。所属する街 */
+  /** Look of a public facility: size S/M (1x1) L (2x2), and the design number (school 0-19, town hall 0-99). The town it belongs to */
   size?: 'S' | 'M' | 'L';
   design?: number;
   townId?: number;
-  /** 他社(city)のときの持ち主の競合会社ID */
+  /** The rival company ID that owns it when owner is city (another company) */
   ownerId?: number;
-  /** マルチプレイ: 自社(player)施設の持ち主の会社(アカウントID) */
+  /** Multiplayer: the company (account ID) that owns a player-owned (player) facility */
   playerId?: number;
-  /** 広告: 種類と、打った日(日の通し番号)。効く日数と次に打てるまでの日数は種類・定数で決まる */
+  /** Advertising: its kind and the day it ran (running day number). How long it lasts and how long until the next one are decided by kind and constants */
   ad?: { kind: 'news' | 'sns' | 'tv'; from: number };
-  /** 料金の段階(0=格安〜4=高級。未設定は標準=2)と、値上げへの敏感さ(1日の締めに計算して、駅からの来場の売上にも使う) */
+  /** Price level (0 = cheapest to 4 = luxury; unset is standard = 2) and price sensitivity (computed at the day close; also used for sales from station visitors) */
   price?: number;
   elast?: number;
-  /** グレード(★1〜5。未設定は1)・評判(0〜100。未設定は50)・建てた/改装した日(日の通し番号) */
+  /** Grade (stars 1-5; unset is 1), reputation (0-100; unset is 50), and the day it was built / renovated (running day number) */
   grade?: number;
   rep?: number;
   renov?: number;
-  /** 売り出し中の物件の、売り出し日(日の通し番号)。LISTING_DAYS 日で買い手がつかないと取り壊される */
+  /** For a listed property, the day it was listed (running day number). If no buyer comes within LISTING_DAYS days, it is demolished */
   listedDay?: number;
-  /** 来場者の累計(人) */
+  /** Cumulative visitors (people) */
   visits?: number;
-  /** 今日の売上(円)と、直近の1日あたりの売上(指数移動平均) */
+  /** Today's sales (yen) and the sales per day recently (exponential moving average) */
   dayIncome?: number;
   income?: number;
 }
 
-/** building レイヤーで施設の敷地を表す値(段階0・最大の種類番号・オフィスbit。通常の建物とは重ならない) */
+/** The value that represents a facility's site in the building layer (tier 0, the largest kind number, the office bit; it never overlaps an ordinary building) */
 export const FACILITY_TILE = 0xfc;
 
-/** 時間帯による人の集まりやすさ(0〜1)。時刻は 0〜24。windows があれば、その各時間帯が 1、外は base(既定0.15) */
+/** How easily people gather by time of day (0-1). The time is 0-24. With windows, each window is 1 and outside it is base (default 0.15) */
 export function hourFactor(spec: FacilitySpec, hour: number): number {
   const win = (a: number, b: number): number => {
     if (hour >= a && hour < b) return 1;
-    // 前後30分はなだらかに
+    // Ramps smoothly over 30 minutes either side
     if (hour >= a - 0.5 && hour < a) return 0.15 + 0.85 * ((hour - (a - 0.5)) / 0.5);
     if (hour >= b && hour < b + 0.5) return 1 - 0.85 * ((hour - b) / 0.5);
     return 0.15;
@@ -474,7 +474,7 @@ export function hourFactor(spec: FacilitySpec, hour: number): number {
   const base = spec.base ?? 0.15;
   const ws = spec.windows ?? [spec.hours];
   if (ws.length === 1 && !spec.windows) {
-    // 単一の時間帯(従来): 前後1時間をなだらかに、外は15%
+    // A single window (the earlier behaviour): ramps smoothly over an hour either side, and 15% outside
     const [a, b] = spec.hours;
     if (hour >= a && hour < b) return 1;
     if (hour >= a - 1 && hour < a) return 0.15 + 0.85 * (hour - (a - 1));
@@ -494,11 +494,11 @@ export interface FacilityPlan {
   tiles: [number, number][];
 }
 
-/** スキー場に必要な標高(段数) */
+/** Altitude (levels) needed for a ski resort */
 export const SKI_MIN_LEVEL = 4;
-/** ビーチが海から離れてよい距離(タイル) */
+/** How far (tiles) a beach may be from the sea */
 export const BEACH_SEA_RANGE = 2;
-/** 立地の条件(スキー場=高地、ビーチ=海のそば)。満たさなければ理由 */
+/** Location conditions (ski resort = highland, beach = near the sea). If not met, the reason */
 export function siteRule(map: GameMap, type: FacilityType, x0: number, y0: number, w: number, h: number, lv: number): string | null {
   if (type === 'ski' && lv < SKI_MIN_LEVEL) return `スキー場は標高${SKI_MIN_LEVEL}以上の高地にだけ建てられます(ここは標高${lv})`;
   if (type === 'beach') {
@@ -509,9 +509,9 @@ export function siteRule(map: GameMap, type: FacilityType, x0: number, y0: numbe
   return null;
 }
 
-/** 駅ビルが鉄道の駅から離れてよい距離(タイル) */
+/** How far (tiles) a station building may be from a railway station */
 export const STATIONMALL_RANGE = 4;
-/** 敷地 plan の近く(range タイル以内)に、鉄道の駅(経由点を除く)があるか */
+/** Whether there is a railway station (waypoints excluded) near plan (within `range` tiles) */
 export function nearRailStop(
   stops: Iterable<{ kind: string; waypoint?: boolean; x: number; y: number }>,
   plan: { x0: number; y0: number; w: number; h: number },
@@ -522,7 +522,7 @@ export function nearRailStop(
   return false;
 }
 
-/** 中心を (cx,cy) として置けるか(敷地が同じ高さの陸で、何もない) */
+/** Whether it can be placed with (cx,cy) as the centre (the site must be land of the same height with nothing on it) */
 export function planFacility(map: GameMap, cx: number, cy: number, type: FacilityType, occupied: (idx: number) => boolean, dims?: { w: number; h: number }): FacilityPlan {
   const spec = FACILITY_SPECS[type];
   const w = dims?.w ?? spec.w;
@@ -580,7 +580,7 @@ export function removeFacility(map: GameMap, f: Facility): void {
 
 const tileCache = new WeakMap<GameMap, { ver: number; n: number; grid: Map<number, Facility> }>();
 
-/** タイル index → 施設。描画用(敷地のどのタイルからでも引ける。施設が増減したときだけ作り直す) */
+/** Tile index -> facility. For drawing (can be looked up from any tile of the site; rebuilt only when facilities are added or removed) */
 export function facilityTileMap(map: GameMap): Map<number, Facility> {
   const c = tileCache.get(map);
   if (c && c.ver === map.facilityVer && c.n === map.facilities.length) return c.grid;
@@ -590,10 +590,10 @@ export function facilityTileMap(map: GameMap): Map<number, Facility> {
   return grid;
 }
 
-/** 施設の手前側(x+y が最大)のタイル。大きな建物はここを基準に描く */
+/** The front tile (largest x+y) of a facility. Large buildings are drawn relative to it */
 export const facilityAnchor = (map: GameMap, f: Facility): number => (f.y0 + f.h - 1) * map.size + (f.x0 + f.w - 1);
 
-/** 停留所(x,y)の集客圏(半径 R の正方形)と重なる施設 */
+/** Facilities overlapping the catchment (a square of radius R) of the stop at (x,y) */
 export function facilitiesNear(map: GameMap, x: number, y: number, R: number): Facility[] {
   return map.facilities.filter((f) => x + R >= f.x0 && x - R < f.x0 + f.w && y + R >= f.y0 && y - R < f.y0 + f.h);
 }
