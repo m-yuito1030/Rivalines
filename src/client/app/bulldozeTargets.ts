@@ -5,9 +5,9 @@ import { FACILITY_TILE, facilityTileMap } from '../../shared/world/facilities';
 import { tr } from '../i18n';
 
 /**
- * 撤去の範囲の中に、お金や路線に関わるもの(駅・停留所・経由点・車両基地・施設・空港)がどれだけあるか。
- * 撤去を実行する前の確認の文に使う。道路・線路・信号・橋・街の建物だけなら空(確認しない)。
- * 数え方は、サーバーの撤去と同じ(自社のものだけ。他社のものは撤去されないので数えない)。
+ * How many things that involve money or routes (stations, stops, waypoints, depots, facilities, airports) are inside the demolition area.
+ * Used for the confirmation text before demolishing. Empty (no confirmation) if it is only roads, rails, signals, bridges, and town buildings.
+ * Counted the same way as the server's demolition (only the company's own; other companies' things are not demolished, so they are not counted).
  */
 export function bulldozeTargets(map: GameMap, transit: Transit, a: { x: number; y: number }, b: { x: number; y: number }, kinds: BulldozeKinds, me: number): string[] {
   const x0 = Math.max(0, Math.min(a.x, b.x));

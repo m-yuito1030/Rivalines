@@ -1,4 +1,4 @@
-/** 操作結果の短い通知(橋・トンネルの可否など)。画面の上に一時的に出る */
+/** A short notice of an action's result (whether a bridge or tunnel is possible, etc.). Shown briefly at the top of the screen */
 export class Toast {
   private el = document.createElement('div');
   private timer = 0;

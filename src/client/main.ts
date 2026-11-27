@@ -54,7 +54,7 @@ import type { GameMap } from '../shared/world/gameMap';
 initI18n();
 initAuth(startGame);
 
-/** 時刻(0〜24)ごとの乗算色: 夜は青く暗く、朝夕は暖色 */
+/** Multiply color by time of day (0-24): blue and dark at night, warm at dawn and dusk */
 const TINTS: [number, [number, number, number]][] = [
   [0, [78, 90, 140]],
   [5, [88, 100, 150]],
@@ -76,7 +76,7 @@ function tintOf(hour: number): number {
       const r = Math.round(c0[0] + (c1[0] - c0[0]) * t);
       const g = Math.round(c0[1] + (c1[1] - c0[1]) * t);
       const b = Math.round(c0[2] + (c1[2] - c0[2]) * t);
-      // 量子化してオーバーレイの再描画を減らす
+      // Quantize to reduce redrawing of the overlay
       return ((r & 0xfc) << 16) | ((g & 0xfc) << 8) | (b & 0xfc);
     }
   }
@@ -97,7 +97,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   const worldRoot = new Container();
   worldRoot.addChild(chunks.container);
   app.stage.addChild(worldRoot);
-  // 昼夜の色味(乗算オーバーレイ)。世界の上・ラベル/HUDの下
+  // Day/night tint (a multiply overlay). Above the world, below the labels/HUD
   const tintLayer = new Graphics();
   tintLayer.blendMode = 'multiply';
   app.stage.addChild(tintLayer);
@@ -150,9 +150,9 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   const bulldozeOptions = new BulldozeOptions();
   const facilityPicker = new FacilityPicker();
   const toast = new Toast();
-  /** 操作をサーバーへ送り、結果のメッセージを表示する */
+  /** Send an action to the server and show the result message */
   const run = async (cmd: Cmd): Promise<CmdResult> => {
-    // 建てたときの費用(赤のマイナス)を、建てた場所の上に出すため、場所を覚えておく
+    // Remember the place so the construction cost (a red minus) can be shown above where it was built
     if (cmd.t === 'place' || cmd.t === 'ensureStop') moneyFloat.setSpendAt(cmd.x + 0.5, cmd.y + 0.5);
     else if (cmd.t === 'build') moneyFloat.setSpendAt((cmd.a.x + cmd.b.x) / 2 + 0.5, (cmd.a.y + cmd.b.y) / 2 + 0.5);
     const r = await net.cmd(cmd);
@@ -180,7 +180,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       const kinds = bulldozeOptions.kinds();
       const what = bulldozeTargets(map, transit, a, b, kinds, net.id);
       const go = () => void run({ t: 'bulldoze', a, b, kinds });
-      // 駅・停留所・車両基地・施設・空港など、お金や路線に関わるものを含むときは、実行する前に確かめる
+      // If it includes things that involve money or routes (stations, stops, depots, facilities, airports, ...), confirm before running it
       if (what.length === 0) go();
       else void confirmDialog(tr('次のものを撤去します: {parts}', { parts: what.join(tr('、')) }) + '\n' + tr('元に戻せません。よろしいですか?')).then((ok) => ok && go());
     } else if ((tool as string) === 'signalline') void run({ t: 'signalLine', a, b, interval: Number($<HTMLInputElement>('optSigInt').value) || 3 });
@@ -192,7 +192,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   worldRoot.addChild(tools.overlay);
 
   const minimap = new Minimap($<HTMLCanvasElement>('minimap'), map, (tx, ty) => camera.centerOnTile(tx, ty));
-  // 右下のマップの表示/非表示(設定は保存)
+  // Show/hide the minimap at the bottom right (the setting is saved)
   let discAt = 0;
   const plan: { id: number; at: number; ver: number; drawn: string; data: { legs: number[][]; stops: number[] } | null } = { id: -1, at: 0, ver: 0, drawn: '', data: null };
   let showMap = localStorage.getItem('simulator-minimap') !== '0';
@@ -215,7 +215,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     if (e.key.toLowerCase() === 'm' && !e.ctrlKey && !e.metaKey && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLSelectElement)) toggleMap();
   });
   const stats = $('stats');
-  // タイル座標 → 画面の座標(お金の浮かぶ数字・乗降客数の表示を、車両や施設の上に出すため)
+  // Tile coordinates -> screen coordinates (so the floating money numbers and boarding counts show above vehicles and facilities)
   const toScreen: ToScreen = (tx, ty) => {
     const w = Camera.tileToWorld(tx, ty);
     const W = app.canvas.clientWidth;
@@ -226,7 +226,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   };
   const moneyFloat = new MoneyFloat($('cash'), yen, toScreen);
   const paxBadges = new PaxBadges(transit, toScreen, () => camera.zoom);
-  // 自社の車両・施設が稼いだお金は、稼いだものの上に緑のプラスで出す
+  // Money earned by the company's own vehicles and facilities shows as a green plus above whatever earned it
   mirror.onEarn = (kind, id, amount) => {
     if (kind === 'veh') {
       const v = transit.vehicles.find((x) => x.id === id);
@@ -242,15 +242,15 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       if (f) moneyFloat.earn(`f:${id}`, amount, tr(CAT_LABEL.facility), () => ({ x: f.x0 + f.w / 2, y: f.y0 + f.h / 2 }));
     }
   };
-  // 開発用の表示(FPS・描画の状態など)は、ふだんは隠す。Ctrl+Shift+D、または URL に ?debug=1 を付けると出る。
-  // スマホ用に、画面上部の時計を 5 回すばやくタップしても切り替わる。選んだ状態は覚えておく
+  // The development display (FPS, drawing state, etc.) is normally hidden. It appears with Ctrl+Shift+D, or by adding ?debug=1 to the URL.
+  // On a phone, tapping the clock at the top of the screen five times quickly also toggles it. The chosen state is remembered
   const DEBUG_KEY = 'rivalines-debug';
   const setDebug = (on: boolean) => {
     document.body.classList.toggle('debug', on);
     try {
       localStorage.setItem(DEBUG_KEY, on ? '1' : '0');
     } catch {
-      /* 保存できなくても動く */
+      /* it works even if saving fails */
     }
   };
   const qDebug = new URLSearchParams(location.search).get('debug');
@@ -258,7 +258,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   try {
     saved = localStorage.getItem(DEBUG_KEY);
   } catch {
-    /* 読めなくても動く */
+    /* it works even if reading fails */
   }
   setDebug(qDebug !== null ? qDebug !== '0' : saved === '1');
   window.addEventListener('keydown', (e) => {
@@ -296,9 +296,9 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     syncDn();
   });
 
-  // 路線パネルの開閉(スマホでは下からのシート)
+  // Opening and closing the route panel (a bottom sheet on phones)
   const routesEl = $('routes');
-  // 路線パネルは、最初は閉じておく(「📋 路線」で開く)。パソコンでも、画面を広く使えるように
+  // The route panel starts closed (open it with "Routes"). On a PC too, so the screen has more room
   $('routesBtn').addEventListener('click', () => (routesWin.isOpen ? routesWin.close() : routesWin.open()));
   const routesWin = {
     get isOpen() {
@@ -310,7 +310,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   panel.onClose = () => routesWin.close();
 
   const toolbar = new Toolbar();
-  // 言語が変わったら、ドロップダウンのボタンの名前も付け直す
+  // When the language changes, also relabel the dropdown buttons
   onLangChange(() => toolbar.highlight(tools.tool));
   const setTool = (t: Tool) => {
     tools.setTool(t);
@@ -325,7 +325,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   document.querySelectorAll('.optx').forEach((b) => b.addEventListener('click', () => setTool('pan')));
   document.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) =>
     b.addEventListener('click', () => {
-      if (isTouch) routesWin.close(); // スマホ: ツールを選んだら路線シートは閉じる
+      if (isTouch) routesWin.close(); // phone: selecting a tool closes the route sheet
       setTool(b.dataset.tool as Tool);
     }),
   );
@@ -349,7 +349,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     else if (k === 'h') setTool('railspan');
   });
 
-  // 街の名前ラベル(画面座標)
+  // Town name labels (screen coordinates)
   const labelTexts = new Map<number, Text>();
   const stopLabels = new StopLabels(labels, transit, map, $('stopNameBtn'));
   const forSaleLabels = new ForSaleLabels(labels, map, () => sim.day);
@@ -369,7 +369,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       },
     };
 
-  // 停留所/街のタップ情報(移動ツールで、ほぼ動かさずに離したとき)
+  // Info for tapping a stop/town (with the move tool, released with almost no movement)
   const info = new InfoPanel(
     $('info'),
     map,
@@ -380,8 +380,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     () => sim.company,
   );
   info.players = () => mirror.players;
-  const infoPanel = info; // 毎フレームの処理内では info が別の変数名に隠れるため
-  // 車両の追跡: カメラが車両を追いかける。カメラを手で動かす/情報パネルを閉じると解除
+  const infoPanel = info; // inside the per-frame code, `info` is shadowed by another variable name
+  // Vehicle follow: the camera follows a vehicle. Moving the camera by hand or closing the info panel releases it
   let followId = -1;
   let followAt = { x: 0, y: 0 };
   infoPanel.onFollow = (id) => {
@@ -399,7 +399,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     if (!d || e.button !== 0 || tools.tool !== 'pan' || camera.multiTouch) return;
     if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6 || performance.now() - d.t > 600) return;
     const tile = pick(e.clientX, e.clientY);
-    // 車両が乗っているタイルを押したら車両を優先(経路を矢印で表示)。なければ停留所・街など、最後に隣のタイルの車両
+    // If a tile with a vehicle on it is pressed, the vehicle takes priority (its path is shown with arrows). Otherwise a stop, town, etc., and last a vehicle on a neighbouring tile
     const veh0 = tile ? findVehicle(transit, map.size, tile.x, tile.y, 0) : null;
     let sel: Selection | null = veh0 ? { kind: 'vehicle', id: veh0.id } : tile ? findSelection(map, transit, tile.x, tile.y) : null;
     if (!sel && tile) {
@@ -412,7 +412,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     } else info.close();
   });
 
-  // 統計画面
+  // Statistics screen
   const statsPanel = new StatsPanel(
     $('stats-modal'),
     $('statsBody'),
@@ -531,8 +531,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   $('listBtn').addEventListener('click', () => listPanel.toggle());
   $('rank').addEventListener('click', () => rankPanel.toggle());
   $('cash').addEventListener('click', () => finPanel.toggle());
-  // 画面内のウィンドウは同時に1つだけ: 別のウィンドウを開くと前のものを閉じる
-  // スマホでは路線シート・情報パネルも画面を覆うので対象に含める(PCでは常時表示のサイドパネルなので除外)
+  // Only one window on screen at a time: opening another closes the previous one
+  // On phones the route sheet and the info panel also cover the screen, so they are included (on a PC they are always-visible side panels, so they are excluded)
   const infoWin = {
     get isOpen() {
       return info.isOpen;
@@ -573,7 +573,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     else if (e.key === 'Escape' && info.isOpen) info.close();
   });
 
-  // 全体チャットとお知らせ(新しい発言・お知らせがあれば、メニューに赤い点)
+  // Public chat and announcements (a red dot on the menu when there is a new message or announcement)
   const chatPanel = new ChatPanel(
     (m) => tools.onMessage?.(m),
     () => isTouch && closeWindows(),
@@ -588,7 +588,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   const playerMenu = new PlayerMenu({ transit, players: () => mirror.players, notify: (m) => tools.onMessage?.(m), beforeOpen: () => closeWindows('menu') });
 
   $('verLine').textContent = `Rivalines v${__APP_VERSION__}`;
-  // 本稼働以外の世界(次期バージョン)で遊んでいるときは、画面に目立つ印を出す(データが消えることがあるため)
+  // When playing in a world other than production (the next version), show a prominent mark on screen (because the data may be wiped)
   void fetch(`${BASE}api/status`)
     .then((r) => r.json())
     .then((s: { env?: { name: string; label: string; version: string } }) => {
@@ -619,7 +619,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     const dt = Math.min(0.1, t.deltaMS / 1000);
     const tA = performance.now();
     const tB = performance.now();
-    transit.smoothMirror(); // サーバーの10Hzの状態を、60fpsになめらかに補間する
+    transit.smoothMirror(); // smoothly interpolate the server's 10 Hz state to 60 fps
     paxBadges.update();
     moneyFloat.tick();
     const view = camera.update(dt);
@@ -644,7 +644,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     perfSim = perfSim * 0.9 + (tB - tA) * 0.1;
     perfChunk = perfChunk * 0.9 + (tC - tB) * 0.1;
     perfLayer = perfLayer * 0.9 + (tD - tC) * 0.1;
-    // 数値の表示更新(DOM)は 4Hz に間引く。構造の変化は即時反映
+    // Throttle numeric display updates (DOM) to 4 Hz. Structural changes are reflected immediately
     const nowMs = performance.now();
     const uiTick = nowMs - uiAt > 250;
     if (uiTick) uiAt = nowMs;
@@ -669,7 +669,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
         followAt = { x: camera.x, y: camera.y };
       }
     }
-    // 選んだ車両の経路を矢印で表示する(今向かっている区間は手元の経路、その先はサーバーが計算した予定)
+    // Show the selected vehicle's path with arrows (the leg it is heading for now uses the local path; beyond that, the plan the server computed)
     {
       const sel = infoPanel.selection;
       const v = sel?.kind === 'vehicle' ? transit.vehicles.find((x) => x.id === sel.id) : undefined;
@@ -708,7 +708,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       }
     }
     if (nowMs - discAt > 400) {
-      // 見ている範囲(タイル)をサーバーに知らせる: その範囲のタイル・車両だけが届く
+      // Tell the server the area being viewed (tiles): only tiles and vehicles in that area are sent
       discAt = nowMs;
       const tl = [
         Camera.worldToTile(view.left, view.top),
@@ -729,7 +729,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       mmTop = view.top;
     }
 
-    // 街ラベル
+    // Town labels
     const w = app.screen.width;
     const h = app.screen.height;
     for (const town of map.towns) {
@@ -778,7 +778,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       if (rankEl.textContent !== rtxt) rankEl.textContent = rtxt;
     }
     const cashEl = $('cash');
-    const narrow = window.matchMedia('(max-width: 820px)').matches; // 狭い画面では借入を短く表示(長いとバッジが縦に積み上がって地図の上を塞ぐ)
+    const narrow = window.matchMedia('(max-width: 820px)').matches; // on narrow screens show the loan shortened (if long, the badges stack up and block the map)
     const cashText = `💴 ${yen(sim.company.cash)}${sim.company.loan > 0 ? (narrow ? tr(' 借{amount}', { amount: locale().compactMoney(sim.company.loan) }) : tr(' (借入 {amount})', { amount: yen(sim.company.loan) })) : ''}`;
     if (cashEl.textContent !== cashText) {
       cashEl.textContent = cashText;
