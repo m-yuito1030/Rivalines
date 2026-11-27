@@ -1,21 +1,21 @@
 import type { Route } from './transit';
 
-/** 乗り換え1回のコスト(停車駅数換算) */
+/** Cost of one transfer (in terms of number of stops) */
 export const TRANSFER_PENALTY = 6;
-const K = 2097152; // 状態キー: stopId * K + routeId
+const K = 2097152; // state key: stopId * K + routeId
 
 export interface RouteTable {
-  /** 目的地の停留所 → いま乗るべき路線 */
+  /** Destination stop -> the route to take now */
   next: Map<number, number>;
-  /** 目的地の一覧(next のキー)。乗客の目的地抽選用 */
+  /** List of destinations (the keys of next). For choosing a passenger's destination at random */
   dests: number[];
-  /** 目的地の重み(累積)。弱い人口依存。表の作成時に1度だけ計算する */
+  /** Destination weights (cumulative). A weak dependence on population. Computed once when the table is built */
   cum: Float64Array;
 }
 
 /**
- * 路線網の最短経路(停車駅数 + 乗り換えペナルティ)から、各停留所で
- * 「どの目的地へはどの路線に乗るか」を求める。路線が変わるまでキャッシュする。
+ * From the shortest paths over the route network (number of stops + transfer penalty), work out for each stop
+ * "which route to take to reach which destination". Cached until the routes change.
  */
 export class Router {
   private cache = new Map<number, RouteTable>();
@@ -41,7 +41,7 @@ export class Router {
 
   private compute(src: number): RouteTable {
     const routes = [...this.getRoutes()];
-    // stop → その停留所を通る路線
+    // stop -> the routes that pass through that stop
     const byStop = new Map<number, Route[]>();
     for (const r of routes) {
       for (const o of r.orders) {
@@ -52,7 +52,7 @@ export class Router {
     }
     const dist = new Map<number, number>();
     const first = new Map<number, number>();
-    // 簡易ダイクストラ(状態数が小さいので配列の線形探索で十分)
+    // A simple Dijkstra (the number of states is small, so a linear scan over an array is enough)
     let open: number[] = [];
     for (const r of byStop.get(src) ?? []) {
       const k = src * K + r.id;
@@ -86,7 +86,7 @@ export class Router {
       for (let i = 0; i < n; i++) if (r.orders[i].stopId === stop) relax(r.orders[(i + 1) % n].stopId * K + rid, d + 1);
       for (const r2 of byStop.get(stop) ?? []) if (r2.id !== rid) relax(stop * K + r2.id, d + TRANSFER_PENALTY);
     }
-    // 目的地ごとに最小コストの状態の「最初の路線」を採用
+    // For each destination, adopt the "first route" of the lowest-cost state
     const best = new Map<number, number>();
     const next = new Map<number, number>();
     for (const [k, d] of dist) {

@@ -3,16 +3,16 @@ import { CONN, DX8, DY8, opposite8 } from '../../world/directions';
 import { MAX_CARS, Vehicle, dirBetween, trainLen } from './types';
 import type { Transit } from './transit';
 
-/** 列車の編成操作(分割・連結・待機中の出発) */
+/** Train formation operations (split, couple, depart while held) */
 export class TrainOps {
   constructor(private readonly t: Transit) {}
 
-  // ---------------------------------------------------------------- 編成の分割・併合
+  // ---------------------------------------------------------------- Splitting and coupling
   capPerCar(v: Vehicle): number {
-    return modelOf(v.modelId).cap; // 鉄道は1両あたりの定員
+    return modelOf(v.modelId).cap; // for rail, the capacity per car
   }
 
-  /** 軌道上で tile から次に進める、予約されていない隣接タイル(trail に含まれないもの) */
+  /** An unreserved adjacent tile that the track allows moving to from `tile` (not part of the trail) */
   freeNeighbor(tile: number, avoid: Set<number>): number {
     const s = this.t.map.size;
     for (let d = 0; d < 8; d++) {
@@ -24,8 +24,8 @@ export class TrainOps {
   }
 
   /**
-   * 停車中の編成の後ろ k 両を切り離す。切り離した編成は同じ路線の待機編成になる(departHeld で出発)。
-   * 後ろの線路が足りなければ null。
+   * Split off the rear k cars of a stopped train. The detached train becomes a held train of the same route (depart it with departHeld).
+   * Returns null if there is not enough track behind.
    */
   splitTrain(vid: number, k: number, tick: number): Vehicle | null {
     const v = this.t.vehicles.find((x) => x.id === vid);
@@ -36,7 +36,7 @@ export class TrainOps {
     const trailA = v.trail.slice(0, lenA);
     const trailB = v.trail.slice(trailA.length);
     const used = new Set<number>(v.trail);
-    // 後ろの線路が足りなければ、さらに後方へ延ばす(予約されていない線路のみ)
+    // If there is not enough track behind, extend further back (unreserved track only)
     while (trailB.length < lenB) {
       const last = trailB.length ? trailB[trailB.length - 1] : trailA[trailA.length - 1];
       const n = this.freeNeighbor(last, used);
@@ -87,7 +87,7 @@ export class TrainOps {
     return b;
   }
 
-  /** 待機中の編成を出発させる */
+  /** Make a held train depart */
   departHeld(vid: number, tick: number): boolean {
     const v = this.t.vehicles.find((x) => x.id === vid);
     if (!v || !v.hold) return false;
@@ -97,7 +97,7 @@ export class TrainOps {
     return true;
   }
 
-  /** 停車中の2編成の端同士が線路でつながっていれば、連結用の並びを返す(なければ null) */
+  /** If the ends of two stopped trains are connected by track, returns the arrangement for coupling (null if not) */
   coupleOrder(a: Vehicle, b: Vehicle): number[] | null {
     if (a === b || a.mode !== 'rail' || b.mode !== 'rail' || a.state !== 'load' || b.state !== 'load') return null;
     if (a.cars + b.cars > MAX_CARS || !a.trail.length || !b.trail.length) return null;
@@ -110,7 +110,7 @@ export class TrainOps {
     const aEnds: [number, boolean][] = [
       [a.trail[a.trail.length - 1], false],
       [a.trail[0], true],
-    ]; // [タイル, 先頭側か]
+    ]; // [tile, whether it is the head side]
     const bEnds: [number, boolean][] = [
       [b.trail[0], true],
       [b.trail[b.trail.length - 1], false],
@@ -118,8 +118,8 @@ export class TrainOps {
     for (const [ea, aHead] of aEnds) {
       for (const [eb, bHead] of bEnds) {
         if (!adj(ea, eb)) continue;
-        const aSeq = aHead ? [...a.trail].reverse() : a.trail; // ea が末尾に来るように
-        const bSeq = bHead ? b.trail : [...b.trail].reverse(); // eb が先頭に来るように
+        const aSeq = aHead ? [...a.trail].reverse() : a.trail; // so that ea comes last
+        const bSeq = bHead ? b.trail : [...b.trail].reverse(); // so that eb comes first
         return [...aSeq, ...bSeq];
       }
     }
@@ -132,7 +132,7 @@ export class TrainOps {
     return !!a && !!b && this.coupleOrder(a, b) !== null;
   }
 
-  /** 2編成を連結して a に統合する(b は消える)。連結できなければ false */
+  /** Couple two trains and merge into a (b disappears). False if they cannot be coupled */
   coupleTrains(aId: number, bId: number): boolean {
     const a = this.t.vehicles.find((x) => x.id === aId);
     const b = this.t.vehicles.find((x) => x.id === bId);
@@ -153,7 +153,7 @@ export class TrainOps {
     return true;
   }
 
-  /** 駅の近く(Chebyshev 距離 r 以内。15両編成が収まる9タイル)に停まっている鉄道編成 */
+  /** Rail trains stopped near a station (within Chebyshev distance r; 9 tiles fits a 15-car train) */
   trainsNear(stopId: number, r = 9): Vehicle[] {
     const s = this.t.stops.get(stopId);
     if (!s) return [];

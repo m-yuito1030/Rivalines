@@ -1,11 +1,11 @@
 import { REVERSE_MIN_TILES, REVERSE_RATIO, Route, Stop, Vehicle } from './types';
 import type { Transit } from './transit';
 
-/** 車両の出発: 次の停留所までの経路を決めて走り出す(バス・鉄道・航空) */
+/** Vehicle departure: pick the path to the next stop and set off (bus, rail, air) */
 export class Dispatcher {
   constructor(private readonly t: Transit) {}
 
-  /** 次のオーダーへ向けて出発(経路がなければ noroute) */
+  /** Depart toward the next order (noroute if there is no path) */
   depart(v: Vehicle, route: Route, tick: number, advance: boolean): void {
     this.departInner(v, route, tick, advance, route.orders.length);
   }
@@ -16,17 +16,17 @@ export class Dispatcher {
       v.departedAt = tick;
     }
     let next = advance ? (v.order + 1) % n : v.order;
-    // 条件付きオーダー: 出発時に条件を満たしたら、指定のオーダーへ進む
+    // Conditional order: if the condition holds on departure, jump to the specified order
     if (advance) {
       const c = route.orders[v.order]?.cond;
       if (c && c.to >= 0 && c.to < n && c.to !== v.order && this.t.flow.condHolds(v, route, c, tick)) next = c.to;
     }
-    // 鉄道: 途中の経由点は停まらず通過する目印。経由点のタイルを順に通る経路にする
+    // Rail: an intermediate waypoint is a marker to pass through without stopping. Build a path through the waypoint tiles in order
     const vias: number[] = [];
     for (let g = 0; g < n; g++) {
       const w = this.t.stops.get(route.orders[next].stopId);
       if (!w || !this.t.isWay(route, next)) break;
-      if (v.mode === 'rail') vias.push(w.idx); // 鉄道は通過する駅・経由点のタイルを順に通る(道路・航空の通過は飛ばすだけ)
+      if (v.mode === 'rail') vias.push(w.idx); // rail passes through skipped stations and waypoint tiles in order (road and air just skip them)
       next = (next + 1) % n;
     }
     const dest = this.t.stops.get(route.orders[next].stopId);
@@ -52,13 +52,13 @@ export class Dispatcher {
   departRail(v: Vehicle, dest: Stop, route: Route, tick: number, vias: number[] = []): void {
     const build = (): number[][] => {
       let c = this.t.planner.railCandidates(v, vias, dest);
-      if (!c.length && vias.length) c = this.t.planner.railCandidates(v, [], dest); // 経由できなければ直行
+      if (!c.length && vias.length) c = this.t.planner.railCandidates(v, [], dest); // if it cannot go via them, go direct
       return c;
     };
     let cands = build();
     if (v.trail.length > 1) {
-      // 進行方向が逆: 編成を折り返す(尾が頭になる)。前進する経路がない場合に加え、前進が大回り(ループ線など)で
-      // 折り返したほうがずっと近いときも、停車駅で折り返す(運転士が反対の先頭へ移る)
+      // Heading is opposite: reverse the train (the tail becomes the head). Besides when no forward path exists, also reverse at a stop
+      // when going forward is a long detour (a loop line, etc.) and reversing is much shorter (the driver moves to the other cab)
       const fwd = cands.length ? cands[0].length : Infinity;
       if (fwd > REVERSE_MIN_TILES) {
         v.trail.reverse();
@@ -68,7 +68,7 @@ export class Dispatcher {
       }
     }
     if (!cands.length) return this.blocked(v, tick, 30);
-    // 前方の閉塞を予約する(信号がなければ経路全体。他の編成と衝突・正面衝突しない)。番線は空いている候補を順に試す
+    // Reserve the block ahead (the whole path if there are no signals; so trains neither collide nor meet head-on). Try the free platform tracks in turn
     for (const c of cands) {
       v.path = Uint32Array.from(c);
       v.resTo = 0;
@@ -76,7 +76,7 @@ export class Dispatcher {
       v.pi = 0;
       v.t = 0;
       v.stuck = 0;
-      v.sf = 0.3; // 発車は低速から加速
+      v.sf = 0.3; // departure starts slow and accelerates
       v.state = 'move';
       if (v.path.length === 1) this.t.motion.arrive(v, route, tick);
       return;
@@ -106,10 +106,10 @@ export class Dispatcher {
     v.stuck += wait;
   }
 
-  /** @returns 車両が生存していれば true */
+  /** @returns true if the vehicle survives */
   /**
-   * 通る線路が変更されたので、いまのタイルから目的地までの経路を探し直すか。印を消して true を返す。
-   * 目的地の手前に経由点がある区間は、経由点を保つため探し直さない(次の出発で反映)。
+   * The track it runs on changed, so whether to search the path from the current tile to the destination again. Clears the mark and returns true.
+   * For a leg with a waypoint before the destination, do not search again, to keep the waypoint (it takes effect at the next departure).
    */
   takeReplan(v: Vehicle, route: Route): boolean {
     if (!v.replan) return false;

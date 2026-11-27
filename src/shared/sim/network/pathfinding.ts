@@ -1,7 +1,7 @@
 import { CONN, DX8, DY8, OUT, opposite8 } from '../../world/directions';
 import type { GameMap } from '../../world/gameMap';
 
-/** 最小ヒープ(キー=f値) */
+/** Min-heap (key = f value) */
 class MinHeap {
   private k: number[] = [];
   private v: number[] = [];
@@ -48,8 +48,8 @@ class MinHeap {
 }
 
 /**
- * 道路グラフ(一方通行考慮)上の最短経路。タイル index の列(始点・終点を含む)を返す。
- * 見つからない/探索上限超過なら null。
+ * Shortest path over the road graph (one-way streets respected). Returns a list of tile indexes (including start and end).
+ * Null if none is found or the search limit is exceeded.
  */
 export function findPath(
   map: GameMap,
@@ -57,7 +57,7 @@ export function findPath(
   to: number,
   rail = false,
   maxNodes = 300000,
-  /** 鉄道: タイルの信号の方向ビット。ビットが立っていない方向への進入は一方通行として禁止 */
+  /** Rail: a tile's signal direction bits. Entering from a direction whose bit is not set is forbidden as one-way */
   signalMask?: (idx: number) => number,
 ): Uint32Array | null {
   const layer = rail ? map.rail : map.road;
@@ -65,7 +65,7 @@ export function findPath(
   const s = map.size;
   const tx = to % s;
   const ty = Math.floor(to / s);
-  // コスト: 直進10・斜め14。ヒューリスティックは道路=マンハッタン、鉄道=オクタイル(許容的)
+  // Cost: 10 straight, 14 diagonal. The heuristic is Manhattan for roads, octile for rails (admissible)
   const h = (x: number, y: number) => {
     const ax = Math.abs(x - tx);
     const ay = Math.abs(y - ty);

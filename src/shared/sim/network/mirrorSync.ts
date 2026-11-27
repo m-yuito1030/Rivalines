@@ -1,11 +1,11 @@
 import { Depot, Flight, KIND_INDEX, Route, Stop, Vehicle } from './types';
 import type { Transit } from './transit';
 
-/** クライアント: サーバーから届いた構造・待ち人数・車両を反映し、なめらかに動かす */
+/** Client: apply the structure, waiting counts, and vehicles that arrived from the server, and animate them smoothly */
 export class MirrorSync {
   constructor(private readonly t: Transit) {}
 
-  /** クライアント(閲覧側): サーバーから受け取った構造(停留所・路線・基地・信号)で置き換える。待ち人数の内訳は持たない */
+  /** Client (viewer side): replace with the structure received from the server (stops, routes, depots, signals). The breakdown of waiting people is not kept */
   mirrorStruct(d: { nextId: number; routes: Route[]; stops: Stop[]; depots: Depot[]; signals: [number, number][]; grants?: [number, number[]][] }): void {
     this.t.nextId = d.nextId;
     this.t.grants = new Map((d.grants ?? []).map(([o, l]) => [o, new Set(l)]));
@@ -19,7 +19,7 @@ export class MirrorSync {
     this.t.version++;
   }
 
-  /** クライアント: 待っている人の数だけ更新する */
+  /** Client: update only the number of people waiting */
   mirrorWaiting(list: [number, number][]): void {
     for (const s of this.t.stops.values()) s.waiting = 0;
     for (const [id, n] of list) {
@@ -28,7 +28,7 @@ export class MirrorSync {
     }
   }
 
-  /** クライアント: 視界内の車両の最新状態を反映する(経路は変わったときだけ届くので前回のものを保つ) */
+  /** Client: apply the latest state of in-view vehicles (a path arrives only when it changes, so keep the previous one) */
   mirrorVehicles(list: (Omit<Vehicle, 'path' | 'cargo'> & { path?: number[] })[], gone: number[]): void {
     for (const id of gone) {
       this.t.mirrorVeh.delete(id);
@@ -39,10 +39,10 @@ export class MirrorSync {
     for (const m of list) {
       const prev = this.t.mirrorVeh.get(m.id);
       const path = m.path ? Uint32Array.from(m.path) : prev?.path;
-      if (!path) continue; // 経路が未着(通常は起こらない)
+      if (!path) continue; // the path has not arrived yet (normally does not happen)
       this.t.mirrorVeh.set(m.id, { ...(prev ?? ({ arrived: 0, until: 0, retryAt: 0, offset: 0 } as Vehicle)), ...m, path, cargo: prev?.cargo ?? new Map() } as Vehicle);
       if (!prev) changed = true;
-      // 補間用に今回の状態を記録する(経路が同じときだけ、前回の状態との間を補間できる)
+      // Record this state for interpolation (only when the path is the same can we interpolate between the previous state and this one)
       const old = this.t.snaps.get(m.id);
       const same = old !== undefined && old.path === path;
       const flight = m.flight as Flight | null;
@@ -59,9 +59,9 @@ export class MirrorSync {
   }
 
   /**
-   * クライアント: 描画のたびに呼ぶ。サーバーの状態は約10Hzでしか届かないので、直近2回の状態の間を、1区間ぶん遅らせて
-   * 線形に補間し(経路上の進み pi+t、鉄道は編成の軌跡、飛行機は飛行距離)、60fpsでもなめらかに動かす。
-   * 届くのが遅れたときは少しだけ先まで進め(外挿)、それ以上は止める。経路が変わったときは補間せず、そのまま出す。
+   * Client: call on every draw. The server's state arrives only at about 10 Hz, so interpolate linearly between the last two states, delayed by one interval
+   * (progress along the path pi+t; for trains the formation's trail; for aircraft the flight distance), so motion is smooth even at 60 fps.
+   * When arrival is late, extrapolate a little, then hold. When the path changed, do not interpolate and just show the state.
    */
   smoothMirror(now: number = typeof performance !== 'undefined' ? performance.now() : Date.now()): void {
     for (const [id, v] of this.t.mirrorVeh) {
@@ -83,11 +83,11 @@ export class MirrorSync {
       v.pi = pi;
       v.t = pi >= last ? 0 : p - pi;
       if (v.mode === 'rail' && cur.trail.length) {
-        // 先頭が pi にあるときの編成の軌跡(頭からの順): 現在のサーバーの軌跡と経路から組み立てる
-        const diff = cur.pi - pi; // 表示の頭は、サーバーの頭より diff タイル後ろ
+        // The train's trail when its head is at pi (in head-first order): built from the current server trail and path
+        const diff = cur.pi - pi; // the displayed head is diff tiles behind the server's head
         const tr: number[] = [];
         for (let j = 0; j < cur.trail.length; j++) {
-          const n = j + diff; // サーバーの頭から n タイル後ろ
+          const n = j + diff; // n tiles behind the server's head
           let tile: number;
           if (n < 0) tile = path[Math.min(last, cur.pi - n)];
           else if (n < cur.trail.length) tile = cur.trail[n];
