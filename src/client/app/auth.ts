@@ -5,6 +5,7 @@ import { BASE, net } from '../connection/net';
 import { Mirror } from '../connection/mirror';
 import { $, sleep } from './dom';
 import { tr } from '../i18n';
+import './resuming.css';
 
 /** What to do after entering a world (starting the game screen). Passed in from main */
 export type StartGame = (map: GameMap, sim: Simulation, mirror: Mirror, startAt: { x: number; y: number }, cam?: { x: number; y: number; zoom: number }) => Promise<void>;
@@ -19,8 +20,30 @@ const trReason = (reason: string): string =>
   reason.startsWith(BAN_PREFIX) && reason.endsWith(')') ? tr('このアカウントは利用停止中です(理由: {reason})', { reason: reason.slice(BAN_PREFIX.length, -1) }) : tr(reason);
 
 export function initAuth(startGame: StartGame): void {
-  const note = $('note');
+  const formNote = $('note');
   const errEl = $('err');
+  const resumingEl = $('resuming');
+  const resumeNote = $('resumeNote');
+  const resumeOther = $<HTMLButtonElement>('resumeOther');
+  /** Status text: shown under the login form, and on the "restoring your login" screen if that is what is showing */
+  const note = {
+    set textContent(v: string) {
+      formNote.textContent = v;
+      resumeNote.textContent = v;
+    },
+  };
+  /** Show the login form (and hide the restoring screen) */
+  const showForm = () => {
+    resumingEl.hidden = true;
+    $('startForm').hidden = false;
+  };
+  /** Show the restoring screen instead of the form, so a player with a saved login does not start typing */
+  const showResuming = () => {
+    $('startForm').hidden = true;
+    resumingEl.hidden = false;
+    resumeNote.textContent = tr('ログインを復元しています…');
+    resumeOther.textContent = tr('別のアカウントでログインする');
+  };
   /** An empty state for the client's "mirror" (the server advances the world) */
   const emptyState = (): SimState => ({
     tick: 0,
@@ -98,14 +121,14 @@ export function initAuth(startGame: StartGame): void {
   void fetch(`${BASE}api/status`)
     .then((r) => r.json())
     .then((s: { world: { size: number }; accounts: number; maxOnline: number; online: number }) => {
-      note.textContent = tr('サーバー稼働中: {size}² / 登録{accounts}人 / オンライン{online}/{max}人', {
+      formNote.textContent = tr('サーバー稼働中: {size}² / 登録{accounts}人 / オンライン{online}/{max}人', {
         size: s.world.size,
         accounts: s.accounts,
         online: s.online,
         max: s.maxOnline,
       });
     })
-    .catch(() => (note.textContent = tr('サーバーに接続できません')));
+    .catch(() => (formNote.textContent = tr('サーバーに接続できません')));
   const serverUp = () =>
     fetch(`${BASE}api/status`)
       .then((r) => r.ok)
@@ -120,17 +143,27 @@ export function initAuth(startGame: StartGame): void {
         if (await serverUp()) {
           net.logout(); // the server is up but we cannot get in = the token is invalid
           note.textContent = '';
+          showForm();
           return;
         }
+        resumeOther.hidden = false; // while waiting for the server, the player can still choose to log in again
         note.textContent = tr('サーバーに再接続しています…');
         await sleep(2000);
       }
     }
+    resumeOther.hidden = false;
     note.textContent = tr('サーバーに接続できません。しばらくしてから再読み込みしてください');
   }
+  resumeOther.addEventListener('click', () => {
+    net.logout();
+    location.reload();
+  });
   {
     const saved = net.saved();
-    if (saved) void resume(saved.token);
+    if (saved) {
+      showResuming();
+      void resume(saved.token);
+    } else showForm();
   }
   net.onClose = (code) => {
     if (code === 4000) {
