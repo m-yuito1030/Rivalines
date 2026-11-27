@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -10,55 +10,102 @@
     <link rel="icon" href="./icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
     <link rel="stylesheet" href="./portal.css" />
-    <title>Rivalines</title>
-    <meta name="description" content="Rivalines is a free multiplayer browser game. Build roads, rails and routes, grow towns, and compete with other companies." />
+    <title>Rivalines – Free Multiplayer Railway &amp; City Builder Game</title>
+    <meta name="description" content="Build roads, rails and bus routes, grow towns and compete with rival companies in a free multiplayer browser game. No download, no email needed." />
+    <link rel="canonical" href="https://rivalines.com/" />
+    <!-- Search engines: this page (English) and /ja.html (Japanese) are the pages to index. /live/ and /next/ are the game itself (noindex) -->
+    <link rel="alternate" hreflang="en" href="https://rivalines.com/" />
+    <link rel="alternate" hreflang="ja" href="https://rivalines.com/ja.html" />
+    <link rel="alternate" hreflang="x-default" href="https://rivalines.com/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Rivalines" />
     <meta property="og:title" content="Rivalines — Build transit. Grow cities. Outplay your rivals." />
-    <meta property="og:description" content="A free multiplayer browser game. Build roads, rails and routes, grow towns, and compete with other companies." />
+    <meta property="og:description" content="A free multiplayer browser game. Build roads, rails and routes, grow towns, and compete with other companies. No download, no email needed." />
     <meta property="og:url" content="https://rivalines.com/" />
     <meta property="og:image" content="https://rivalines.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Rivalines: a pixel-art town with roads and houses, and the tagline Build transit, grow cities, outplay your rivals." />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:locale:alternate" content="ja_JP" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Rivalines — Build transit. Grow cities. Outplay your rivals." />
+    <meta name="twitter:description" content="A free multiplayer browser game. Build roads, rails and routes, grow towns, and compete with other companies." />
+    <meta name="twitter:image" content="https://rivalines.com/og.png" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "VideoGame",
+        "name": "Rivalines",
+        "url": "https://rivalines.com/",
+        "image": "https://rivalines.com/og.png",
+        "description": "A free multiplayer browser game. Build roads, rails and bus routes, grow towns, and compete with rival companies.",
+        "genre": ["Simulation", "Strategy", "City building"],
+        "applicationCategory": "Game",
+        "operatingSystem": "Any (web browser)",
+        "playMode": "MultiPlayer",
+        "gamePlatform": "Web browser",
+        "inLanguage": ["en", "ja"],
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      }
+    </script>
   </head>
   <body>
     <main>
       <h1>Rivalines</h1>
-      <p class="tag">路線を引いて街を育て、ライバル会社と競う</p>
+      <p class="tag" data-i18n="tag">Build transit. Grow cities. Outplay your rivals.</p>
+      <p class="lang"><label for="lang" class="sr" data-i18n="lang">Language</label> <select id="lang" aria-label="Language"></select></p>
 
       <section id="auth" hidden>
         <form id="authForm">
-          <label>名前 <input id="uname" autocomplete="username" maxlength="16" required /></label>
-          <label>パスワード <input id="upw" type="password" autocomplete="current-password" maxlength="72" required /></label>
+          <label><span data-i18n="name">Name</span> <input id="uname" autocomplete="username" maxlength="16" required /></label>
+          <label><span data-i18n="password">Password</span> <input id="upw" type="password" autocomplete="current-password" maxlength="72" required /></label>
           <div class="row">
-            <button type="submit" id="login" class="primary">ログイン</button>
-            <button type="button" id="register">新規登録</button>
+            <button type="submit" id="login" class="primary" data-i18n="login">Log in</button>
+            <button type="button" id="register" data-i18n="register">Sign up</button>
           </div>
           <p id="err" class="err"></p>
-          <p class="muted">新規登録すると、<a href="./terms.html" target="_blank" rel="noopener">利用規約</a>に同意したものとみなします。<a href="./privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a>(メールアドレスや本名は取得しません)</p>
+          <p class="muted"><span data-i18n="agree1">By signing up, you agree to the </span><a href="./terms.en.html" data-legal="terms" target="_blank" rel="noopener" data-i18n="terms">Terms of Service</a><span data-i18n="agree2">. </span><a href="./privacy.en.html" data-legal="privacy" target="_blank" rel="noopener" data-i18n="privacy">Privacy Policy</a><span data-i18n="agree3"> (no email address or real name is needed).</span></p>
         </form>
       </section>
 
       <section id="choose" hidden>
-        <p class="hello"><b id="who"></b> さん、どちらの世界で遊びますか?</p>
+        <p class="hello"><b id="who"></b><span data-i18n="hello">, which world do you want to play?</span></p>
         <div class="cards">
           <article class="card" id="card-live">
-            <h2>本稼働</h2>
-            <p class="desc">みんなが遊んでいる世界です。あなたの会社と記録は保存され続けます。</p>
-            <p class="stat" id="stat-live">確認中…</p>
-            <button type="button" class="primary" data-env="live">本稼働で遊ぶ</button>
+            <h2 data-i18n="liveTitle">Live</h2>
+            <p class="desc" data-i18n="liveDesc">The world everyone plays in. Your company and records are kept.</p>
+            <p class="stat" id="stat-live"></p>
+            <button type="button" class="primary" data-env="live" data-i18n="liveGo">Play live</button>
           </article>
           <article class="card next" id="card-next">
-            <h2>次期バージョン <span class="beta">テスト</span></h2>
-            <p class="desc">新しい機能を先に試せる世界です。<b>データは予告なく消えます</b>(消えても本稼働には影響しません)。正式リリースされると、これが本稼働になります。</p>
-            <p class="stat" id="stat-next">確認中…</p>
-            <button type="button" data-env="next">次期バージョンを試す</button>
+            <h2><span data-i18n="nextTitle">Next version</span> <span class="beta" data-i18n="beta">Test</span></h2>
+            <p class="desc"><span data-i18n="nextDesc1">A world to try new features early. </span><b data-i18n="nextDesc2">Data may be erased without notice</b><span data-i18n="nextDesc3"> (the live world is not affected).</span></p>
+            <p class="stat" id="stat-next"></p>
+            <button type="button" data-env="next" data-i18n="nextGo">Try the next version</button>
           </article>
         </div>
-        <p class="muted">アカウントは共通で、会社のデータは世界ごとに別です。ゲームの中の「🌐 世界を選ぶ」から、いつでも選び直せます。</p>
-        <p><button type="button" id="logout" class="link">ログアウト</button></p>
+        <p class="muted" data-i18n="shared">Your account is shared, and your company data is separate for each world. You can choose again anytime from "Choose world" in the game.</p>
+        <p><button type="button" id="logout" class="link" data-i18n="logout">Log out</button></p>
       </section>
 
-      <p class="muted foot"><a href="./terms.html" target="_blank" rel="noopener">利用規約</a> ・ <a href="./privacy.html" target="_blank" rel="noopener">プライバシーポリシー</a> ・ <a href="./THIRD_PARTY_NOTICES.txt" target="_blank" rel="noopener">ライセンス</a></p>
+      <!-- Text for people and search engines (this content is also in the page without JavaScript) -->
+      <section class="about" id="about">
+        <h2 data-i18n="aboutTitle">What is Rivalines?</h2>
+        <img src="./og.png" width="1200" height="630" alt="Rivalines: a pixel-art town with roads and houses" class="shot" loading="lazy" />
+        <p data-i18n="aboutP1">Rivalines is a free multiplayer transit and city-building game that runs in your browser. Lay roads and railways, open bus, train and air routes, and watch towns grow around your stations — while other players do the same in the same world.</p>
+        <ul>
+          <li data-i18n="feat1"><b>Build a network:</b> roads, tracks, signals, stations, depots and airports, with timetables and routes you design.</li>
+          <li data-i18n="feat2"><b>Grow towns:</b> good service brings passengers, new buildings and bigger cities.</li>
+          <li data-i18n="feat3"><b>Run a company:</b> earn fares, build hotels, malls and stadiums, take loans, buy rivals and watch your share price.</li>
+          <li data-i18n="feat4"><b>Compete live:</b> one shared world with rankings, auctions, partnerships and chat.</li>
+          <li data-i18n="feat5"><b>No install, no email:</b> play on a PC or phone — sign up with just a name and password.</li>
+        </ul>
+        <p class="muted" data-i18n="aboutP2">Available in English and Japanese. All names in the game are fictional.</p>
+      </section>
+
+      <p class="muted foot"><a href="./terms.en.html" data-legal="terms" target="_blank" rel="noopener" data-i18n="terms">Terms of Service</a> ・ <a href="./privacy.en.html" data-legal="privacy" target="_blank" rel="noopener" data-i18n="privacy">Privacy Policy</a> ・ <a href="./THIRD_PARTY_NOTICES.txt" target="_blank" rel="noopener" data-i18n="licenses">Licenses</a> ・ <a href="./ja.html" hreflang="ja">日本語</a></p>
     </main>
     <script src="./portal.js"></script>
   </body>

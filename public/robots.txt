@@ -1,0 +1,7 @@
+# The landing pages (/ and /ja.html) are for search engines. The game itself (/live/, /next/) is allowed to be read but is marked noindex (X-Robots-Tag), so it stays out of search results.
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /ws
+
+Sitemap: https://rivalines.com/sitemap.xml

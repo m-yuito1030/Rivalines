@@ -149,34 +149,37 @@ const server = createServer(async (req, res) => {
     if (req.method === 'GET' && url === '/api/announcements') return json(res, 200, { ok: true, list: news.list() });
     if (req.method === 'GET' && url === '/api/status') return json(res, 200, status());
     if (req.method === 'POST' && (url === '/api/register' || url === '/api/login')) {
-      if (throttled(clientIp(req))) return json(res, 429, { ok: false, reason: '試行回数が多すぎます。少し待ってください' });
       const b = await readBody(req);
+      // The reasons are returned in the language the screen sends (lang). Unknown or missing means Japanese
+      const L = LOCALES[isLangCode(b.lang) ? b.lang : 'ja'];
+      if (throttled(clientIp(req))) return json(res, 429, { ok: false, reason: L.tr('試行回数が多すぎます。少し待ってください') });
       const name = String(b.name ?? '');
       const password = String(b.password ?? '');
       if (url === '/api/register') {
-        if (accounts.readOnly) return json(res, 403, { ok: false, reason: '新規登録は本稼働側で行ってください(同じ名前とパスワードで、こちらでも遊べます)' });
-        if (!registrations.tryTake()) return json(res, 429, { ok: false, reason: '新規登録が混み合っています。しばらくしてからもう一度お試しください' });
+        if (accounts.readOnly) return json(res, 403, { ok: false, reason: L.tr('新規登録は本稼働側で行ってください(同じ名前とパスワードで、こちらでも遊べます)') });
+        if (!registrations.tryTake()) return json(res, 429, { ok: false, reason: L.tr('新規登録が混み合っています。しばらくしてからもう一度お試しください') });
         const r = await accounts.register(name, password);
-        if (!r.ok) return json(res, 400, r);
+        if (!r.ok) return json(res, 400, { ok: false, reason: L.tr(r.reason) });
         return json(res, 200, { ok: true, token: accounts.issueToken(r.account.id), name: r.account.name });
       }
       const a = await accounts.verify(name, password);
-      if (!a) return json(res, 401, { ok: false, reason: '名前またはパスワードが違います' });
-      if (a.banned) return json(res, 403, { ok: false, reason: `このアカウントは利用停止中です(理由: ${a.banned.reason})` });
+      if (!a) return json(res, 401, { ok: false, reason: L.tr('名前またはパスワードが違います') });
+      if (a.banned) return json(res, 403, { ok: false, reason: L.tr('このアカウントは利用停止中です(理由: {reason})', { reason: a.banned.reason }) });
       return json(res, 200, { ok: true, token: accounts.issueToken(a.id), name: a.name });
     }
     if (req.method === 'POST' && (url === '/api/password' || url === '/api/leave')) {
       // The player proves they know the current password, then changes it or leaves (leaving deletes the company and its records)
-      if (throttled(clientIp(req))) return json(res, 429, { ok: false, reason: '試行回数が多すぎます。少し待ってください' });
       const b = await readBody(req);
+      const L = LOCALES[isLangCode(b.lang) ? b.lang : 'ja'];
+      if (throttled(clientIp(req))) return json(res, 429, { ok: false, reason: L.tr('試行回数が多すぎます。少し待ってください') });
       const a = await accounts.verify(String(b.name ?? ''), String(b.password ?? ''));
-      if (!a) return json(res, 401, { ok: false, reason: '名前またはパスワードが違います' });
+      if (!a) return json(res, 401, { ok: false, reason: L.tr('名前またはパスワードが違います') });
       if (url === '/api/leave') {
         removeAccount(a.id);
         return json(res, 200, { ok: true });
       }
       const why = await accounts.setPassword(a.id, String(b.newPassword ?? ''));
-      if (why) return json(res, 400, { ok: false, reason: why });
+      if (why) return json(res, 400, { ok: false, reason: L.tr(why) });
       return json(res, 200, { ok: true, token: accounts.issueToken(a.id), name: a.name });
     }
     if (req.method === 'POST' && url === '/api/admin') {
