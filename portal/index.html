@@ -66,9 +66,27 @@
             <button type="button" id="register" data-i18n="register">Sign up</button>
           </div>
           <p id="err" class="err"></p>
-          <p class="muted"><span data-i18n="agree1">By signing up, you agree to the </span><a href="./terms.en.html" data-legal="terms" target="_blank" rel="noopener" data-i18n="terms">Terms of Service</a><span data-i18n="agree2">. </span><a href="./privacy.en.html" data-legal="privacy" target="_blank" rel="noopener" data-i18n="privacy">Privacy Policy</a><span data-i18n="agree3"> (no email address or real name is needed).</span></p>
+          <p class="muted"><a href="./terms.en.html" data-legal="terms" target="_blank" rel="noopener" data-i18n="terms">Terms of Service</a> ・ <a href="./privacy.en.html" data-legal="privacy" target="_blank" rel="noopener" data-i18n="privacy">Privacy Policy</a></p>
         </form>
       </section>
+
+      <div id="regModal" class="modal" hidden>
+        <form id="regForm" class="box" role="dialog" aria-modal="true" aria-labelledby="regTitle" autocomplete="off">
+          <h2 id="regTitle" data-i18n="regTitle">Sign up</h2>
+          <p data-i18n="regLead">You only need a name and a password. No email address or real name is needed.</p>
+          <label><span data-i18n="regName">Name (2-16 characters: letters, digits, _ or -)</span> <input id="regNameIn" maxlength="16" autocomplete="username" /></label>
+          <label><span data-i18n="regPw">Password (at least 6 characters)</span> <input id="regPwIn" type="password" maxlength="72" autocomplete="new-password" /></label>
+          <label><span data-i18n="regPw2">Password (again)</span> <input id="regPw2In" type="password" maxlength="72" autocomplete="new-password" /></label>
+          <ul class="notes">
+            <li data-i18n="regNote1">Your name is visible to other players. Please do not use your real name.</li>
+            <li data-i18n="regNote2">Since you do not register an email address, if you forget your password you will have to contact the operators to get a temporary one.</li>
+            <li data-i18n="regNote3">One account per person.</li>
+          </ul>
+          <label class="agree"><input id="regAgree" type="checkbox" /> <span><span data-i18n="regAgree">I agree to the</span> <a href="./terms.en.html" data-legal="terms" target="_blank" rel="noopener" data-i18n="terms">Terms of Service</a> ・ <a href="./privacy.en.html" data-legal="privacy" target="_blank" rel="noopener" data-i18n="privacy">Privacy Policy</a></span></label>
+          <p id="regErr" class="err" role="alert"></p>
+          <div class="row"><button type="button" id="regCancel" data-i18n="cancel">Cancel</button><button type="submit" id="regGo" class="primary" disabled data-i18n="regGo">Create account</button></div>
+        </form>
+      </div>
 
       <section id="choose" hidden>
         <p class="hello"><b id="who"></b><span data-i18n="hello">, which world do you want to play?</span></p>

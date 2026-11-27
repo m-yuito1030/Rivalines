@@ -14,7 +14,11 @@ describe('利用規約・プライバシーポリシー', () => {
       // ログイン画面(#start)とメニュー(#menu)の両方にリンクがある
       expect(index.split(`./${page}`).length - 1, page).toBeGreaterThanOrEqual(2);
     }
-    expect(index).toMatch(/利用規約<\/a><span[^>]*>に同意したものとみなします/);
+    // Agreement is given in the sign-up window (a checkbox that must be ticked), which links to both pages
+    const reg = read('src/client/app/registerModal.ts');
+    expect(reg).toContain('次に同意します');
+    expect(reg).toContain('terms${ext}');
+    expect(reg).toContain('privacy${ext}');
   });
 
   it('規約に、決めた方針が書かれている(1人1アカウント・複数アカウント禁止・不適切な文字・運営者の対応・退会)', () => {
