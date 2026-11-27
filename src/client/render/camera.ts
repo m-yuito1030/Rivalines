@@ -4,21 +4,21 @@ import type { View } from './chunkRenderer';
 export const MIN_ZOOM = 0.02;
 export const MAX_ZOOM = 2;
 
-/** パン(ドラッグ/WASD/矢印)・ズーム(ホイール)を扱うカメラ */
+/** A camera that handles panning (drag / WASD / arrows) and zooming (wheel) */
 export class Camera {
-  /** 画面中心が指すワールド座標 */
+  /** The world coordinates at the centre of the screen */
   x = 0;
   y = 0;
   zoom = 0.5;
-  /** 左ドラッグでパンするか(建設ツール中は false。右/中ボタンは常にパン) */
+  /** Whether a left drag pans (false while a build tool is active. Right/middle buttons always pan) */
   leftPans = true;
   private keys = new Set<string>();
   private dragging = false;
   private last = { x: 0, y: 0 };
-  /** 押下中のポインタ(マルチタッチ用) */
+  /** Pointers currently down (for multi-touch) */
   private pointers = new Map<number, { x: number; y: number }>();
   private pinch: { dist: number; cx: number; cy: number } | null = null;
-  /** 2本指操作が始まってから全部の指が離れるまで true(建設ツールのドラッグを取り消すのに使う) */
+  /** True from the start of a two-finger gesture until all fingers lift (used to cancel a build tool's drag) */
   multiTouch = false;
 
   constructor(
@@ -30,7 +30,7 @@ export class Camera {
     el.addEventListener('pointerdown', (e) => {
       this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.pointers.size >= 2) {
-        // 2本指: パン+ピンチズーム
+        // Two fingers: pan + pinch zoom
         this.multiTouch = true;
         this.dragging = false;
         this.pinch = this.measure();
@@ -53,7 +53,7 @@ export class Camera {
         const rect = el.getBoundingClientRect();
         const before = this.screenToWorld(this.pinch.cx - rect.left, this.pinch.cy - rect.top);
         this.zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, (this.zoom * now.dist) / Math.max(1, this.pinch.dist)));
-        // 指の中心点が指しているワールド座標が、中心の移動に追従するように
+        // So the world point under the midpoint of the fingers follows the movement of the centre
         const after = this.screenToWorld(now.cx - rect.left, now.cy - rect.top);
         this.x += before.x - after.x;
         this.y += before.y - after.y;
@@ -74,7 +74,7 @@ export class Camera {
       this.pinch = null;
       if (this.pointers.size === 0) this.multiTouch = false;
       else if (this.pointers.size === 1) {
-        // 2本→1本: 残った指で続けてパンできるようにする
+        // Two fingers -> one: let the remaining finger keep panning
         const [rest] = [...this.pointers.values()];
         if (this.leftPans) {
           this.dragging = true;
@@ -114,7 +114,7 @@ export class Camera {
     };
   }
 
-  /** タイル座標(平面)をワールド座標へ */
+  /** Tile coordinates (plane) to world coordinates */
   static tileToWorld(tx: number, ty: number) {
     return { x: (tx - ty) * 32, y: (tx + ty) * 16 };
   }
@@ -130,7 +130,7 @@ export class Camera {
     this.clamp();
   }
 
-  /** マップのひし形の外に出すぎないように制限 */
+  /** Limit so the view does not go too far outside the map's diamond */
   private clamp(): void {
     const t = Camera.worldToTile(this.x, this.y);
     const cx = Math.min(this.mapSize, Math.max(0, t.x));

@@ -6,12 +6,12 @@ import { drawFacilitySprite } from './buildingSprites';
 import { drawAirTile, drawBridgeTile, drawBuilding, drawConstruction, drawRail, drawRamp, drawRoad, drawTunnelPortal } from './drawTile';
 import { drawTerrainTile, hash2, lodCellColor } from './terrainDraw';
 
-/** 1チャンク = CELLS x CELLS セル。LODが上がるとセル1つが step x step タイルになる */
+/** One chunk = CELLS x CELLS cells. As the LOD rises, one cell becomes step x step tiles */
 export const CELLS = 16;
 export const LOD_STEPS = [1, 4, 16] as const;
-const MARGIN_TOP = MAX_LEVEL * LEVEL_PX + 128; // 標高+建物の高さぶんの上余白(px)
-const CANVAS_W = CELLS * TILE_W + 128; // 左右に 2x2 建物(幅128px)のはみ出しぶんの余白
-const CANVAS_H = CELLS * TILE_H + MARGIN_TOP + MAX_LEVEL * LEVEL_PX; // 下は崖の壁ぶん
+const MARGIN_TOP = MAX_LEVEL * LEVEL_PX + 128; // top margin for elevation + building height (px)
+const CANVAS_W = CELLS * TILE_W + 128; // left/right margin for 2x2 buildings (128 px wide) that overhang
+const CANVAS_H = CELLS * TILE_H + MARGIN_TOP + MAX_LEVEL * LEVEL_PX; // the bottom allows for cliff walls
 const BUILD_BUDGET_MS = 8;
 
 interface Entry {
@@ -27,7 +27,7 @@ interface Entry {
 }
 
 export interface View {
-  /** ワールド座標系で見えている矩形 */
+  /** The rectangle visible in world coordinates */
   left: number;
   top: number;
   right: number;
@@ -35,7 +35,7 @@ export interface View {
   zoom: number;
 }
 
-/** 画面ズームから LOD を決める */
+/** Decide the LOD from the screen zoom */
 export function lodForZoom(zoom: number): number {
   if (zoom >= 0.25) return 0;
   if (zoom >= 0.06) return 1;
@@ -55,7 +55,7 @@ export class ChunkRenderer {
   private hiResZoom: number;
   private lowMem: boolean;
 
-  /** lowMem: スマホ向け。キャッシュ上限を下げ、高解像度テクスチャを使うズームを狭める */
+  /** lowMem: for phones. Lowers the cache cap and narrows the zoom range that uses high-resolution textures */
   constructor(
     private map: GameMap,
     opts: { lowMem?: boolean } = {},
@@ -66,22 +66,22 @@ export class ChunkRenderer {
     this.lowMem = !!opts.lowMem;
   }
 
-  /** ズームに応じたテクスチャ解像度: 近接(2x)は高精細、中間(1x)、遠景(0.5x) */
+  /** Texture resolution by zoom: close (2x) is high detail, middle (1x), far (0.5x) */
   private resFor(zoom: number): number {
     if (!this.lowMem && zoom >= 1.15) return 2;
     return zoom >= this.hiResZoom ? 1 : 0.5;
   }
 
-  /** 毎フレーム呼ぶ。見えるチャンクを確保し、不要なものを整理する */
+  /** Call every frame. Ensure the visible chunks exist and tidy away the unneeded ones */
   update(view: View): void {
     this.frame++;
     const lod = lodForZoom(view.zoom);
     const step = LOD_STEPS[lod];
-    const res = this.resFor(view.zoom); // テクスチャ解像度(メモリ節約)
-    const span = CELLS * step; // チャンクが覆うタイル数
+    const res = this.resFor(view.zoom); // texture resolution (saves memory)
+    const span = CELLS * step; // number of tiles a chunk covers
     const chunksPerAxis = Math.ceil(this.map.size / span);
 
-    // 見える範囲のタイルbbox(余白付き)
+    // Tile bounding box of the visible area (with margin)
     const m = 128 * step;
     const corners = [
       [view.left - m, view.top - m],
@@ -101,7 +101,7 @@ export class ChunkRenderer {
     this.pending = [];
     for (let cy = y0; cy <= y1; cy++) {
       for (let cx = x0; cx <= x1; cx++) {
-        // チャンクのスプライト矩形とビューの交差判定
+        // Intersection test between the chunk's sprite rectangle and the view
         const ox = (cx * span - cy * span) * 32;
         const oy = (cx * span + cy * span) * 16;
         const sl = ox - (CANVAS_W / 2) * step;
@@ -125,7 +125,7 @@ export class ChunkRenderer {
     this.chunksVisible = visible.size;
     this.pendingCount = this.pending.length;
 
-    // 近い順に、時間予算内でビルド
+    // Build nearest first, within the time budget
     this.pending.sort((a, b) => a.dist - b.dist);
     const t0 = performance.now();
     for (const e of dirty) {
@@ -137,7 +137,7 @@ export class ChunkRenderer {
       if (performance.now() - t0 > BUILD_BUDGET_MS) break;
     }
 
-    // 新LODが出揃うまで旧スプライトを残し、揃ったら見えないものを外す
+    // Keep the old sprites until the new LOD is complete, then remove the invisible ones
     const allReady = this.pending.every((p) => this.cache.has(p.key));
     if (allReady) {
       for (const e of this.cache.values()) {
@@ -173,7 +173,7 @@ export class ChunkRenderer {
     this.cache.set(key, { key, sprite, bytes, lastUsed: this.frame, lod, cx, cy, res, dirty: false });
   }
 
-  /** 内容が変わったチャンクのテクスチャを作り直す */
+  /** Rebuild the textures of chunks whose content changed */
   private rebuild(e: Entry): void {
     const { texture, bytes } = this.makeTexture(e.lod, e.cx, e.cy, e.res);
     const old = e.sprite.texture;
@@ -184,7 +184,7 @@ export class ChunkRenderer {
     e.dirty = false;
   }
 
-  /** タイル(x,y)が変化した: それを含む全LODのキャッシュ済みチャンクを要再生成にする */
+  /** Tile (x,y) changed: mark the cached chunks of every LOD that contain it for regeneration */
   markDirty(x: number, y: number): void {
     for (let lod = 0; lod < LOD_STEPS.length; lod++) {
       const span = CELLS * LOD_STEPS[lod];
@@ -225,10 +225,10 @@ export class ChunkRenderer {
           const sp = map.span.get(k);
           drawTerrainTile(ctx, map, tx, ty, px, py, lvl, h, nb, detail, occupied && !(sp & 32));
           if (sp & 16) {
-            // 橋: 地面の上に路面を持ち上げて描く
+            // Bridge: draw the road surface lifted above the ground
             drawBridgeTile(ctx, px, py, ((sp & 15) - lvl) * LEVEL_PX, map.road.get(k), map.rail.get(k), hash2(tx, ty, seed + 13));
           } else if (sp & 32) {
-            // トンネル: 路面は見えない。坑口は隣が通常タイルの側に描く
+            // Tunnel: the road surface is not visible. The portal is drawn on the side where the neighbour is a normal tile
             for (let d = 0; d < 4; d++) {
               const nx2 = tx + [0, 1, 0, -1][d];
               const ny2 = ty + [-1, 0, 1, 0][d];
@@ -239,7 +239,7 @@ export class ChunkRenderer {
             if (map.air.get(k)) drawAirTile(ctx, px, py, map.air.get(k));
             if (map.road.get(k)) drawRoad(ctx, px, py, map.road.get(k), hash2(tx, ty, seed + 13), detail);
             if (map.rail.get(k)) drawRail(ctx, px, py, map.rail.get(k));
-            // 1段高い隣へつながる道路/線路はスロープで描く
+            // A road/rail connecting to a neighbour one level higher is drawn as a slope
             for (let d = 0; d < 4; d++) {
               const nx2 = tx + [0, 1, 0, -1][d];
               const ny2 = ty + [-1, 0, 1, 0][d];
@@ -249,7 +249,7 @@ export class ChunkRenderer {
             }
           }
           if (map.building.get(k) === FACILITY_TILE) {
-            // 学校・市役所・百貨店・モールはスプライト(敷地の手前のタイルで描く)。スタジアムなどは別レイヤーで描く
+            // Schools, town halls, department stores, and malls are sprites (drawn at the front tile of the site). Stadiums and the like are drawn on another layer
             const f = facilityTileMap(map).get(k);
             if (f && isSpriteFacility(f) && facilityAnchor(map, f) === k) drawFacilitySprite(ctx, px, py, f);
           } else if (map.building.get(k) && map.construction.get(k)) drawConstruction(ctx, px, py, map.building.get(k) & 3, hash2(tx, ty, seed + 19));
@@ -262,7 +262,7 @@ export class ChunkRenderer {
     }
   }
 
-  /** LOD>0: セルが覆うブロック内に道路/建物があるか(粗くサンプリング) */
+  /** LOD>0: whether the block a cell covers has a road/building (coarse sampling) */
   private blockBuilt(tx: number, ty: number, step: number): boolean {
     const m = this.map;
     if (m.towns.length === 0) return false;

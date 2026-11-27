@@ -10,7 +10,7 @@ const hash = (n: number) => {
   return ((Math.imul(x, 0xc2b2ae35) >>> 0) % 1000) / 1000;
 };
 
-/** 工事中の建物の動き: 立ちのぼる砂ぼこりと、ときどき光る溶接の火花(足場や基礎は、チャンクに描いてある) */
+/** Motion at construction sites: rising dust, and occasional welding sparks (the scaffolding and foundations are drawn in the chunks) */
 export class ConstructionFx {
   readonly g = new Graphics();
 
@@ -25,14 +25,14 @@ export class ConstructionFx {
     let n = 0;
     for (const i of m.sites.keys()) {
       if (!m.construction.get(i) || !m.building.get(i)) {
-        m.sites.delete(i); // 完成した・取り壊された
+        m.sites.delete(i); // finished or demolished
         continue;
       }
       if (n >= MAX_DRAWN) break;
       const u = i % m.size;
       const v = (i - u) / m.size;
       const wx = (u - v) * 32;
-      const wy = (u + v) * 16 - m.levelAt(u, v) * LEVEL_PX + 16; // タイルの中心
+      const wy = (u + v) * 16 - m.levelAt(u, v) * LEVEL_PX + 16; // the centre of the tile
       if (wx < view.left - 40 || wx > view.right + 40 || wy < view.top - 80 || wy > view.bottom + 40) continue;
       n++;
       const h = hash(i);
@@ -42,7 +42,7 @@ export class ConstructionFx {
         const py = wy - 6 - age * 26;
         g.circle(px, py, 3 + age * 6).fill({ color: 0xcdbf9e, alpha: (1 - age) * 0.5 });
       }
-      // 溶接の火花(0.15秒ほど光る)
+      // Welding sparks (lit for about 0.15 s)
       const ph = (t * 1.3 + h * 5) % 3;
       if (ph < 0.15) {
         const sx = wx + (hash(i + 3) - 0.5) * 16;

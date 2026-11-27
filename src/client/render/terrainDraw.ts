@@ -1,7 +1,7 @@
 import { LEVEL_PX, SEA_LEVEL, TILE_H, TILE_W } from '../../shared/world/constants';
 import type { GameMap } from '../../shared/world/gameMap';
 
-/** 描画用の決定論的ハッシュ/ノイズ(座標とシードのみで決まる。ゲーム状態に影響しない) */
+/** Deterministic hash/noise for drawing (decided only by coordinates and seed; does not affect game state) */
 export function hash2(x: number, y: number, seed: number): number {
   let h = Math.imul(x | 0, 0x27d4eb2d) ^ Math.imul(y | 0, 0x165667b1) ^ Math.imul(seed | 0, 0x9e3779b1);
   h = Math.imul(h ^ (h >>> 15), 0x85ebca6b);
@@ -35,18 +35,18 @@ const SOIL: RGB = [118, 90, 62];
 const SHALLOW: RGB = [96, 178, 228];
 const DEEP: RGB = [14, 56, 120];
 
-/** 陸の地表色。湿度(草の濃さ)・斑・個体差で変化をつける */
+/** Land surface color. Varied by moisture (depth of grass), patches, and per-tile variation */
 export function landColor(map: GameMap, x: number, y: number, lvl: number, h: number): RGB {
   const s = map.seed;
   if (lvl === 1 && h <= SEA_LEVEL + 3) {
     const j = hash2(x, y, s + 3);
     return mixc(SAND, [236, 222, 170], j * 0.5);
   }
-  const m = vnoise(x / 38, y / 38, s + 11); // 湿度
+  const m = vnoise(x / 38, y / 38, s + 11); // moisture
   const patch = vnoise(x / 6.5, y / 6.5, s + 23);
   const jit = hash2(x, y, s + 5);
   let c: RGB = mixc(LUSH, DRY, Math.max(0, Math.min(1, (m - 0.35) * 2)));
-  // 同じ段の中でも高いほどわずかに明るく(なだらかな起伏の手がかり)
+  // Even within the same level, slightly brighter the higher it is (a hint of gentle relief)
   const frac = ((h - SEA_LEVEL - 1) & 15) / 15;
   const k = 0.92 + patch * 0.14 + jit * 0.04 + (frac - 0.5) * 0.07;
   if (lvl <= 5) {
@@ -57,7 +57,7 @@ export function landColor(map: GameMap, x: number, y: number, lvl: number, h: nu
   else if (lvl === 9) c = mixc(HIGH_ROCK, SNOW, 0.6);
   else c = SNOW;
   if (lvl >= 9) {
-    // 雪面: 青みの影と氷のむらで単調さを避ける
+    // Snow surface: avoid monotony with bluish shadows and uneven ice
     const ice = vnoise(x / 3.2, y / 3.2, s + 31);
     c = mixc(c, [196, 212, 236], Math.max(0, ice - 0.35) * 0.9);
   }
@@ -69,7 +69,7 @@ export function waterRGB(h: number): RGB {
   return mixc(SHALLOW, DEEP, Math.pow(d, 0.8));
 }
 
-/** 森の密度(0..1)。草地(段2〜5)にだけ木を置く */
+/** Forest density (0..1). Trees are placed only on grassland (levels 2-5) */
 export function forestAt(map: GameMap, x: number, y: number): number {
   const s = map.seed;
   const f = vnoise(x / 17, y / 17, s + 77) * 0.72 + vnoise(x / 5, y / 5, s + 91) * 0.28;
@@ -80,7 +80,7 @@ const HW = TILE_W / 2;
 const HH = TILE_H / 2;
 
 type Side = 'N' | 'E' | 'S' | 'W';
-/** 辺の端点 (x0,y0,x1,y1): N=上→右, E=右→下, S=下→左, W=左→上 */
+/** Edge endpoints (x0,y0,x1,y1): N = top -> right, E = right -> bottom, S = bottom -> left, W = left -> top */
 function edge(px: number, py: number, side: Side): [number, number, number, number] {
   switch (side) {
     case 'N':
@@ -94,7 +94,7 @@ function edge(px: number, py: number, side: Side): [number, number, number, numb
   }
 }
 
-/** 辺に沿った帯(辺から中心方向へ f の幅)を塗る */
+/** Fill a band along an edge (width f from the edge toward the centre) */
 function strip(ctx: CanvasRenderingContext2D, px: number, py: number, side: Side, f: number, fill: string, alpha: number): void {
   const [x0, y0, x1, y1] = edge(px, py, side);
   const cx = px;
@@ -127,7 +127,7 @@ export interface Neighbors {
   w: number;
 }
 
-/** 崖の壁(+x側=E面、+y側=S面)。地層の線と足元の影つき */
+/** Cliff walls (+x side = E face, +y side = S face). With strata lines and a shadow at the foot */
 function drawWall(ctx: CanvasRenderingContext2D, px: number, py: number, side: 'E' | 'S', steps: number, top: RGB, sandy: boolean, detail: boolean): void {
   const d = steps * LEVEL_PX;
   const [x0, y0, x1, y1] = edge(px, py, side);
@@ -141,7 +141,7 @@ function drawWall(ctx: CanvasRenderingContext2D, px: number, py: number, side: '
   ctx.lineTo(x0, y0 + d);
   ctx.closePath();
   ctx.fill();
-  // 足元ほど暗く
+  // Darker toward the foot
   ctx.fillStyle = 'rgba(20,10,0,0.22)';
   ctx.beginPath();
   ctx.moveTo(x0, y0 + d * 0.55);
@@ -151,7 +151,7 @@ function drawWall(ctx: CanvasRenderingContext2D, px: number, py: number, side: '
   ctx.closePath();
   ctx.fill();
   if (detail) {
-    // 地層の線
+    // Strata lines
     ctx.strokeStyle = 'rgba(0,0,0,0.18)';
     ctx.lineWidth = 1;
     for (let i = 1; i < steps; i++) {
@@ -160,7 +160,7 @@ function drawWall(ctx: CanvasRenderingContext2D, px: number, py: number, side: '
       ctx.lineTo(x1, y1 + i * LEVEL_PX);
       ctx.stroke();
     }
-    // 上端のハイライト
+    // Highlight on the top edge
     ctx.strokeStyle = 'rgba(255,255,255,0.16)';
     ctx.beginPath();
     ctx.moveTo(x0, y0 + 0.5);
@@ -169,7 +169,7 @@ function drawWall(ctx: CanvasRenderingContext2D, px: number, py: number, side: '
   }
 }
 
-/** 地表(タイル上面)。lvl=0 は水面 */
+/** Ground surface (the top face of a tile). lvl=0 is the water surface */
 export function drawTerrainTile(
   ctx: CanvasRenderingContext2D,
   map: GameMap,
@@ -182,7 +182,7 @@ export function drawTerrainTile(
   nb: Neighbors,
   detail: boolean,
   occupied: boolean,
-  /** 粗いLOD用: 上面をこの色で塗り、装飾は省く */
+  /** For coarse LOD: fill the top face with this color and skip decoration */
   override?: string,
 ): void {
   const seed = map.seed;
@@ -195,16 +195,16 @@ export function drawTerrainTile(
     ctx.fillStyle = fill;
     diamond(ctx, px, py);
     ctx.fill();
-    ctx.strokeStyle = fill; // 継ぎ目(ヘアライン)を隠す
+    ctx.strokeStyle = fill; // hides the seams (hairlines)
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // 高い隣接タイルの足元の影(N/W側)
+    // Shadow at the foot of a higher neighbour (N/W sides)
     const dN = nb.n - lvl;
     const dW = nb.w - lvl;
     if (dN > 0) strip(ctx, px, py, 'N', 0.2, '#000', 0.16 + 0.05 * Math.min(dN, 3));
     if (dW > 0) strip(ctx, px, py, 'W', 0.2, '#000', 0.12 + 0.05 * Math.min(dW, 3));
-    // 水辺の湿った砂/土
+    // Damp sand/soil by the water
     if (lvl === 1) {
       if (nb.n === 0) strip(ctx, px, py, 'N', 0.16, '#6a5a38', 0.28);
       if (nb.w === 0) strip(ctx, px, py, 'W', 0.16, '#6a5a38', 0.28);
@@ -220,7 +220,7 @@ export function drawTerrainTile(
         ctx.fillRect(px + (u - v) * HW * 0.8, py + (u + v) * HH * 0.8 + 3, 1.4, 1);
       }
     } else if (lvl <= 5) {
-      // 草のかたまり
+      // Tufts of grass
       const dark = css(top, 0.82);
       const light = css(top, 1.14);
       for (let i = 0; i < 4; i++) {
@@ -238,7 +238,7 @@ export function drawTerrainTile(
         ctx.fillRect(px + (hash2(tx, ty, seed + 9) - 0.5) * 24, py + 10 + hash2(tx, ty, seed + 10) * 10, 2, 2);
       }
     } else if (lvl <= 8) {
-      // 岩肌のひび
+      // Cracks in the rock face
       ctx.strokeStyle = 'rgba(40,30,20,0.28)';
       ctx.lineWidth = 1;
       const u = hash2(tx, ty, seed + 500);
@@ -255,7 +255,7 @@ export function drawTerrainTile(
       ctx.fillRect(px - 8 + hash2(tx, ty, seed + 600) * 10, py + 8 + hash2(tx, ty, seed + 601) * 8, 7, 2);
     }
 
-    // 木
+    // Trees
     if (!sandy && lvl <= 6) {
       const dens = forestAt(map, tx, ty);
       if (dens > 0) {
@@ -271,7 +271,7 @@ export function drawTerrainTile(
     return;
   }
 
-  // 水面
+  // Water surface
   const wc = waterRGB(h);
   const fill = override ?? css(wc);
   ctx.fillStyle = fill;
@@ -280,7 +280,7 @@ export function drawTerrainTile(
   ctx.strokeStyle = fill;
   ctx.lineWidth = 1;
   ctx.stroke();
-  // 岸: 浅い青の帯と白い波打ち際
+  // Shore: a band of light blue and white surf at the water's edge
   const shore: [Side, number][] = [
     ['N', nb.n],
     ['E', nb.e],
@@ -294,7 +294,7 @@ export function drawTerrainTile(
     }
   }
   if (detail) {
-    // きらめき
+    // Glitter
     const g = hash2(tx, ty, seed + 7);
     if (g > 0.86) {
       const u = hash2(tx, ty, seed + 8);
@@ -311,7 +311,7 @@ export function drawTerrainTile(
   }
 }
 
-/** 木1本。(x,y) は根元 */
+/** One tree. (x,y) is the base */
 function drawTree(ctx: CanvasRenderingContext2D, x: number, y: number, conifer: boolean, r: number, ground: RGB): void {
   const sc = 0.85 + r * 0.35;
   ctx.fillStyle = 'rgba(0,0,0,0.18)';
@@ -361,7 +361,7 @@ function drawTree(ctx: CanvasRenderingContext2D, x: number, y: number, conifer: 
   }
 }
 
-/** LODが粗いときのセル色(森は暗く、水は深さで) */
+/** Cell color at a coarse LOD (forests darker, water by depth) */
 export function lodCellColor(map: GameMap, sx: number, sy: number, lvl: number, h: number): string {
   if (lvl === 0) return css(waterRGB(h));
   const c = landColor(map, sx, sy, lvl, h);

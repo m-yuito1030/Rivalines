@@ -9,8 +9,8 @@ import { hash2 } from './terrainDraw';
 import type { View } from './chunkRenderer';
 
 /**
- * 前面の建物: 駅・車両基地・大型施設・車両は街の建物とは別の層で描くため、そのままだと手前の建物にも上から被さる。
- * それらの手前にある建物(街の建物と、スプライトで描く施設)だけを、上の層に描き直して前後を正しくする。
+ * Front buildings: stations, depots, large facilities, and vehicles are drawn on a layer separate from town buildings, so as-is they would cover even the buildings in front of them.
+ * Only the buildings in front of those (town buildings and sprite facilities) are redrawn on an upper layer so the front/back order is right.
  */
 export class FrontOverlay {
   readonly container = new Container();
@@ -22,12 +22,12 @@ export class FrontOverlay {
     private readonly transit: Transit,
   ) {}
 
-  /** 今のフレームで車両を描いたタイルを知らせる(u,v はタイル座標) */
+  /** Report the tiles where a vehicle was drawn in the current frame (u,v are tile coordinates) */
   addVehicleTile(u: number, v: number): void {
     this.vehTiles.push(Math.floor(u), Math.floor(v));
   }
 
-  /** 全部隠す(画面が遠すぎるとき) */
+  /** Hide everything (when zoomed too far out) */
   clear(): void {
     this.hideFrom(0);
     this.staticFront = [];
@@ -35,20 +35,20 @@ export class FrontOverlay {
     this.vehTiles.length = 0;
   }
 
-  /** 駅・車両基地・大型施設の手前にある建物(タイルindex)。構造が変わったときだけ計算し直す */
+  /** Buildings (tile indexes) in front of stations, depots, and large facilities. Recomputed only when the structure changes */
   private staticFront: number[] = [];
-  /** 同じく、駅・基地・大型施設の手前にあるスプライトの施設(駅の屋根などが上から被さるのを防ぐ) */
+  /** Likewise, sprite facilities in front of stations, depots, and large facilities (so station roofs and the like do not cover them) */
   private staticFacs: Facility[] = [];
-  /** 今のフレームで車両を描いたタイル(重複あり) */
+  /** Tiles where a vehicle was drawn in the current frame (with duplicates) */
   private vehTiles: number[] = [];
-  /** タイルごとの「手前にある建物」の一覧(車両用。数秒ごとに作り直す) */
+  /** For each tile, the list of "buildings in front" (for vehicles; rebuilt every few seconds) */
   private nearCache = new Map<number, number[]>();
   private nearCacheAt = 0;
 
   /**
-   * 駅・車両基地・大型施設・車両は、街の建物とは別の層で描くため、そのままだと手前の建物にも常に上から被さる。
-   * これらの手前(x+y が大きい側)にある建物だけを、上に描き直して前後を正しくする。
-   * ここでは駅・基地・施設の分を求める(車両の分は毎フレーム renderFront で足す)。
+   * Stations, depots, large facilities, and vehicles are drawn on a layer separate from town buildings, so as-is they always cover even the buildings in front of them.
+   * Only the buildings in front of them (the side with larger x+y) are redrawn on top so the front/back order is right.
+   * Here we work out the part for stations, depots, and facilities (the vehicle part is added every frame in renderFront).
    */
   computeStatic(view: View): void {
     const m = this.map;
@@ -56,7 +56,7 @@ export class FrontOverlay {
     const out = new Set<number>();
     const outFacs = new Set<Facility>();
     const spriteFacs = m.facilities.filter(isSpriteFacility);
-    const R = 7; // 建物の高さぶん、手前〜周囲の何タイルまで調べるか
+    const R = 7; // how many tiles to the front and around to check, to allow for building height
     const scan = (tiles: [number, number][]) => {
       let x0 = Infinity,
         y0 = Infinity,
@@ -73,7 +73,7 @@ export class FrontOverlay {
         for (let tx = Math.max(0, x0 - 2); tx <= Math.min(m.size - 1, x1 + R); tx++) {
           const b = m.building.get(m.idx(tx, ty));
           if (!b || b === FACILITY_TILE) continue;
-          // 最も近いタイルより手前(x+y が大きい)にある建物だけ
+          // Only buildings in front of (larger x+y than) the nearest tile
           let best = Infinity;
           let bsum = 0;
           for (const [x, y] of tiles) {
@@ -86,7 +86,7 @@ export class FrontOverlay {
           if (tx + ty > bsum) out.add(m.idx(tx, ty));
         }
       }
-      // スプライトの施設: 手前のタイル(敷地の x+y が最大のタイル)が、最も近いタイルより手前にあるものだけ
+      // Sprite facilities: only those whose front tile (the site tile with the largest x+y) is in front of the nearest tile
       for (const f of spriteFacs) {
         const ax = f.x0 + f.w - 1;
         const ay = f.y0 + f.h - 1;
@@ -109,7 +109,7 @@ export class FrontOverlay {
     }
     for (const d of this.transit.depots.values()) scan([[d.x, d.y]]);
     for (const f of m.facilities) {
-      if (isSpriteFacility(f)) continue; // スプライトの施設は建物と同じ層
+      if (isSpriteFacility(f)) continue; // sprite facilities are on the same layer as buildings
       const tiles: [number, number][] = [];
       for (let y = f.y0; y < f.y0 + f.h; y++) for (let x = f.x0; x < f.x0 + f.w; x++) tiles.push([x, y]);
       scan(tiles);
@@ -118,7 +118,7 @@ export class FrontOverlay {
     this.staticFacs = [...outFacs];
   }
 
-  /** 車両のいるタイルの手前にある建物(車両を建物の陰に隠す) */
+  /** Buildings in front of the tile a vehicle is on (so the vehicle is hidden behind buildings) */
   private nearFront(tx: number, ty: number): number[] {
     const m = this.map;
     const key = ty * m.size + tx;
@@ -136,7 +136,7 @@ export class FrontOverlay {
     return l;
   }
 
-  /** 前面に描き直す建物のスプライトを更新する(毎フレーム) */
+  /** Update the sprites of buildings redrawn in front (every frame) */
   render(): void {
     const m = this.map;
     const now = performance.now();
@@ -188,7 +188,7 @@ export class FrontOverlay {
       sp.position.set(Math.round(px - 64), Math.round(cy - 150));
       sp.zIndex = tx + ty;
     }
-    // スプライトの施設(敷地の手前のタイルを基準に、街の建物と同じ前後関係で並べる)
+    // Sprite facilities (ordered with the same front/back relation as town buildings, relative to the site's front tile)
     for (const f of this.staticFacs) {
       const fr = facilitySpriteFrame(f);
       if (!fr) continue;

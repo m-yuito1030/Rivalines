@@ -4,14 +4,14 @@ import aircraftUrl from '../assets/aircraft.png';
 import trainUrl from '../assets/train.png';
 import trainDesigns from '../../shared/data/trainDesigns.json';
 
-/** 乗り物スプライトの拡大率(ゲームのタイルに合わせて小さくしてある。大きすぎ・小さすぎならここを調整する) */
+/** Magnification of vehicle sprites (made small to match the game's tiles. Adjust here if they look too big or too small) */
 export const BUS_SCALE = 0.55;
 export const AIR_SCALE = 0.6;
 
 /**
- * バス(250種)・航空機(100種)の8方向スプライト。方向 k は 0=+u(画面右下) から45度ずつ(transitLayer の dirIndex と同じ)。
- * アトラス: 1デザイン = 8方向を横に並べた帯。バスは1行に5デザイン(セル72x64)、航空機は1行に3デザイン(セル112x104)。
- * 原点(車両の地面位置)はセル内の (ox,oy)。
+ * 8-direction sprites of buses (250 kinds) and aircraft (100 kinds). Direction k starts at 0 = +u (lower right on screen) and goes in 45-degree steps (same as dirIndex in transitLayer).
+ * Atlas: one design = a strip of 8 directions side by side. Buses have 5 designs per row (cell 72x64), aircraft 3 designs per row (cell 112x104).
+ * The origin (the vehicle's ground position) is at (ox,oy) in the cell.
  */
 const SPEC = {
   bus: { cw: 72, ch: 64, per: 5, ox: 36, oy: 38 },
@@ -30,7 +30,7 @@ const loadImage = (url: string): Promise<HTMLImageElement | null> =>
     img.src = url;
   });
 
-/** 失敗しても続行する(その場合は手続き描画の乗り物になる) */
+/** Carry on even on failure (then vehicles are drawn procedurally) */
 let trainBase: Texture | null = null;
 const trainCache = new Map<string, { tex: Texture; ax: number; ay: number; sc: number }>();
 
@@ -46,8 +46,8 @@ export async function loadVehicleSprites(): Promise<void> {
 type TrainMeta = { sc: number; h: number[][]; m: number[][] };
 
 /**
- * 鉄道1両のスプライト(余白を詰めたアトラス)。head=先頭車(運転台つき)/中間車。dir は 0〜7。
- * 最後尾は先頭車を dir+4 で使うと反転できる。sc は1両の長さをゲームの車両間隔に合わせる拡大率。
+ * One rail car's sprite (an atlas with the margins trimmed). head = the lead car (with a cab) / middle car. dir is 0-7.
+ * The last car can be flipped by using the lead car with dir+4. sc is the scale that fits one car's length to the game's car spacing.
  */
 export function trainFrame(design: number, head: boolean, dir: number): { tex: Texture; ax: number; ay: number; sc: number } | null {
   if (!trainBase) return null;
@@ -67,13 +67,13 @@ export const trainSpritesReady = (): boolean => trainBase !== null;
 
 export const vehicleSpritesReady = (kind: VehicleKind): boolean => !!base[kind];
 
-/** ズームに応じて、近いときはドットのまま(nearest)、遠いときはなめらか(linear)に拡縮する */
+/** Depending on zoom, scale with nearest (pixels kept) when close and linear (smooth) when far */
 export function setVehicleSmoothing(zoom: number): void {
   const mode = zoom >= 1 ? 'nearest' : 'linear';
   for (const t of [...Object.values(base), trainBase]) if (t && t.source.scaleMode !== mode) t.source.scaleMode = mode;
 }
 
-/** (種類, デザイン, 方向) のテクスチャとアンカー。アトラスが読めていなければ null */
+/** The texture and anchor for (kind, design, direction). null if the atlas is not loaded */
 export function vehicleFrame(kind: VehicleKind, design: number, dir: number): { tex: Texture; ax: number; ay: number } | null {
   const b = base[kind];
   if (!b) return null;

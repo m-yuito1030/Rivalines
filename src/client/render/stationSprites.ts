@@ -8,9 +8,9 @@ import url2 from '../assets/station2.png';
 import url3 from '../assets/station3.png';
 
 /**
- * 駅のスプライト(駅キットのタイル 64x64)。変種(標準・別色・ダーク・雪景色)ごとに1枚のアトラス。
- * 列 = ピース番号*2 + 層(0=地面 1=上の物: 屋根・駅舎・跨線橋)、行 = 基本の様式*2 + 軸。
- * 地面と上の物を別々に描いて、列車を「地面の上・屋根の下」に挟む。
+ * Station sprites (station-kit tiles, 64x64). One atlas per variant (standard, other color, dark, snow).
+ * Column = piece number*2 + layer (0 = ground, 1 = things above: roofs, station buildings, footbridges), row = base style*2 + axis.
+ * The ground and the upper parts are drawn separately so a train is sandwiched "above the ground, below the roof".
  */
 const TILE = kit.tile;
 const GROUND_TOP = kit.groundTop;
@@ -21,7 +21,7 @@ const loadImage = (url: string): Promise<HTMLImageElement | null> =>
   new Promise((resolve) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => resolve(null); // 失敗したら従来の描き方に戻る
+    img.onerror = () => resolve(null); // on failure, go back to the earlier drawing method
     img.src = url;
   });
 
@@ -31,22 +31,22 @@ export async function loadStationSprites(): Promise<void> {
   loaded.forEach((img, i) => (images[i] = img));
 }
 
-/** 画像が読めていれば、新しいデザイン(スプライト)で描ける */
+/** If the image is loaded, it can be drawn with the new design (sprites) */
 export const stationSpritesReady = (): boolean => images.every((i) => i !== null);
 
-/** 駅の1タイル分の部品: 長手方向 i・幅方向 j(番線)の位置と、そこに置くピース名 */
+/** One tile's part of a station: the position i along the length and j across the width (platform track), and the piece name placed there */
 export interface StationCell {
   i: number;
   j: number;
   piece: string;
-  /** ゲーム内のタイル座標 */
+  /** In-game tile coordinates */
   x: number;
   y: number;
 }
 
-/** 駅の形(番線数・ホーム長)から、各タイルのピースを決める。番線ごとにホームの側が交互になり、隣り合う番線で島式ホームになる */
+/** From the station's shape (platform tracks and platform length), decide each tile's piece. The platform side alternates per track, so adjacent tracks form an island platform */
 export function stationLayout(info: StationInfo): StationCell[] {
-  const glass = (info.design - STATION_KIT_BASE) % 3 === 0; // 一部の様式はガラスの屋根
+  const glass = (info.design - STATION_KIT_BASE) % 3 === 0; // some styles have a glass roof
   const out: StationCell[] = [];
   for (let j = 0; j < info.tracks; j++) {
     const side = j % 2 === 0 ? 'R' : 'L';
@@ -61,18 +61,18 @@ export function stationLayout(info: StationInfo): StationCell[] {
   return out;
 }
 
-/** (design, 軸, ピース, 層) のセルが、アトラスのどの位置か */
+/** Where in the atlas the cell for (design, axis, piece, layer) is */
 function cell(design: number, axis: 0 | 1, piece: string, layer: 0 | 1): { img: HTMLImageElement; sx: number; sy: number } | null {
   const d = design - STATION_KIT_BASE;
   const img = images[d % 4];
   const pi = PIECE.get(piece);
   if (!img || pi === undefined) return null;
-  // ゲームの軸 1(東西 = +x に長い)がキットの軸 0(x)、ゲームの軸 0(南北)がキットの軸 1(y)
+  // The game's axis 1 (east-west, long along +x) is the kit's axis 0 (x); the game's axis 0 (north-south) is the kit's axis 1 (y)
   const kitAxis = axis === 1 ? 0 : 1;
   return { img, sx: (pi * 2 + layer) * TILE, sy: (Math.floor(d / 4) * 2 + kitAxis) * TILE };
 }
 
-/** ゲーム内の駅のスプライトを、地面(列車の下)と上の物(列車の上)の2つの層に並べる */
+/** Arrange the in-game station sprites into two layers: the ground (under trains) and the upper parts (over trains) */
 export class StationSprites {
   readonly ground = new Container();
   readonly objects = new Container();
@@ -85,12 +85,12 @@ export class StationSprites {
     this.objects.sortableChildren = true;
   }
 
-  /** 描き直しの前に呼ぶ */
+  /** Call before redrawing */
   begin(): void {
     this.used = [0, 0];
   }
 
-  /** 描き終わったら呼ぶ(使わなかったスプライトを隠す) */
+  /** Call when finished drawing (hides sprites that were not used) */
   end(): void {
     for (const l of [0, 1] as const) for (let i = this.used[l]; i < this.pool[l].length; i++) this.pool[l][i].visible = false;
   }
@@ -110,7 +110,7 @@ export class StationSprites {
     return t;
   }
 
-  /** 駅1つぶんのスプライトを置く。lvl は駅の高さの段、selected なら地面を橙に染める */
+  /** Place the sprites for one station. lvl is the station's level; if selected, the ground is tinted orange */
   add(info: StationInfo, lvl: number, selected: boolean): void {
     for (const c of stationLayout(info)) {
       for (const layer of [0, 1] as const) {
@@ -134,7 +134,7 @@ export class StationSprites {
   }
 }
 
-/** 選択中のデザインの見本: 番線数・ホーム長・向きを反映した駅を、キャンバスに描く */
+/** Preview of the selected design: draw a station reflecting the number of tracks, platform length, and orientation, onto a canvas */
 export function drawStationPreview(canvas: HTMLCanvasElement, info: StationInfo): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -142,7 +142,7 @@ export function drawStationPreview(canvas: HTMLCanvasElement, info: StationInfo)
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   const cells = stationLayout({ ...info, x0: 0, y0: 0 });
   if (!cells.length) return;
-  // 全体の外接矩形(画面座標)
+  // Bounding rectangle of the whole (screen coordinates)
   let minX = Infinity;
   let maxX = -Infinity;
   let minY = Infinity;

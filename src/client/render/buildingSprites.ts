@@ -25,12 +25,12 @@ import { SIZED_TYPES, type Facility, facilityDims } from '../../shared/world/fac
 import { buildingLevel, buildingVariant, isOffice } from '../../shared/world/buildings';
 
 /**
- * 建物スプライト(住宅・オフィス × S/M/L × 25種)のアトラス。
- * 1セル 128x192。行 = 種類(0..24)、列 = kind*3 + (level-1)(kind: 0=住宅 1=オフィス)。
- * 足元の菱形の中心がセル内 (64,150) に来る。S/M は1タイル、L は 2x2 タイルの敷地。
+ * Atlas of building sprites (houses and offices x S/M/L x 25 kinds).
+ * One cell is 128x192. Row = kind (0..24), column = kind*3 + (level-1) (kind: 0 = house, 1 = office).
+ * The centre of the diamond at the foot sits at (64,150) in the cell. S/M occupy one tile, L a 2x2-tile site.
  *
- * オフィスはさらに追加の100種(offices2.png: 15列x20行。種類 i は 行=⌊i/5⌋、列=(i%5)*3+S/M/L)がある。
- * 旧25種+新100種の計125種から、タイルごとの個体差(hv)で選ぶ。
+ * Offices have a further 100 kinds (offices2.png: 15 columns x 20 rows. Kind i is at row = floor(i/5), column = (i%5)*3 + S/M/L).
+ * One is chosen from the 125 kinds (25 old + 100 new) by the per-tile variation (hv).
  */
 const OFFICE_OLD = 25;
 const OFFICE_NEW = 100;
@@ -46,7 +46,7 @@ let atlasCityhall: HTMLImageElement | null = null;
 let atlasDepartment: HTMLImageElement | null = null;
 let atlasMall: HTMLImageElement | null = null;
 let atlasSights: HTMLImageElement | null = null;
-/** 大きさごとにセルが違う施設(ホテル・公園と、あとから加わった施設)の種類 → アトラスの画像URLと、読み込んだ画像 */
+/** Facility kinds whose cell differs by size (hotels, parks, and later additions) -> the atlas image URL and the loaded image */
 const SIZED_URLS: Record<string, string> = {
   hotel: hotelUrl,
   park: parkUrl,
@@ -70,7 +70,7 @@ const loadImage = (url: string): Promise<HTMLImageElement | null> =>
   new Promise((resolve) => {
     const img = new Image();
     img.onload = () => resolve(img);
-    img.onerror = () => resolve(null); // 失敗しても手続き描画/旧スプライトで続行
+    img.onerror = () => resolve(null); // on failure, carry on with procedural drawing / the old sprites
     img.src = url;
   });
 
@@ -94,10 +94,10 @@ export async function loadBuildingSprites(): Promise<void> {
 export const spritesReady = () => atlas !== null;
 
 /**
- * 建物スプライトを描く。(px,py) は建物のアンカータイル(L は 2x2 の最前面タイル)の上頂点。
- * @returns 描いたら true
+ * Draw a building sprite. (px,py) is the top vertex of the building's anchor tile (the frontmost tile of a 2x2 L).
+ * @returns true if drawn
  */
-/** 建物 b(個体差 hv)のスプライトの、アトラスの画像と切り出し位置。描かないタイル(付属)は null */
+/** The atlas image and crop position of the sprite for building b (variation hv). null for tiles that draw nothing (attached tiles) */
 export function buildingSpriteRect(b: number, hv = 0): { img: HTMLImageElement; sx: number; sy: number; level: number } | null {
   if (!atlas) return null;
   const level = buildingLevel(b);
@@ -106,7 +106,7 @@ export function buildingSpriteRect(b: number, hv = 0): { img: HTMLImageElement; 
   let col = (isOffice(b) ? 3 : 0) + (level - 1);
   let row = buildingVariant(b);
   if (isOffice(b) && atlas2) {
-    // オフィスは旧25種+新100種から、タイルの個体差で選ぶ
+    // Offices are chosen from the 25 old and 100 new kinds by the tile's variation
     const r = Math.min(OFFICE_OLD + OFFICE_NEW - 1, Math.floor(hv * (OFFICE_OLD + OFFICE_NEW)));
     if (r >= OFFICE_OLD) {
       const i = r - OFFICE_OLD;
@@ -121,19 +121,19 @@ export function buildingSpriteRect(b: number, hv = 0): { img: HTMLImageElement; 
 export function drawBuildingSprite(ctx: CanvasRenderingContext2D, px: number, py: number, b: number, hv = 0): boolean {
   if (!atlas) return false;
   const r = buildingSpriteRect(b, hv);
-  if (!r) return true; // 付属タイルは何も描かない
-  // 足元の中心: 1x1 はタイル中心(py+16)、2x2 は4タイルの共有点(py)
+  if (!r) return true; // attached tiles draw nothing
+  // Centre of the foot: for 1x1 the tile centre (py+16), for 2x2 the shared point of the four tiles (py)
   const cy = r.level === 3 ? py : py + 16;
   const scale = ctx.getTransform().a;
-  ctx.imageSmoothingEnabled = scale < 1; // 拡大時はドットを保つ
+  ctx.imageSmoothingEnabled = scale < 1; // keep the pixels crisp when enlarged
   ctx.drawImage(r.img, r.sx, r.sy, SPRITE_W, SPRITE_H, Math.round(px - CX), Math.round(cy - CY), SPRITE_W, SPRITE_H);
   ctx.imageSmoothingEnabled = true;
   return true;
 }
 
-/** 施設スプライトの、アトラス内の切り出し位置と、敷地の手前タイルの上頂点 (px,py) からの描画位置のずれ(画像なしの幾何だけ) */
+/** A facility sprite's crop position in the atlas and its drawing offset from the top vertex (px,py) of the site's front tile (geometry only, no image) */
 export interface FacilityGeom {
-  /** アトラスの種類(sizedAtlas のキー、または school/cityhall/department/mall/sight) */
+  /** Atlas kind (a key of sizedAtlas, or school/cityhall/department/mall/sight) */
   atlas: string;
   sx: number;
   sy: number;
@@ -146,21 +146,21 @@ export interface FacilityGeom {
 type Band = { w: number; h: number; y0: number; cx: number; cy: number };
 
 /**
- * 施設のスプライトの幾何を求める。描けない(スプライトの施設でない)なら null。
- * ホテル・公園・あとから加わった施設・遊園地・スタジアム: 大きさごとにセルが違う(敷地が n×n)。敷地の中心に足元の中心を合わせる。
- * 学校・市役所・百貨店・モール・観光地: アトラスは 15列×N行(種類 i は 行=⌊i/5⌋、列=(i%5)*3+S/M/L)。S/M は1タイル、L は 2x2 タイル。
+ * Work out the geometry of a facility's sprite. null if it cannot be drawn (not a sprite facility).
+ * Hotels, parks, later additions, amusement parks, stadiums: the cell differs by size (the site is n x n). The foot centre is aligned with the centre of the site.
+ * Schools, town halls, department stores, malls, sights: the atlas has 15 columns x N rows (kind i at row = floor(i/5), column = (i%5)*3 + S/M/L). S/M are one tile, L is 2x2 tiles.
  */
 export function facilityGeom(f: Pick<Facility, 'type' | 'design' | 'size' | 'w'>): FacilityGeom | null {
   const d = f.design ?? 0;
   if (SIZED_TYPES.includes(f.type) && f.design !== undefined && f.size !== undefined) {
     const band = (sheetInfo as Record<string, { sizes: Record<string, Band> }>)[f.type]?.sizes[f.size];
     if (!band) return null;
-    // 敷地が n×n のとき、中心は手前タイルの上頂点から (n-2)*16 だけ上
+    // For an n x n site, the centre is (n-2)*16 above the top vertex of the front tile
     return { atlas: f.type, sx: (d % 5) * band.w, sy: band.y0 + Math.floor(d / 5) * band.h, w: band.w, h: band.h, dx: -band.cx, dy: -(f.w - 2) * 16 - band.cy };
   }
   if (f.type !== 'school' && f.type !== 'cityhall' && f.type !== 'department' && f.type !== 'mall' && f.type !== 'sight') return null;
   const si = f.size === 'L' ? 2 : f.size === 'M' ? 1 : 0;
-  // 足元の中心: 1x1 はタイル中心(py+16)、2x2 は4タイルの共有点(py)
+  // Centre of the foot: for 1x1 the tile centre (py+16), for 2x2 the shared point of the four tiles (py)
   return { atlas: f.type, sx: ((d % 5) * 3 + si) * SPRITE_W, sy: Math.floor(d / 5) * SPRITE_H, w: SPRITE_W, h: SPRITE_H, dx: -CX, dy: (si === 2 ? 0 : 16) - CY };
 }
 
@@ -168,7 +168,7 @@ export interface FacilityFrame extends FacilityGeom {
   img: HTMLImageElement;
 }
 
-/** 施設のスプライトの画像つきの切り出し。画像がまだ読み込まれていない・スプライトでない場合は null */
+/** A facility sprite's crop together with its image. null if the image is not loaded yet or it is not a sprite */
 export function facilitySpriteFrame(f: Pick<Facility, 'type' | 'design' | 'size' | 'w'>): FacilityFrame | null {
   const g = facilityGeom(f);
   if (!g) return null;
@@ -179,20 +179,20 @@ export function facilitySpriteFrame(f: Pick<Facility, 'type' | 'design' | 'size'
 }
 
 /**
- * 施設のスプライトを描く。(px,py) は敷地の手前側(x+y が最大)のタイルの上頂点。
- * @returns 描いたら true
+ * Draw a facility's sprite. (px,py) is the top vertex of the site's front tile (largest x+y).
+ * @returns true if drawn
  */
 export function drawFacilitySprite(ctx: CanvasRenderingContext2D, px: number, py: number, f: Facility): boolean {
   const r = facilitySpriteFrame(f);
   if (!r) return false;
   const scale = ctx.getTransform().a;
-  ctx.imageSmoothingEnabled = scale < 1; // 拡大時はドットを保つ
+  ctx.imageSmoothingEnabled = scale < 1; // keep the pixels crisp when enlarged
   ctx.drawImage(r.img, r.sx, r.sy, r.w, r.h, Math.round(px + r.dx), Math.round(py + r.dy), r.w, r.h);
   ctx.imageSmoothingEnabled = true;
   return true;
 }
 
-/** 施設ピッカーの見本: キャンバスの中央に1棟を描く(読み込み前は何も描かない)。大きな施設は、はみ出さないよう縮めて収める */
+/** The facility picker's preview: draw one building in the middle of the canvas (nothing before loading). Large facilities are shrunk to fit without overflowing */
 export function drawFacilityPreview(canvas: HTMLCanvasElement, type: Facility['type'], design: number, size: 'S' | 'M' | 'L'): void {
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
@@ -204,7 +204,7 @@ export function drawFacilityPreview(canvas: HTMLCanvasElement, type: Facility['t
     const n = facilityDims(type, size).w;
     const k = Math.min(1, (canvas.width - 8) / band.w, (canvas.height - 12) / band.h);
     ctx.setTransform(k, 0, 0, k, 0, 0);
-    // スプライトの下端をキャンバスの下辺(余白6px)に合わせる。drawSizedSprite は手前タイルの上頂点から (n-2)*16 だけ上を足元の中心にする
+    // Align the bottom of the sprite with the bottom edge of the canvas (6 px margin). drawSizedSprite puts the foot centre (n-2)*16 above the front tile's top vertex
     const centreY = (canvas.height - 6) / k - (band.h - band.cy);
     drawFacilitySprite(ctx, canvas.width / 2 / k, centreY + (n - 2) * 16, { type, design, size, w: n, h: n } as Facility);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -212,7 +212,7 @@ export function drawFacilityPreview(canvas: HTMLCanvasElement, type: Facility['t
   }
   const n = size === 'L' ? 2 : 1;
   const f = { type, design, size, w: n, h: n } as Facility;
-  // 足元の中心をキャンバスの下寄りに置く(drawFacilitySprite の (px,py) は手前タイルの上頂点)
+  // Put the foot centre toward the bottom of the canvas ((px,py) of drawFacilitySprite is the top vertex of the front tile)
   const centreY = canvas.height - 40;
   const py = size === 'L' ? centreY : centreY - 16;
   drawFacilitySprite(ctx, canvas.width / 2, py, f);
