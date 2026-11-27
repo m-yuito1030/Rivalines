@@ -49,7 +49,7 @@ export function facPrice(cmd: Extract<Cmd, { t: 'facPrice' }>, ctx: CommandConte
   return { ok: true, msg: tr('{name}の料金を「{label}」にしました。来場者と売上は明日以降に反映されます', { name: f.name, label: PRICE_LEVELS[cmd.level].label }) };
 }
 
-/** facUpgrade: グレードを1つ上げる */
+/** facUpgrade: raise the grade by one */
 export function facUpgrade(cmd: Extract<Cmd, { t: 'facUpgrade' }>, ctx: CommandContext): CmdResult {
   const tr = ctx.tr;
   const { map, co, who } = ctx;
@@ -65,7 +65,7 @@ export function facUpgrade(cmd: Extract<Cmd, { t: 'facUpgrade' }>, ctx: CommandC
   return { ok: true, msg: tr('{name}を★{g}にしました({cost})。客単価・来場者の上限・維持費が増えます。料金も見直すと評判を保てます', { name: f.name, g: g + 1, cost: yen(cost) }) };
 }
 
-/** facRenovate: 改装(新しさを戻し、評判を少し上げる) */
+/** facRenovate: renovate (restores newness and raises reputation a little) */
 export function facRenovate(cmd: Extract<Cmd, { t: 'facRenovate' }>, ctx: CommandContext): CmdResult {
   const tr = ctx.tr;
   const { sim, map, co, who } = ctx;
@@ -81,7 +81,7 @@ export function facRenovate(cmd: Extract<Cmd, { t: 'facRenovate' }>, ctx: Comman
   return { ok: true, msg: tr('{name}を改装しました({cost})。人気が戻り、評判も少し上がります', { name: f.name, cost: yen(cost) }) };
 }
 
-/** facRedesign: 建てた施設のデザインを、同じ大きさのまま変える(費用を払う) */
+/** facRedesign: change a built facility's design at the same size (costs money) */
 export function facRedesign(cmd: Extract<Cmd, { t: 'facRedesign' }>, ctx: CommandContext): CmdResult {
   const tr = ctx.tr;
   const { map, co, who } = ctx;

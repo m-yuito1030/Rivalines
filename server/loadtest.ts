@@ -1,4 +1,4 @@
-/** 負荷試験: N人のボットがログイン→建設→路線→車両購入→視界を動かす。サーバーの tick 処理時間を出す */
+/** Load test: N bots log in -> build -> create routes -> buy vehicles -> move their view. Prints the server's tick time */
 import { WebSocket } from 'ws';
 
 const N = Number(process.env.BOTS ?? 100);
@@ -25,7 +25,7 @@ async function bot(i: number) {
       ws.send(JSON.stringify({ type: 'cmd', req: q, cmd: c }));
     });
   void start;
-  // 各ボットは自分の場所(街から離れた格子)で路線を作る
+  // Each bot builds its route in its own spot (a grid away from towns)
   const ox = 20000 + (i % 10) * 300;
   const oy = 20000 + Math.floor(i / 10) * 300;
   ws.send(JSON.stringify({ type: 'view', x0: ox - 40, y0: oy - 40, x1: ox + 40, y1: oy + 40 }));
@@ -37,7 +37,7 @@ async function bot(i: number) {
   const dp = await cmd({ t: 'place', tool: 'depot', x: ox + 5, y: oy });
   let veh = 0;
   if (rt.ok && dp.ok) for (let k = 0; k < 3; k++) if ((await cmd({ t: 'buyVehicle', routeId: rt.id, modelId: 'bus-s', cars: 1 })).ok) veh++;
-  // 視界を揺らして配信を発生させる
+  // Shake the view so the server keeps streaming
   const timer = setInterval(() => ws.send(JSON.stringify({ type: 'view', x0: ox - 40 + Math.random() * 20, y0: oy - 40, x1: ox + 40, y1: oy + 40 })), 500);
   return { ws, timer, veh, ok: !!rt.ok };
 }

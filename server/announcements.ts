@@ -10,13 +10,13 @@ export interface Announcement {
 
 const MAX_KEPT = 30;
 const clean = (s: string, max: number): string | null => {
-  const v = s.replace(/[\u0000-\u0008\u000b-\u001f\u007f<>]/g, '').trim(); // 改行は残す
+  const v = s.replace(/[\u0000-\u0008\u000b-\u001f\u007f<>]/g, '').trim(); // keep newlines
   return v && [...v].length <= max ? v : null;
 };
 
 /**
- * 運営からのお知らせ(メニューに出る)。運営の操作(admin)で足す・消す。
- * 次期バージョンは、本稼働のお知らせを読む(読み取り専用。file を本稼働のデータの場所に向ける)。
+ * Announcements from the operators (shown in the menu). Added and removed through the admin commands.
+ * The next-version world reads the live world's announcements (read-only: point `file` at the live data directory).
  */
 export class Announcements {
   private cache: Announcement[] = [];
@@ -27,7 +27,7 @@ export class Announcements {
     readonly readOnly = false,
   ) {}
 
-  /** 新しい順 */
+  /** Newest first */
   list(): Announcement[] {
     try {
       const m = statSync(this.file).mtimeMs;
@@ -42,7 +42,7 @@ export class Announcements {
     return [...this.cache].sort((a, b) => b.id - a.id);
   }
 
-  /** 足す。できなければ理由 */
+  /** Add one. On failure, returns the reason */
   add(title: string, body: string, now = Date.now()): { ok: true; item: Announcement } | { ok: false; reason: string } {
     if (this.readOnly) return { ok: false, reason: 'お知らせは本稼働側で書いてください' };
     const t = clean(title, 40);

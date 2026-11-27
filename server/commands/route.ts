@@ -8,7 +8,7 @@ import { DAY_TICKS, RANKS } from '../../src/shared/sim/network/transit';
 import type { Route } from '../../src/shared/sim/network/transit';
 import { vehiclePrice, yen } from '../economyApi';
 
-/** 自社の路線が上限に達していれば、失敗の結果(路線を増やす操作の前に確かめる) */
+/** If the player's routes are at the cap, a failure result (check before an action that adds routes) */
 function routeLimit(ctx: CommandContext): CmdResult | null {
   const tr = ctx.tr;
   let n = 0;
@@ -30,7 +30,7 @@ export function routeCreate(cmd: Extract<Cmd, { t: 'routeCreate' }>, ctx: Comman
   return r ? { ok: true, id: r.id } : fail(tr('路線を作れません(同じ種別の停留所を2つ以上選んでください)'));
 }
 
-/** tx の引数の型: id=整数のID・添え字 / dir=+1か-1 / num=有限の数 */
+/** Argument kinds for tx: id = integer ID/index / dir = +1 or -1 / num = finite number */
 const TX_ARGS: Record<(typeof TX_METHODS)[number], ('id' | 'dir' | 'num')[]> = {
   removeRoute: ['id'],
   shareRoute: ['id'],
@@ -45,7 +45,7 @@ const TX_ARGS: Record<(typeof TX_METHODS)[number], ('id' | 'dir' | 'num')[]> = {
   splitTrain: ['id', 'id'],
   coupleTrains: ['id', 'id'],
 };
-/** tx の引数 a が、メソッド m の決まった形(個数・整数・方向・有限の数)か */
+/** Whether the tx arguments `a` have the fixed shape (count, integers, direction, finite numbers) for method m */
 export function validTxArgs(m: string, a: unknown): boolean {
   const spec = (TX_ARGS as Record<string, ('id' | 'dir' | 'num')[] | undefined>)[m];
   if (!spec || !Array.isArray(a) || a.length !== spec.length) return false;
@@ -58,7 +58,7 @@ export function tx(cmd: Extract<Cmd, { t: 'tx' }>, ctx: CommandContext): CmdResu
   const { sim, t, who, mine } = ctx;
   if (!TX_METHODS.includes(cmd.m)) return fail(tr('不正な操作です'));
   const a = cmd.a;
-  // 引数は、個数・型・範囲をメソッドごとに厳密に確かめる(小数・NaN・文字列・余分な引数で、順序や車両の番号が壊れるのを防ぐ)
+  // Arguments are checked strictly per method (count, type, range) so that fractions, NaN, strings, or extra arguments cannot corrupt ordering or vehicle numbers
   if (!validTxArgs(cmd.m, a)) return fail(tr('不正な操作です'));
   const vehOwner = (vid: number) => t.routes.get(t.vehicles.find((v) => v.id === vid)?.routeId ?? -1)?.owner;
   switch (cmd.m) {
@@ -149,7 +149,7 @@ export function routeSet(cmd: Extract<Cmd, { t: 'routeSet' }>, ctx: CommandConte
   if (p.fareMul !== undefined && !Number.isFinite(Number(p.fareMul))) return fail(tr('運賃の倍率が不正です'));
   if (p.fareMul !== undefined) r.fareMul = clampFareMul(p.fareMul) === 1 ? undefined : clampFareMul(p.fareMul);
   if (p.period !== undefined && Number(p.period) > 0) {
-    // 運行の周期は 15分〜7日(tick)の範囲だけ。極端な値でダイヤが壊れないように
+    // The service period is only accepted between 15 minutes and 7 days (ticks), so extreme values cannot break the timetable
     r.period = Math.max(DAY_TICKS / 96, Math.min(DAY_TICKS * 7, Number(p.period)));
     t.syncOrders(r.id);
   }
@@ -249,7 +249,7 @@ export function orderShift(cmd: Extract<Cmd, { t: 'orderShift' }>, ctx: CommandC
 export function routeBulk(cmd: Extract<Cmd, { t: 'routeBulk' }>, ctx: CommandContext): CmdResult {
   const tr = ctx.tr;
   const { sim, t, co, who, mine } = ctx;
-  // 運行本数の一括設定: 時刻表がなければ作り、間隔に合う本数の編成を等間隔のずれで走らせる(足りなければ買い足す)
+  // Bulk-set the service frequency: create a timetable if there is none, and run enough trains at evenly spaced offsets for the interval (buying more if short)
   const r = t.routes.get(cmd.routeId);
   if (!mine(r)) return fail(tr('自社の路線ではありません'));
   const interval = Math.round(Number(cmd.intervalMin));
@@ -310,7 +310,7 @@ export function routeReplace(cmd: Extract<Cmd, { t: 'routeReplace' }>, ctx: Comm
     const oldM = modelOf(v.modelId);
     if (oldM.mode !== m.mode) continue;
     const cars = m.mode === 'rail' ? clampCars(m, v.cars) : 1;
-    if (m.mode === 'rail' && cars !== v.cars) continue; // 両数が変わる車種へは置き換えない(編成の長さが変わるため)
+    if (m.mode === 'rail' && cars !== v.cars) continue; // do not swap to a model with a different car count (it would change the train length)
     const net_ = vehiclePrice(m, cars) - vehiclePrice(oldM, v.cars) * 0.5;
     if (net_ > 0 && !co.afford(net_)) return { ok: changed > 0, msg: tr('資金が足りません。{changed}両を置き換えました({paid})', { changed, paid: yen(paid) }) };
     if (net_ > 0) co.spend('vehicle', net_);

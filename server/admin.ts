@@ -1,9 +1,9 @@
 /**
- * 運営用のコマンド(サーバーのコンテナの中から使う)。
+ * Operator commands (run from inside the server container).
  *   docker compose exec server npx tsx server/admin.ts reports
- *   docker compose exec server npx tsx server/admin.ts ban <名前|#ID> [理由]
- * 操作: reports / traffic(通信量) / dismiss <通報ID> / players / chat / mute <名前> [分] / announce <タイトル> <本文> / announcements / unannounce <番号> / kick / ban / unban / clear / resetpw / delete
- * ADMIN_KEY は、サーバーと同じ環境変数を使う(公開側の nginx は /api/admin を通さない)
+ *   docker compose exec server npx tsx server/admin.ts ban <name|#ID> [reason]
+ * Actions: reports / traffic (traffic volume) / dismiss <report id> / players / chat / mute <name> [minutes] / announce <title> <body> / announcements / unannounce <id> / kick / ban / unban / clear / resetpw / delete
+ * ADMIN_KEY is the same environment variable the server uses (the public nginx never forwards /api/admin)
  */
 const [action, who = '', ...rest] = process.argv.slice(2);
 const key = process.env.ADMIN_KEY ?? '';

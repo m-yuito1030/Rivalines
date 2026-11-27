@@ -61,7 +61,7 @@ export function place(cmd: Extract<Cmd, { t: 'place' }>, ctx: CommandContext): C
     const sprite = SPRITE_TYPES.includes(type);
     if (blockingRight(sim.auctions, map.towns, who, type, x, y))
       return fail(tr('この街の{name}の独占権は他社が持っています(別の街に建てるか、次の競りに参加してください)', { name: spec.name }));
-    // 好きなデザイン・大きさを選べる(指定がなければ最大の大きさ・場所で決まるデザイン)
+    // The player may choose any design and size (if unspecified: the largest size, with the design determined by location)
     const nDesign = DESIGN_COUNT[type] ?? 20;
     const size: FacilitySize = cmd.fac?.size ?? 'L';
     if (!['S', 'M', 'L'].includes(size)) return fail(tr('大きさが正しくありません'));

@@ -21,12 +21,12 @@ const PORT = Number(process.env.PORT ?? 8091);
 const DATA = process.env.DATA_DIR ?? './data';
 const SIZE = Number(process.env.WORLD_SIZE ?? 65535);
 const SEED = Number(process.env.WORLD_SEED ?? 20260401);
-/** 同時に接続できる人数(登録できる人数には上限がない)。旧名 MAX_USERS も受け付ける */
+/** Max concurrent connections (there is no cap on the number of accounts). The old name MAX_USERS is also accepted */
 const MAX_ONLINE = Number(process.env.MAX_ONLINE ?? process.env.MAX_USERS ?? 100);
-/** サーバー全体で、1時間に新規登録できる人数(ボットに大量登録されないための安全弁) */
+/** Server-wide cap on new registrations per hour (a safety valve against bots mass-registering) */
 const REGISTER_PER_HOUR = Number(process.env.REGISTER_PER_HOUR ?? 300);
 const SAVE_FILE = `${DATA}/world.sav`;
-/** 鍵の比較(長さが違えば不一致。内容は、時間の差で推測されないよう一定の時間で比べる) */
+/** Compare keys (a length mismatch means no match. The content is compared in constant time so it cannot be guessed from timing differences) */
 const sameCode = (a: string, b: string): boolean => {
   const x = Buffer.from(a);
   const y = Buffer.from(b);
@@ -34,14 +34,14 @@ const sameCode = (a: string, b: string): boolean => {
 };
 
 /**
- * この世界の名前: live=本稼働 / next=次期バージョン(テスト用。データは消えてよい)。画面の選択に出る。
- * ACCOUNTS_FROM を指定すると、そのディレクトリ(本稼働側のデータ置き場)のアカウントを読み取り専用で使う。
- * 同じ名前・パスワードでどちらの世界にも入れて、世界ごとの会社のデータは別になる。
+ * Name of this world: live = production / next = next version (for testing; its data may be wiped). Shown in the world picker.
+ * With ACCOUNTS_FROM, accounts are read (read-only) from that directory (the live world's data directory).
+ * The same name and password work in both worlds; each world keeps its own company data.
  */
 const ENV_NAME = process.env.ENV_NAME ?? 'live';
 const ENV_LABEL = process.env.ENV_LABEL ?? (ENV_NAME === 'live' ? '本稼働' : '次期バージョン');
 const APP_VERSION = process.env.APP_VERSION ?? 'dev';
-/** ゲームの版番号(package.json)。接続のたびに画面へ伝え、古い画面が開いたままのときに再読み込みを促す */
+/** Game version (package.json). Sent to the client on every connect so a stale open page can prompt a reload */
 const GAME_VERSION = (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version;
 const ACCOUNTS_FROM = process.env.ACCOUNTS_FROM || undefined;
 
@@ -49,12 +49,12 @@ mkdirSync(DATA, { recursive: true });
 const accounts = new Accounts(`${DATA}/accounts.json`, { followFrom: ACCOUNTS_FROM });
 const reports = new Reports(`${DATA}/reports.json`);
 const chat = new Chat();
-/** お知らせ。次期バージョンは、本稼働のお知らせを読み取り専用で表示する */
+/** Announcements. The next-version world shows the live world's announcements (read-only) */
 const news = new Announcements(`${ACCOUNTS_FROM ?? DATA}/announcements.json`, !!ACCOUNTS_FROM);
-/** 運営用の鍵(設定しないと、運営用の API は使えない)。公開側の nginx は /api/admin を通さない */
+/** Operator key (without it the admin API is disabled). The public nginx never forwards /api/admin */
 const ADMIN_KEY = process.env.ADMIN_KEY ?? '';
 
-/** 世界を作る(巨大マップ)。セーブがあれば続きから */
+/** Build the world (huge map). Resumes from the save file if there is one */
 async function loadWorld(): Promise<Simulation> {
   const map = makeWorldMap(SIZE, SEED);
   if (existsSync(SAVE_FILE)) {
@@ -74,13 +74,13 @@ async function loadWorld(): Promise<Simulation> {
 }
 
 const sim = await loadWorld();
-// 小さな世界(次期バージョンなど)は、起動のときに、すべての区画の街を作っておく(遊びながら生まれるのを待たない)
+// Small worlds (e.g. the next version) generate every region's towns at startup instead of waiting for players to explore
 if (process.env.WORLD_PREGEN === '1') {
   const t0 = performance.now();
   sim.discoverNear(SIZE / 2, SIZE / 2, Math.ceil(SIZE / 1024));
   console.log(`[world] 全区画の街を生成 ${sim.map.towns.length}か所 ${(performance.now() - t0).toFixed(0)}ms`);
 }
-// ゲームの進む速さ(1 = 実時間30分でゲーム内1日)。既定は 0.5(実時間60分で1日)。環境変数 SPEED で変えられる
+// Game speed (1 = one game day per 30 real minutes). Default 0.5 (one day per 60 minutes). Override with the SPEED env var
 sim.speed = Number(process.env.SPEED ?? 0.5);
 
 async function saveWorld(): Promise<void> {
@@ -90,19 +90,19 @@ async function saveWorld(): Promise<void> {
   console.log(`[world] 保存 tick=${sim.tick} ${(bytes.length / 1024).toFixed(0)}KB`);
 }
 
-// ---- 接続 ----
-/** 重い操作の、サーバー全体の間隔(かかった時間の3倍は次を受け付けない) */
+// ---- Connections ----
+/** Server-wide spacing between heavy operations (the next one is refused for 3x the time the last took) */
 const governor = new Governor();
 const repl = new Replicator(sim, accounts);
 const clients = new Set<Client>();
-/** オンライン中の会社を反映する(切断した会社は止まる) */
+/** Reflect which companies are online (disconnected companies stop) */
 const syncOnline = () => sim.setOnline([...clients].map((c) => c.id));
-// 会社は、アカウントが最初に接続したときに作る(登録しただけの人のぶんで、世界のデータが膨らまないように)
+// A company is created the first time its account connects (so merely registered accounts do not bloat the world data)
 syncOnline();
 const registrations = new WindowLimiter(REGISTER_PER_HOUR);
 
 const json = (res: import('node:http').ServerResponse, code: number, body: unknown) => {
-  // 画面と同じ場所(同一オリジン)から使うので、CORS は許可しない(他のサイトから勝手に呼べないように)
+  // Used from the same origin as the page, so CORS is not allowed (other sites cannot call it)
   res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' });
   res.end(JSON.stringify(body));
 };
@@ -122,10 +122,10 @@ const readBody = (req: IncomingMessage) =>
     });
   });
 
-// 総当たり対策: 同じIPからの認証は1分に10回まで
+// Brute-force protection: authentication attempts are limited to 10 per minute per IP
 const attempts = new Map<string, number[]>();
 const AUTH_RATE = Number(process.env.AUTH_RATE ?? 10);
-/** 接続元のIP。nginx(プロキシ)の後ろでは接続元が全員プロキシになるので、プロキシが付ける X-Real-IP を使う(サーバーは直接公開しない) */
+/** The client's IP. Behind nginx (the proxy) every connection comes from the proxy, so use the X-Real-IP the proxy sets (the server is never exposed directly) */
 const clientIp = (req: IncomingMessage): string => {
   const h = req.headers['x-real-ip'];
   const v = Array.isArray(h) ? h[0] : h;
@@ -166,7 +166,7 @@ const server = createServer(async (req, res) => {
       return json(res, 200, { ok: true, token: accounts.issueToken(a.id), name: a.name });
     }
     if (req.method === 'POST' && (url === '/api/password' || url === '/api/leave')) {
-      // 本人が、現在のパスワードを示して、パスワードを変える / 退会する(退会すると、会社と記録が消える)
+      // The player proves they know the current password, then changes it or leaves (leaving deletes the company and its records)
       if (throttled(clientIp(req))) return json(res, 429, { ok: false, reason: '試行回数が多すぎます。少し待ってください' });
       const b = await readBody(req);
       const a = await accounts.verify(String(b.name ?? ''), String(b.password ?? ''));
@@ -180,7 +180,7 @@ const server = createServer(async (req, res) => {
       return json(res, 200, { ok: true, token: accounts.issueToken(a.id), name: a.name });
     }
     if (req.method === 'POST' && url === '/api/admin') {
-      // 運営用(鍵が必要。nginx は外からこの道を通さない)
+      // Operator API (needs the key; nginx never routes this path from outside)
       if (!ADMIN_KEY) return json(res, 404, { ok: false });
       const b = await readBody(req);
       if (throttled(`admin:${clientIp(req)}`) || !sameCode(String(req.headers['x-admin-key'] ?? ''), ADMIN_KEY)) return json(res, 403, { ok: false, reason: '鍵が違います' });
@@ -192,13 +192,13 @@ const server = createServer(async (req, res) => {
   }
 });
 
-/** 接続中のアカウントを切る(同じ接続が残らないように、閉じる理由の番号を付ける: 4001=切断された 4005=利用停止・退会) */
+/** Disconnect an account (with a close code so the connection does not linger: 4001 = disconnected, 4005 = suspended or left) */
 function kick(id: number, code: number): boolean {
   let any = false;
   for (const c of clients) if (c.id === id) ((any = true), c.ws.close(code, code === 4005 ? 'banned' : 'kicked'));
   return any;
 }
-/** アカウントと、その会社(施設・路線・車両・提携など)を消す */
+/** Delete an account and its company (facilities, routes, vehicles, pacts, ...) */
 function removeAccount(id: number): void {
   kick(id, 4005);
   for (const c of [...clients]) if (c.id === id) clients.delete(c);
@@ -208,7 +208,7 @@ function removeAccount(id: number): void {
   chat.forget(id);
   syncOnline();
 }
-/** 運営の操作。who は名前、または #ID */
+/** An operator action. `who` is a name or #ID */
 async function admin(action: string, who: string, text: string): Promise<{ ok: boolean; msg: string; data?: unknown }> {
   if (action === 'reports') return { ok: true, msg: `${reports.all().length}件`, data: reports.all() };
   if (action === 'announcements') return { ok: true, msg: `${news.list().length}件`, data: news.list() };
@@ -251,7 +251,7 @@ async function admin(action: string, who: string, text: string): Promise<{ ok: b
       accounts.clearText(a.id);
       return { ok: true, msg: `${label} の会社名・プロフィールを消しました` };
     case 'resetpw': {
-      // 一時パスワードを発行する(これまでのログインは無効になる)。本人に、別の経路で伝える
+      // Issue a temporary password (existing logins become invalid). Pass it to the player through another channel
       const pw = randomBytes(9).toString('base64url');
       await accounts.setPassword(a.id, pw);
       kick(a.id, 4001);
@@ -265,9 +265,9 @@ async function admin(action: string, who: string, text: string): Promise<{ ok: b
   }
 }
 
-// 通信量の計測(合計と種類ごとの大きさだけ。個人を特定する情報は持たない)。admin の traffic と、1時間ごとの記録で見られる
-const trafficWindow = new TrafficMeter(); // 1時間ごとに区切る
-const trafficTotal = new TrafficMeter(256); // 起動してからの合計
+// Traffic measurement (only totals and sizes per kind; no information that identifies individuals). Viewable with the admin `traffic` command and the hourly record
+const trafficWindow = new TrafficMeter(); // split every hour
+const trafficTotal = new TrafficMeter(256); // total since startup
 const traffic = {
   sent: (d: string | Buffer) => (trafficWindow.sent(d), trafficTotal.sent(d)),
   received: (n: number) => (trafficWindow.received(n), trafficTotal.received(n)),
@@ -302,12 +302,12 @@ server.on('upgrade', (req, socket, head) => {
     return socket.destroy();
   }
   wss.handleUpgrade(req, socket, head, (ws) => {
-    // 同時接続の上限(同じアカウントの入り直しは、古い接続と入れ替わるので数えない)
+    // Concurrent-connection cap (an account re-joining replaces its old connection, so it is not counted)
     const rejoin = [...clients].some((c) => c.id === a.id);
     if (!rejoin && clients.size >= MAX_ONLINE) return void ws.close(4003, 'full');
-    // 同じアカウントの二重接続は古い方を切る
+    // A second connection from the same account closes the older one
     for (const c of clients) if (c.id === a.id) c.ws.close(4000, 'other login');
-    // この接続から送るものを、すべて数える(送る場所が何か所もあるので、send そのものを包む)
+    // Count everything sent on this connection (there are several places that send, so wrap send itself)
     const rawSend = ws.send.bind(ws) as (...a: unknown[]) => void;
     ws.send = ((data: string | Buffer, ...rest: unknown[]) => {
       traffic.sent(data);
@@ -324,7 +324,7 @@ server.on('upgrade', (req, socket, head) => {
     );
     ws.send(JSON.stringify({ type: 'chatlog', list: chat.recentLog() }));
     let tokens = 30;
-    const refill = setInterval(() => (tokens = Math.min(30, tokens + 10)), 1000); // 操作は毎秒10回まで(瞬間30回)
+    const refill = setInterval(() => (tokens = Math.min(30, tokens + 10)), 1000); // 10 actions per second (burst of 30)
     const limit = messageLimit();
     let viewTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingView: Extract<ClientMsg, { type: 'view' }> | null = null;
@@ -340,11 +340,11 @@ server.on('upgrade', (req, socket, head) => {
     });
     ws.on('message', (data) => {
       traffic.received((data as Buffer).byteLength ?? 0);
-      // どの種類のメッセージも、毎秒の件数に上限(超えた分は捨て、あまりに多ければ切断)
-      if (!accounts.byId(c.id)) return; // 退会・削除されたアカウントの、閉じる前に届いた操作は捨てる(消した会社が作り直されないように)
+      // Every message type is capped per second (excess is dropped; far too many closes the connection)
+      if (!accounts.byId(c.id)) return; // drop actions that arrive after the account was deleted but before the socket closed (so the company is not recreated)
       const verdict = limit();
       if (verdict === 'drop') return;
-      if (verdict === 'close') return void ws.terminate(); // 洪水は、閉じる手続きを待たず、すぐ切る
+      if (verdict === 'close') return void ws.terminate(); // a flood is cut at once, without waiting for the close handshake
       let m: ClientMsg;
       try {
         m = JSON.parse(String(data)) as ClientMsg;
@@ -353,7 +353,7 @@ server.on('upgrade', (req, socket, head) => {
       }
       if (!m || typeof m !== 'object') return;
       if (m.type === 'view') {
-        // 視界の更新は 0.1秒に1回まで(広い範囲を次々指定してサーバーに地図データを作らせ続ける攻撃を防ぐ)。間引いた分は最新だけ後で反映
+        // View updates are limited to one per 0.1 s (stops an attack that keeps the server generating map data for ever-changing wide views). Throttled ones keep only the latest
         const wait = 100 - (Date.now() - lastViewAt);
         if (wait <= 0) {
           lastViewAt = Date.now();
@@ -370,7 +370,7 @@ server.on('upgrade', (req, socket, head) => {
         }
       } else if (m.type === 'profile') {
         if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: LOCALES[lang].tr('操作が多すぎます。少し待ってください') } }));
-        tokens -= 5; // 保存はディスクに書くので重めに数える
+        tokens -= 5; // saving writes to disk, so it counts for more
         const why = accounts.setProfile(c.id, m);
         ws.send(JSON.stringify({ type: 'res', req: m.req, res: why ? { ok: false, msg: why } : { ok: true, msg: '会社の情報を保存しました' } }));
       } else if (m.type === 'chat') {
@@ -394,7 +394,7 @@ server.on('upgrade', (req, socket, head) => {
         tokens--;
         let res;
         try {
-          // 重い操作(長距離の自動敷設など)は、サーバー全体で間隔をあける(全員の画面が固まらないように)
+          // Heavy operations (e.g. long auto-laying) are spaced out server-wide (so nobody's screen freezes)
           const heavy = isHeavy(m.cmd);
           const busy = heavy && governor.busy();
           if (busy) res = { ok: false, msg: LOCALES[lang].tr('重い操作が混み合っています。数秒おいて、もう一度お試しください') };
@@ -414,7 +414,7 @@ server.on('upgrade', (req, socket, head) => {
       if (clients.delete(c)) {
         syncOnline();
         accounts.flush();
-        if (clients.size === 0) void saveWorld(); // 最後の人が抜けたら保存して停止
+        if (clients.size === 0) void saveWorld(); // when the last player leaves, save and idle
       }
     };
     ws.on('close', drop);
@@ -433,13 +433,13 @@ function status() {
     pop: Math.floor(sim.map.towns.reduce((s, t) => s + t.pop, 0)),
     vehicles: sim.transit.vehicles.length,
     accounts: accounts.count,
-    online: clients.size, // 人数だけ(名前は出さない)
+    online: clients.size, // the count only (no names)
     maxOnline: MAX_ONLINE,
     perf: { simMs: +perf.sim.toFixed(1), replMs: +perf.repl.toFixed(1), loopMs: +perf.loop.toFixed(1), throttled: sim.throttled },
   };
 }
 
-// ---- 進行 ----
+// ---- Simulation loop ----
 let last = performance.now();
 let frameN = 0;
 const perf = { sim: 0, repl: 0, loop: 0 };
@@ -448,13 +448,13 @@ setInterval(() => {
   try {
     tickLoop();
   } catch (e) {
-    // 1回の失敗でサーバー全体を落とさない(落ちると全員が切断され、最後のオートセーブまで巻き戻る)
+    // One failure must not take the whole server down (everyone would be disconnected and rolled back to the last autosave)
     if (++loopErrors <= 20 || loopErrors % 600 === 0) console.error(`[loop] エラー(${loopErrors}回目):`, (e as Error).stack ?? e);
   }
 }, 100);
 function tickLoop() {
   const now = performance.now();
-  // 誰もログインしていない間は世界(街・AI会社を含む)を進めない
+  // While nobody is logged in, the world (towns and AI companies included) does not advance
   if (clients.size === 0) {
     last = now;
     return;
@@ -462,8 +462,8 @@ function tickLoop() {
   const tick0 = sim.tick;
   sim.advance((now - last) / 1000, 60);
   last = now;
-  // 世界が1tickも進まなかったときは、何も送らない。同じ位置の状態を送ると、画面の側が「動かなかった区間」と「ジャンプした区間」を
-  // 交互に受け取って、車両がカクカク動いて見える(ゲームの速さを 0.5 にしたあと、100ms ごとのループで2回に1回は進まない)
+  // When the world did not advance by even one tick, send nothing. Sending the same state makes the client alternate between
+  // "stalled" and "jumped" stretches, so vehicles look jerky (with game speed 0.5, every other 100 ms loop does not advance)
   if (sim.tick === tick0) return;
   const t1 = performance.now();
   repl.frame(clients);
@@ -475,10 +475,10 @@ function tickLoop() {
   perf.loop = perf.loop * 0.9 + (t2 - now) * 0.1;
 }
 setInterval(() => void saveWorld().catch((e) => console.error('[world] 保存に失敗:', (e as Error).message)), 5 * 60 * 1000);
-// 想定外の例外・未処理の失敗でも落ちない(記録して続行)。終了の合図(SIGTERM)のときは保存してから終わる
+// Unexpected exceptions and unhandled rejections must not kill the server (log and continue). On SIGTERM, save before exiting
 process.on('uncaughtException', (e) => console.error('[fatal?] 未処理の例外:', e.stack ?? e));
 process.on('unhandledRejection', (e) => console.error('[fatal?] 未処理の失敗:', e));
-// 切れた接続を見つける(スマホの回線切替などで黙って切れたままの接続を片付ける)
+// Detect dead connections (clean up sockets that went silent, e.g. after a phone switched networks)
 setInterval(() => {
   for (const ws of wss.clients) {
     const w = ws as typeof ws & { alive?: boolean };
