@@ -26,6 +26,8 @@ export const EN_SOCIAL: Catalog = {
   'ja:パスワードは6文字以上72文字以下です': 'The password must be 6 to 72 characters.',
   'ja:このアカウントは利用停止中です(理由: {reason})': 'This account is suspended (reason: {reason}).',
   'ja:不正なリクエスト': 'Invalid request.',
+  'ja:ログインを復元しています…': 'Restoring your login…',
+  'ja:別のアカウントでログインする': 'Log in with another account',
   'ja:💬 チャット': '💬 Chat',
   'ja:チャット': 'Chat',
   'ja:発言する(100文字まで)': 'Say something (up to 100 characters)',
