@@ -83,7 +83,7 @@ export async function listMeta(): Promise<Record<string, SaveMeta>> {
   });
 }
 
-/** 生成済み地形(高度)のキャッシュ。セーブ読み込み時の再生成(4096で十数秒)を省く */
+/** Cache of generated terrain (heights). Saves the regeneration at save load (over ten seconds at 4096) */
 const TERRAIN_KEEP = 3;
 
 export async function getTerrain(key: string): Promise<Uint8Array | undefined> {
@@ -110,7 +110,7 @@ export async function putTerrain(key: string, height: Uint8Array): Promise<void>
       const t = db.transaction('terrain', 'readwrite');
       const st = t.objectStore('terrain');
       st.put({ height, at: Date.now() }, key);
-      // 古いものから削除して TERRAIN_KEEP 件に保つ
+      // Delete the oldest to keep TERRAIN_KEEP entries
       const all = st.openCursor();
       const items: { key: IDBValidKey; at: number }[] = [];
       all.onsuccess = () => {
@@ -130,6 +130,6 @@ export async function putTerrain(key: string, height: Uint8Array): Promise<void>
       t.onerror = () => reject(t.error);
     });
   } catch {
-    // 容量不足などは無視(キャッシュなので)
+    // Ignore failures such as running out of space (it is only a cache)
   }
 }

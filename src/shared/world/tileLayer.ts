@@ -1,4 +1,4 @@
-/** 小さいマップはこのタイル数(一辺)まで1枚の配列で持つ。超えたらチャンクの疎配列 */
+/** A small map up to this many tiles per side is held as a single array. Larger ones use a sparse array of chunks */
 export const DENSE_MAX = 2048;
 export const CHUNK_SHIFT = 6;
 export const CHUNK = 1 << CHUNK_SHIFT; // 64
@@ -7,8 +7,8 @@ const MASK = CHUNK - 1;
 type Arr = Uint8Array | Uint16Array;
 
 /**
- * タイルごとの値の層。index = y*size + x(最大 65535² でも double で正確)。
- * 小さいマップは単一配列、大きいマップは 64x64 チャンクの疎配列(触ったチャンクだけメモリに持つ)。
+ * A layer of per-tile values. index = y*size + x (exact as a double even at 65535²).
+ * Small maps use a single array; large maps use a sparse array of 64x64 chunks (only touched chunks are held in memory).
  */
 export class TileLayer<A extends Arr = Uint8Array> {
   private dense: A | null = null;
@@ -48,7 +48,7 @@ export class TileLayer<A extends Arr = Uint8Array> {
     c[((y & MASK) << CHUNK_SHIFT) | (x & MASK)] = v;
   }
 
-  /** 0 以外の値を持つタイルを走査する(セーブ用) */
+  /** Scan tiles with a non-zero value (for saving) */
   forEachNonZero(fn: (i: number, v: number) => void): void {
     if (this.dense) {
       const d = this.dense;
@@ -67,7 +67,7 @@ export class TileLayer<A extends Arr = Uint8Array> {
     }
   }
 
-  /** 矩形(チャンク単位の範囲)をすべて0にする */
+  /** Set a whole rectangle (a chunk-aligned range) to 0 */
   clearRect(x0: number, y0: number, w: number, h: number): void {
     if (this.dense) {
       for (let y = y0; y < y0 + h && y < this.size; y++) for (let x = x0; x < x0 + w && x < this.size; x++) this.dense[y * this.size + x] = 0;
@@ -76,18 +76,18 @@ export class TileLayer<A extends Arr = Uint8Array> {
     this.chunks.delete((y0 >> CHUNK_SHIFT) * this.cw + (x0 >> CHUNK_SHIFT));
   }
 
-  /** タイル総数 */
+  /** Total number of tiles */
   get length(): number {
     return this.size * this.size;
   }
 
-  /** 他の層の内容をそっくり写す(同じ size) */
+  /** Copy another layer's contents exactly (same size) */
   copyFrom(o: TileLayer<A>): void {
     this.forEachNonZero((i) => this.set(i, 0));
     o.forEachNonZero((i, v) => this.set(i, v));
   }
 
-  /** 確保済みメモリ(バイト) */
+  /** Allocated memory (bytes) */
   get bytes(): number {
     return this.dense ? this.dense.byteLength : this.chunks.size * CHUNK * CHUNK * this.make(0).BYTES_PER_ELEMENT;
   }

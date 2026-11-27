@@ -3,16 +3,16 @@ import { type GameMap, heightHash } from '../world/gameMap';
 import type { TileLayer } from '../world/tileLayer';
 
 const LAYERS = ['road', 'building', 'rail', 'air', 'span', 'owner', 'infraOwner'] as const;
-/** 旧版(v3/v4)の層 */
+/** Layers of the old versions (v3/v4) */
 const LAYERS_OLD = ['road', 'building', 'rail', 'air', 'span', 'owner'] as const;
 type LayerKey = (typeof LAYERS)[number];
-/** 値が0でないタイルの一覧 */
+/** List of tiles whose value is not 0 */
 export interface Sparse {
   idx: Uint32Array;
   val: Uint16Array;
 }
 
-/** 地形生成アルゴリズムを変えたらインクリメントする(古いセーブは地形が一致しない) */
+/** Increment when the terrain generation algorithm changes (old saves would not match the terrain) */
 export const TERRAIN_VERSION = 2;
 const MAGIC = 'SIMSAVE2';
 
@@ -27,9 +27,9 @@ export interface SaveHeader {
   terrainVersion: number;
   size: number;
   seed: number;
-  /** 地形の簡易ハッシュ(再生成した地形がセーブ時と一致するかの検査) */
+  /** A simple hash of the terrain (to check the regenerated terrain matches the one at save time) */
   heightHash: number;
-  /** 整地の差分 [index, 高度] */
+  /** Terraforming differences [index, height] */
   edits: [number, number][];
   savedAt: number;
   sim: SimState;
@@ -65,7 +65,7 @@ export function metaOf(map: GameMap, sim: SimState, gameDate: string, savedAt = 
   };
 }
 
-/** ゲーム状態を gzip 済みバイト列にする。地形(高度)はシードから再生成するので保存しない */
+/** Turn the game state into gzip-compressed bytes. Terrain (heights) is regenerated from the seed, so it is not saved */
 export async function encodeSave(map: GameMap, sim: SimState, camera?: CameraState): Promise<Uint8Array<ArrayBuffer>> {
   const header: SaveHeader = {
     version: 5,
@@ -79,7 +79,7 @@ export async function encodeSave(map: GameMap, sim: SimState, camera?: CameraSta
     camera,
   };
   const hj = new TextEncoder().encode(JSON.stringify(header));
-  // 4: 各層を「値が0でないタイルだけ」(index u32, 値 u16)で保存する。巨大マップでも保存量は編集量に比例
+  // 4: each layer is saved as "only tiles whose value is not 0" (index u32, value u16). The save size is proportional to the amount of editing, even on a huge map
   const layers = LAYERS.map((k) => {
     const list: number[] = [];
     (map[k] as TileLayer<Uint8Array | Uint16Array>).forEachNonZero((i, v) => list.push(i, v));
@@ -150,7 +150,7 @@ export async function decodeSave(compressed: Uint8Array<ArrayBuffer>): Promise<D
   return { header, layers };
 }
 
-/** 再生成した地形に保存済みレイヤーを適用する。地形が違えばエラー */
+/** Apply the saved layers to the regenerated terrain. An error if the terrain differs */
 export function applyLayers(map: GameMap, d: DecodedSave): void {
   if (d.header.terrainVersion !== TERRAIN_VERSION || d.header.heightHash !== map.baseHash) {
     throw new Error('地形がセーブ時と一致しません(ゲームの更新で地形生成が変わった可能性があります)');

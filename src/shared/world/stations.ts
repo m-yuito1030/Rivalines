@@ -4,18 +4,18 @@ import { crossingOk } from './tileRules';
 import kit from '../data/stationKit.json';
 
 /**
- * 駅のデザイン(0..99)= 屋根 5種 × 配色 5種 × 駅舎 4種。
- * 番号 d: 屋根 = d % 5、配色 = ⌊d/5⌋ % 5、駅舎 = ⌊d/25⌋。
+ * Station design (0..99) = 5 roofs x 5 color schemes x 4 station buildings.
+ * For number d: roof = d % 5, color scheme = floor(d/5) % 5, building = floor(d/25).
  */
 export const STATION_DESIGN_COUNT = 100;
 
 /**
- * 新しい駅のデザイン(スプライトのタイルで組み立てる): 番号 100〜179 の80種(基本の様式20 × 変種4)。
- * 様式 = ⌊(d-100)/4⌋、変種 = (d-100) % 4(0=標準 1=別色 2=ダーク 3=雪景色)。0〜99 は従来の描き方(セーブ済みの駅用)。
+ * New station designs (assembled from sprite tiles): numbers 100-179, 80 designs (20 base styles x 4 variants).
+ * Style = floor((d-100)/4), variant = (d-100) % 4 (0 = standard, 1 = other color, 2 = dark, 3 = snow). 0-99 use the earlier drawing method (for stations in existing saves).
  */
 export const STATION_KIT_BASE = 100;
 export const STATION_KIT_COUNT = kit.styles.length;
-/** 駅のデザイン番号の上限(含まない) */
+/** Upper limit (exclusive) of station design numbers */
 export const STATION_DESIGN_MAX = STATION_KIT_BASE + STATION_KIT_COUNT;
 export const isKitDesign = (design: number): boolean => design >= STATION_KIT_BASE;
 export const ROOF_STYLES = ['屋根なし(待合のみ)', '部分屋根', '全長屋根', 'ガラス大屋根', 'アーチ屋根'] as const;
@@ -41,7 +41,7 @@ export function designParts(design: number): { roof: number; palette: StationPal
   return { roof: d % 5, palette: STATION_PALETTES[Math.floor(d / 5) % 5], building: Math.floor(d / 25) };
 }
 
-/** 例: 「ガラス大屋根・ブルー・大駅舎」 */
+/** Example: "Glass grand roof, blue, large station building" */
 export function designName(design: number): string {
   if (isKitDesign(design)) return kit.styles[Math.min(STATION_KIT_COUNT - 1, design - STATION_KIT_BASE)].name;
   const { roof, palette, building } = designParts(design);
@@ -50,15 +50,15 @@ export function designName(design: number): string {
 export const MAX_PLATFORM_LEN = 15;
 export const MAX_TRACKS = 4;
 
-/** 駅(ホーム群)の形。design は 0..99(上記)。軸 axis: 0=南北(+y方向に長い) 1=東西(+x方向に長い) */
+/** The shape of a station (a group of platforms). design is 0..99 (above). Axis axis: 0 = north-south (long in +y) 1 = east-west (long in +x) */
 export interface StationInfo {
   axis: 0 | 1;
-  /** ホームの長さ(タイル) */
+  /** Platform length (tiles) */
   len: number;
-  /** 番線数(平行な線路の本数) */
+  /** Number of platform tracks (number of parallel tracks) */
   tracks: number;
   design: number;
-  /** 左上(最小 x,y)のタイル */
+  /** Top-left (smallest x,y) tile */
   x0: number;
   y0: number;
 }
@@ -70,7 +70,7 @@ export interface StationOptions {
   design: number;
 }
 
-/** 番線 t の i 番目のタイル座標 */
+/** Tile coordinates of the i-th tile of track t */
 export function stationTile(s: StationInfo, t: number, i: number): [number, number] {
   return s.axis === 1 ? [s.x0 + i, s.y0 + t] : [s.x0 + t, s.y0 + i];
 }
@@ -81,7 +81,7 @@ export function stationTiles(s: StationInfo): [number, number][] {
   return out;
 }
 
-/** 軸方向の接続ビット(東西=E|W, 南北=N|S) */
+/** Connection bits along the axis (east-west = E|W, north-south = N|S) */
 const axisBits = (axis: 0 | 1) => (axis === 1 ? CONN(1) | CONN(3) : CONN(0) | CONN(2));
 
 export interface StationPlan {
@@ -92,8 +92,8 @@ export interface StationPlan {
 }
 
 /**
- * (x0,y0) を左上として駅を置けるか。全タイルが同じ高さの陸で、建物・道路・空港・橋がなく、
- * 線路は無いか軸方向の直線のみ。occupied は既存の駅/経由点が使っているタイルかの判定。
+ * Whether a station can be placed with (x0,y0) at the top left. Every tile must be land of the same height with no buildings, roads, airport, or bridges,
+ * and the track must be absent or a straight line along the axis. occupied tells whether a tile is used by an existing station/waypoint.
  */
 export function planStation(map: GameMap, x0: number, y0: number, o: StationOptions, occupied: (idx: number) => boolean): StationPlan {
   const len = Math.max(1, Math.min(MAX_PLATFORM_LEN, Math.floor(o.len)));
@@ -116,14 +116,14 @@ export function planStation(map: GameMap, x0: number, y0: number, o: StationOpti
   return { ok: true, info, tiles };
 }
 
-/** 駅の範囲の線路を敷く(各番線を軸方向に連結。外側への接続は含めない) */
+/** Lay the track of the station area (connect each platform track along the axis; connections outward are not included) */
 export function layStationTracks(map: GameMap, s: StationInfo): void {
   const bits = (i: number) => (i > 0 ? (s.axis === 1 ? CONN(3) : CONN(0)) : 0) | (i < s.len - 1 ? (s.axis === 1 ? CONN(1) : CONN(2)) : 0);
   for (let t = 0; t < s.tracks; t++) {
     for (let i = 0; i < s.len; i++) {
       const [x, y] = stationTile(s, t, i);
       const k = map.idx(x, y);
-      // 1タイルだけの駅は、向きだけ分かるよう両端に仮の接続は付けない(ビットがなければ軸方向を付ける)
+      // A one-tile station gets no provisional connections at both ends, so only the direction is known (if no bit is set, give it the axis direction)
       map.rail.set(k, map.rail.get(k) | (s.len === 1 ? axisBits(s.axis) & (s.axis === 1 ? CONN(1) : CONN(0)) : bits(i)));
       map.touch(x, y);
     }

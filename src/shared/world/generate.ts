@@ -4,9 +4,9 @@ import type { TerrainMessage } from './terrain.worker';
 import { TERRAIN_VERSION } from '../save/serialize';
 import { getTerrain, putTerrain } from '../save/storage';
 
-/** Web Worker で地形を生成する */
+/** Generate terrain in a Web Worker */
 export async function generateMapAsync(size: number, seed: number, onProgress: (p: number) => void): Promise<GameMap> {
-  // 巨大マップ: 全体は作らず、必要なチャンクを座標とシードから都度生成する(待ち時間なし)
+  // Huge map: do not build everything; generate the needed chunks on demand from coordinates and seed (no waiting)
   if (size >= BIG_MAP_MIN) {
     onProgress(1);
     return new GameMap(
@@ -16,7 +16,7 @@ export async function generateMapAsync(size: number, seed: number, onProgress: (
       (x, y) => bigHeight(x, y, seed, 5),
     );
   }
-  // 生成済みの地形があればそれを使う(同じ size/seed/地形バージョンなら結果は同一)
+  // Use generated terrain if there is some (the result is identical for the same size/seed/terrain version)
   const key = `${TERRAIN_VERSION}:${size}:${seed}`;
   const cached = await getTerrain(key);
   if (cached && cached.length === size * size) {

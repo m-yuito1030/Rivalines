@@ -3,12 +3,12 @@ import type { Town } from './town';
 import type { Facility } from './facilities';
 import { CHUNK, CHUNK_SHIFT, type TileLayer, u16Layer, u8Layer } from './tileLayer';
 
-/** チャンク(64x64)の高度を返す生成関数。巨大マップの地形は必要になったチャンクだけ作る */
+/** A generator returning the heights of a chunk (64x64). On a huge map, terrain is built only for chunks that are needed */
 export type HeightChunkGen = (cx: number, cy: number) => Uint8Array;
-/** 1点の高度(キャッシュなし。ミニマップなどの粗い参照用) */
+/** Height at one point (uncached; for coarse lookups such as the minimap) */
 export type HeightPoint = (x: number, y: number) => number;
 
-/** 高度配列から簡易ハッシュ(FNV-1a, 間引きサンプル)。セーブ時の地形一致検査に使う */
+/** A simple hash of the height array (FNV-1a, sampled sparsely). Used to check terrain matches at save time */
 export function heightHash(h: Uint8Array): number {
   let x = 0x811c9dc5;
   const step = Math.max(1, Math.floor(h.length / 65536) | 1);
@@ -16,46 +16,46 @@ export function heightHash(h: Uint8Array): number {
   return x >>> 0;
 }
 
-/** ゲームマップ(タイルデータ。TypedArrayで保持) */
+/** The game map (tile data, held in typed arrays) */
 export class GameMap {
-  /** 道路: 下位4bit=接続(N,E,S,W) 上位4bit=その方向への通行可。0なら道路なし */
+  /** Road: low 4 bits = connections (N,E,S,W), high 4 bits = passable in that direction. 0 means no road */
   readonly road: TileLayer;
-  /** 線路: 下位4bit=接続(N,E,S,W)。双方向のみ。0なら線路なし */
+  /** Rail: low 4 bits = connections (N,E,S,W). Two-way only. 0 means no rail */
   readonly rail: TileLayer;
-  /** 橋/トンネルの中間タイル: bit4=橋 bit5=トンネル, 下位4bit=路面の段数(橋の高さ)。0なら通常 */
+  /** Middle tiles of a bridge/tunnel: bit4 = bridge, bit5 = tunnel, low 4 bits = the road-surface level (bridge height). 0 is normal */
   readonly span: TileLayer;
-  /** 空港タイル: 0=なし 1=エプロン 2=滑走路 3=ターミナル */
+  /** Airport tile: 0 = none, 1 = apron, 2 = runway, 3 = terminal */
   readonly air: TileLayer;
-  /** 建物: 0=なし, bit0-1=レベル(1..3), bit2-5=見た目バリエーション */
+  /** Building: 0 = none, bits 0-1 = level (1..3), bits 2-5 = look variant */
   readonly building: TileLayer;
-  /** 建設中の建物: 1=工事中(建物は置かれているが、まだ使えない)。セーブは SimState.sites から復元する */
+  /** Building under construction: 1 = under construction (the building is placed but not yet usable). Saves are restored from SimState.sites */
   readonly construction: TileLayer;
-  /** サーバー: 工事中のタイル(index) → 完成する時刻(tick) */
+  /** Server: tiles under construction (index) -> the tick they finish */
   readonly sites = new Map<number, number>();
-  /** 建物の所属する街ID(0=なし) */
+  /** ID of the town a building belongs to (0 = none) */
   readonly owner: TileLayer<Uint16Array>;
-  /** マルチプレイ: 道路・線路を敷いた会社(アカウントID)。0=なし/無所有 */
+  /** Multiplayer: the company (account ID) that laid the road or rail. 0 = none / unowned */
   readonly infraOwner: TileLayer<Uint16Array>;
   readonly towns: Town[] = [];
-  /** 巨大マップ: 街を生成済みの区画(ry*区画数+rx) */
+  /** Huge map: regions whose towns are generated (ry * region count + rx) */
   readonly townRegions = new Set<number>();
-  /** 大型施設(スタジアムなど)。敷地は building レイヤーに FACILITY_TILE として置く */
+  /** Large facilities (stadium, etc.). Their sites are placed in the building layer as FACILITY_TILE */
   readonly facilities: Facility[] = [];
-  /** facilities の増減のたびに増やす(描画用の索引の作り直し判定) */
+  /** Increase whenever facilities are added or removed (to decide when to rebuild the drawing index) */
   facilityVer = 0;
-  /** タイルが変化したときの通知(描画の再生成用) */
+  /** Notification when a tile changes (to regenerate drawing) */
   onTouch: ((x: number, y: number) => void) | null = null;
-  /** 整地で編集されたタイル(index → 高度)。地形はシードから再生成するので差分だけ保存する */
+  /** Tiles edited by terraforming (index -> height). Terrain is regenerated from the seed, so only the differences are saved */
   readonly edits = new Map<number, number>();
   editVersion = 0;
-  /** シード生成直後の地形ハッシュ(編集前) */
+  /** Terrain hash right after seed generation (before edits) */
   readonly baseHash: number;
 
-  /** 高度: 小〜中マップは全体の配列、巨大マップはチャンクを遅延生成 */
+  /** Heights: a whole array for small and medium maps; chunks generated lazily for huge maps */
   private dense: Uint8Array | null = null;
   private hchunks = new Map<number, Uint8Array>();
   private readonly cw: number;
-  /** 巨大マップの高度の1点参照(ミニマップ用) */
+  /** A single-point height lookup for huge maps (for the minimap) */
   readonly heightPoint: HeightPoint | null;
 
   constructor(
@@ -85,7 +85,7 @@ export class GameMap {
 
   private gen: HeightChunkGen | null = null;
 
-  /** 巨大マップか(チャンク方式) */
+  /** Whether it is a huge map (chunked) */
   get chunked(): boolean {
     return this.dense === null;
   }
@@ -106,7 +106,7 @@ export class GameMap {
     return c[((y & (CHUNK - 1)) << CHUNK_SHIFT) | (x & (CHUNK - 1))];
   }
 
-  /** 高度の全体配列(小〜中マップのみ。保存・キャッシュ用) */
+  /** The whole height array (small and medium maps only; for saving and caching) */
   get height(): Uint8Array {
     if (!this.dense) throw new Error('巨大マップは高度の全体配列を持ちません');
     return this.dense;
@@ -120,7 +120,7 @@ export class GameMap {
     return y * this.size + x;
   }
 
-  /** 範囲外は最寄りタイルにクランプして高度を返す */
+  /** Returns the height, clamping out-of-range coordinates to the nearest tile */
   heightAt(x: number, y: number): number {
     const s = this.size - 1;
     const cx = x < 0 ? 0 : x > s ? s : x;
@@ -132,15 +132,15 @@ export class GameMap {
     return levelOf(this.heightAt(x, y));
   }
 
-  /** 乗り物・路面が載る高さ(段数)。橋・トンネルの中間タイルは路面の高さ */
+  /** Height (levels) at which vehicles and road surfaces sit. The middle tiles of a bridge or tunnel use the road-surface height */
   surfaceLevel(x: number, y: number): number {
     const sp = this.span.get(this.idx(Math.max(0, Math.min(this.size - 1, x)), Math.max(0, Math.min(this.size - 1, y))));
     return sp ? sp & 15 : this.levelAt(x, y);
   }
 
   /**
-   * 連続的な路面の高さ(段数)。(fx,fy) はタイル内位置(0..1)。
-   * 1段高い隣タイルへ道路/線路がつながっている場合、その方向へ中心→辺で1段ぶん上る(スロープ)。
+   * The continuous road-surface height (levels). (fx,fy) is the position within the tile (0..1).
+   * When a road/rail connects to a neighbour one level higher, it climbs one level from the centre to the edge in that direction (a slope).
    */
   smoothLevel(x: number, y: number, fx: number, fy: number): number {
     if (!this.inBounds(x, y)) return this.levelAt(x, y);
@@ -167,7 +167,7 @@ export class GameMap {
     this.onTouch?.(x, y);
   }
 
-  /** セーブから整地の差分を戻す(描画通知なし) */
+  /** Restore terraforming differences from a save (no drawing notification) */
   restoreEdit(i: number, h: number): void {
     const x = i % this.size;
     const y = (i - x) / this.size;
@@ -179,12 +179,12 @@ export class GameMap {
     this.edits.set(i, h);
   }
 
-  /** 整地: 高度を変更し、壁の描画に影響する隣接タイルも再描画対象にする */
+  /** Terraform: change the height and also mark neighbouring tiles that affect wall drawing for redrawing */
   setHeight(x: number, y: number, h: number): void {
     const i = this.idx(x, y);
     if (this.dense) this.dense[i] = h;
     else {
-      this.heightIdx(x, y); // チャンクを確保
+      this.heightIdx(x, y); // allocate the chunk
       this.hchunks.get((y >> CHUNK_SHIFT) * this.cw + (x >> CHUNK_SHIFT))![((y & (CHUNK - 1)) << CHUNK_SHIFT) | (x & (CHUNK - 1))] = h;
     }
     this.edits.set(i, h);
