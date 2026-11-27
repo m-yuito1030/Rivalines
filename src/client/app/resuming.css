@@ -1,0 +1,8 @@
+/* The screen shown while a saved login is being restored (so nobody starts typing into the login form) */
+#resuming { display: grid; gap: 14px; width: 320px; padding: 24px; background: #15283f; border-radius: 12px; text-align: center; justify-items: center; }
+#resuming[hidden] { display: none; }
+#resuming h1 { margin: 0; font-size: 22px; }
+#resuming p { margin: 0; font-size: 13px; color: #cfe0f5; min-height: 1.4em; }
+#resuming button { padding: 8px 12px; border-radius: 6px; border: 1px solid #456; background: transparent; color: #9ab; cursor: pointer; font-size: 12px; }
+#resuming .spin { width: 28px; height: 28px; border-radius: 50%; border: 3px solid #345; border-top-color: #7bd; animation: resume-spin 0.9s linear infinite; }
+@keyframes resume-spin { to { transform: rotate(360deg); } }

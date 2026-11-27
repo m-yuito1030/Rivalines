@@ -262,7 +262,13 @@
     </div>
 
     <div id="start">
-      <form id="startForm">
+      <div id="resuming" hidden>
+        <h1>Rivalines</h1>
+        <div class="spin" aria-hidden="true"></div>
+        <p id="resumeNote"></p>
+        <button type="button" id="resumeOther" hidden></button>
+      </div>
+      <form id="startForm" hidden>
         <h1>Rivalines</h1>
         <label class="langrow"><span data-i18n="ui.lang">言語</span> <select class="lang-select" aria-label="Language"></select></label>
         <label><span data-i18n="ui.startForm.t1">名前</span> <input id="uname" placeholder="2～16文字" autocomplete="username"  data-i18n-placeholder="ui.uname.placeholder"/></label>

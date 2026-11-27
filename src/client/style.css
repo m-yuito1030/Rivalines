@@ -7,6 +7,7 @@ body.debug #stats { display: block; }
 #help { position: absolute; left: 8px; bottom: 8px; font-size: 12px; background: #000a; padding: 4px 8px; border-radius: 6px; }
 #start { position: fixed; inset: 0; display: grid; place-items: center; background: #0b1a2b; z-index: 10; }
 #start[hidden] { display: none; }
+#startForm[hidden] { display: none; }
 #startForm { display: grid; gap: 14px; width: 320px; padding: 24px; background: #15283f; border-radius: 12px; }
 #startForm h1 { margin: 0; font-size: 22px; text-align: center; }
 #startForm label { display: grid; gap: 4px; font-size: 13px; }
