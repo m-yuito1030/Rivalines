@@ -1,3 +1,4 @@
+import { TrafficMeter } from './traffic';
 import { LOCALES, isLangCode, type LangCode } from '../src/shared/i18n';
 import { createServer, type IncomingMessage } from 'node:http';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
@@ -220,6 +221,11 @@ async function admin(action: string, who: string, text: string): Promise<{ ok: b
   if (action === 'unannounce') return news.remove(Number(who)) ? { ok: true, msg: `お知らせ #${who} を消しました` } : { ok: false, msg: 'そのお知らせはありません' };
   if (action === 'chat') return { ok: true, msg: `${chat.recentLog().length}件`, data: chat.recentLog() };
   if (action === 'dismiss') return { ok: true, msg: `${reports.dismiss({ id: Number(who) })}件を対応済みにしました` };
+  if (action === 'traffic') {
+    const total = trafficTotal.snapshot();
+    const hour = trafficWindow.snapshot();
+    return { ok: true, msg: `起動してから: ${trafficTotal.summary(total)}\n直近(1時間ごとに区切り): ${trafficWindow.summary(hour)}`, data: { total, hour } };
+  }
   if (action === 'players')
     return { ok: true, msg: `登録${accounts.count}人 / オンライン${clients.size}人`, data: [...clients].map((c) => ({ id: c.id, name: accounts.byId(c.id)?.name })) };
   const a = accounts.find(who);
@@ -261,6 +267,32 @@ async function admin(action: string, who: string, text: string): Promise<{ ok: b
   }
 }
 
+// 通信量の計測(合計と種類ごとの大きさだけ。個人を特定する情報は持たない)。admin の traffic と、1時間ごとの記録で見られる
+const trafficWindow = new TrafficMeter(); // 1時間ごとに区切る
+const trafficTotal = new TrafficMeter(256); // 起動してからの合計
+const traffic = {
+  sent: (d: string | Buffer) => (trafficWindow.sent(d), trafficTotal.sent(d)),
+  received: (n: number) => (trafficWindow.received(n), trafficTotal.received(n)),
+  presence: (p: number, dt: number) => (trafficWindow.presence(p, dt), trafficTotal.presence(p, dt)),
+};
+const TRAFFIC_LOG = `${DATA}/traffic.jsonl`;
+setInterval(() => traffic.presence(clients.size, 1), 1000).unref();
+setInterval(
+  () => {
+    const s = trafficWindow.snapshot();
+    if (s.playerSeconds > 0) {
+      console.log(`[traffic] ${trafficWindow.summary(s)}`);
+      try {
+        trafficWindow.append(TRAFFIC_LOG, s);
+      } catch (e) {
+        console.warn('[traffic] 記録に失敗:', (e as Error).message);
+      }
+    }
+    trafficWindow.reset();
+  },
+  60 * 60 * 1000,
+).unref();
+
 const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
 server.on('upgrade', (req, socket, head) => {
   const token = new URL(req.url ?? '', 'http://x').searchParams.get('token') ?? '';
@@ -277,6 +309,12 @@ server.on('upgrade', (req, socket, head) => {
     if (!rejoin && clients.size >= MAX_ONLINE) return void ws.close(4003, 'full');
     // 同じアカウントの二重接続は古い方を切る
     for (const c of clients) if (c.id === a.id) c.ws.close(4000, 'other login');
+    // この接続から送るものを、すべて数える(送る場所が何か所もあるので、send そのものを包む)
+    const rawSend = ws.send.bind(ws) as (...a: unknown[]) => void;
+    ws.send = ((data: string | Buffer, ...rest: unknown[]) => {
+      traffic.sent(data);
+      return rawSend(data, ...rest);
+    }) as typeof ws.send;
     (ws as typeof ws & { alive?: boolean }).alive = true;
     ws.on('pong', () => ((ws as typeof ws & { alive?: boolean }).alive = true));
     const c = repl.newClient(ws, a.id, a.name);
@@ -303,6 +341,7 @@ server.on('upgrade', (req, socket, head) => {
       if (viewTimer) clearTimeout(viewTimer);
     });
     ws.on('message', (data) => {
+      traffic.received((data as Buffer).byteLength ?? 0);
       // どの種類のメッセージも、毎秒の件数に上限(超えた分は捨て、あまりに多ければ切断)
       if (!accounts.byId(c.id)) return; // 退会・削除されたアカウントの、閉じる前に届いた操作は捨てる(消した会社が作り直されないように)
       const verdict = limit();
