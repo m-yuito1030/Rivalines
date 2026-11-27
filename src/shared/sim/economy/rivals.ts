@@ -1,25 +1,25 @@
-/** 競合する交通会社(架空)。路線網を詳細には動かさず、企業価値と利益が日々変動する。買収すると傘下に入り、利益が毎日入る */
+/** Competing transit companies (fictional). They do not run a detailed network; their value and profit just fluctuate daily. Acquiring one makes it a subsidiary whose profit arrives every day */
 export interface Rival {
   id: number;
   name: string;
   color: number;
-  /** 企業価値(円) */
+  /** Enterprise value (yen) */
   value: number;
-  /** 1日あたりの営業利益(円) */
+  /** Operating profit per day (yen) */
   profit: number;
-  /** 旅客数(累計。企業規模からの推定) */
+  /** Passengers (cumulative; estimated from company size) */
   passengers: number;
-  /** 自社が買収して傘下にしているか */
+  /** Whether the player's company has acquired it as a subsidiary */
   acquired: boolean;
-  /** マルチプレイ: 買収した会社(アカウントID) */
+  /** Multiplayer: the acquiring company (account ID) */
   acquiredBy?: number;
-  /** 株価の履歴(企業価値÷株式数) */
+  /** Share price history (enterprise value / number of shares) */
   stockHistory: number[];
 }
 
-/** 競合の発行済み株式数 */
+/** Rivals' number of issued shares */
 export const RIVAL_SHARES = 100_000;
-/** 買収プレミアム(企業価値に対する上乗せ)と、売却(手放す)ときの割合 */
+/** Acquisition premium (markup over enterprise value) and the ratio when selling (letting go) */
 export const ACQUIRE_PREMIUM = 1.15;
 export const DIVEST_RATE = 0.8;
 
@@ -65,11 +65,11 @@ export function createRivals(rng: () => number, count = 4): Rival[] {
   return out;
 }
 
-/** 1日ぶん企業価値を動かす(ゆるやかな成長 + ゆらぎ + まれに急変)。決定論的(rng はシミュレーションのもの) */
+/** Move the enterprise value by one day (gentle growth + noise + rare sudden changes). Deterministic (rng is the simulation's) */
 export function stepRivals(rivals: Rival[], rng: () => number): void {
   for (const r of rivals) {
     let g = 0.0006 + (rng() - 0.5) * 0.008;
-    if (rng() < 0.02) g += (rng() < 0.5 ? -1 : 1) * (0.03 + rng() * 0.07); // 好決算・不祥事など
+    if (rng() < 0.02) g += (rng() < 0.5 ? -1 : 1) * (0.03 + rng() * 0.07); // good results, scandals, etc.
     r.value = Math.max(5_000_000, Math.round(r.value * (1 + g)));
     r.profit = Math.round(r.value * 0.0009 * (0.6 + rng() * 0.8));
     r.passengers += Math.floor((r.value / 20_000) * (0.5 + rng()));
@@ -84,7 +84,7 @@ export const divestPrice = (r: Rival): number => Math.round((r.value * DIVEST_RA
 import type { Company } from './economy';
 import type { GameMap } from '../../world/gameMap';
 
-/** 競合会社を買収する。資金が足りなければ理由を返す。買収した会社が持つ民間施設は自社のものになる */
+/** Acquire a rival. Returns the reason if funds are short. The private facilities the acquired company owns become the player's */
 export function acquireRival(company: Company, r: Rival, map: GameMap, ownerId?: number): string | null {
   if (r.acquired) return 'すでに傘下です';
   const price = acquirePrice(r);
@@ -101,7 +101,7 @@ export function acquireRival(company: Company, r: Rival, map: GameMap, ownerId?:
   return null;
 }
 
-/** 傘下の会社を手放す(企業価値の80%で売却) */
+/** Let go of a subsidiary (sold at 80% of its enterprise value) */
 export function divestRival(company: Company, r: Rival, ownerId?: number): number {
   if (!r.acquired || r.acquiredBy !== ownerId) return 0;
   const get = divestPrice(r);

@@ -1,6 +1,6 @@
 /**
- * 季節・天候・休日・イベント。日付(と世界の種)だけで決まる(状態を持たない)ので、サーバーとクライアントで同じ結果になり、セーブにも入らない。
- * 施設の需要(人口換算)に倍率として掛かる。
+ * Seasons, weather, holidays, and events. Decided only by the date (and the world seed), with no state, so the server and clients get the same result and nothing is saved.
+ * They multiply facility demand (in population terms).
  */
 import { calendarOf } from './calendar';
 import type { Facility, FacilityType } from '../../world/facilities';
@@ -9,7 +9,7 @@ export type Weather = 'sunny' | 'cloudy' | 'rain' | 'snow';
 export const WEATHER_ICON: Record<Weather, string> = { sunny: '☀', cloudy: '☁', rain: '🌧', snow: '❄' };
 export const WEATHER_NAME: Record<Weather, string> = { sunny: '晴れ', cloudy: 'くもり', rain: '雨', snow: '雪' };
 
-/** 決定論的な乱数(0以上1未満) */
+/** Deterministic random number (0 or more, less than 1) */
 export function hash01(a: number, b: number, c = 0): number {
   let h = (Math.imul(a | 0, 0x9e3779b1) ^ Math.imul(b | 0, 0x85ebca6b) ^ Math.imul(c | 0, 0xc2b2ae35)) | 0;
   h = Math.imul(h ^ (h >>> 16), 0x7feb352d);
@@ -29,7 +29,7 @@ export function weatherOf(seed: number, day: number): Weather {
   return 'sunny';
 }
 
-/** 休日か(土日と、主な祝日・年末年始・お盆) */
+/** Whether it is a holiday (weekends, major public holidays, New Year, Obon) */
 export function isHoliday(day: number): boolean {
   const c = calendarOf(day);
   if (c.weekday === 0 || c.weekday === 6) return true;
@@ -49,10 +49,10 @@ export function isHoliday(day: number): boolean {
 }
 
 const LEISURE: FacilityType[] = ['stadium', 'amusement', 'park', 'mall', 'hotel', 'cinema', 'zoo', 'ski', 'beach', 'arena', 'golf'];
-/** 平日に強い施設(休日は客足が落ちる。大学は特に) */
+/** Facilities that do well on weekdays (customers drop on holidays; universities especially) */
 const BUSINESS: FacilityType[] = ['convention', 'bizhotel', 'campus'];
 
-/** 季節の倍率(月ごと) */
+/** Seasonal multiplier (per month) */
 export function seasonMul(type: FacilityType, month: number): number {
   const spring = month >= 3 && month <= 5;
   const summer = month >= 6 && month <= 8;
@@ -97,7 +97,7 @@ export function seasonMul(type: FacilityType, month: number): number {
   }
 }
 
-/** 天候の倍率 */
+/** Weather multiplier */
 export function weatherMul(type: FacilityType, w: Weather): number {
   if (w === 'rain') {
     const m: Partial<Record<FacilityType, number>> = {
@@ -145,7 +145,7 @@ export interface FacilityEvent {
   mul: number;
 }
 
-/** その日、その施設でイベントがあるか(施設の id と日で決まる) */
+/** Whether there is an event at that facility that day (decided by facility id and day) */
 export function facilityEvent(seed: number, f: Pick<Facility, 'id' | 'type'>, day: number): FacilityEvent | null {
   const c = calendarOf(day);
   const hol = isHoliday(day);
@@ -192,7 +192,7 @@ export function facilityEvent(seed: number, f: Pick<Facility, 'id' | 'type'>, da
   }
 }
 
-/** 施設のその日の需要の倍率(季節 × 天候 × 休日 × イベント) */
+/** The facility's demand multiplier for the day (season x weather x holiday x event) */
 export function facilityDayMul(seed: number, f: Pick<Facility, 'id' | 'type'>, day: number): number {
   const c = calendarOf(day);
   let m = seasonMul(f.type, c.month) * weatherMul(f.type, weatherOf(seed, day));
@@ -203,7 +203,7 @@ export function facilityDayMul(seed: number, f: Pick<Facility, 'id' | 'type'>, d
   return e ? m * e.mul : m;
 }
 
-/** 自社の施設の、今日のイベント一覧(通知用) */
+/** List of today's events at the company's own facilities (for notifications) */
 export function eventsToday(seed: number, facilities: Facility[], day: number, mine: (f: Facility) => boolean): { facility: Facility; event: FacilityEvent }[] {
   const out: { facility: Facility; event: FacilityEvent }[] = [];
   for (const f of facilities) {

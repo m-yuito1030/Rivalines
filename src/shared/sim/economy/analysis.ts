@@ -5,7 +5,7 @@ import { RUNNING_RATE, vehiclePrice } from './economy';
 import { DEV, devCost, devIncome } from './development';
 import { WAIT_CAP, type Transit } from '../network/transit';
 
-/** 経営分析: 自社の路線・停留所・施設ごとの採算を集計する(表示用。ゲームの状態は変えない) */
+/** Management analysis: aggregates profitability per route, stop, and facility of the company (for display; does not change game state) */
 
 export interface RouteEcon {
   id: number;
@@ -13,9 +13,9 @@ export interface RouteEcon {
   color: number;
   mode: Mode;
   vehicles: number;
-  /** 1日あたりの運賃収入(直近の移動平均) */
+  /** Fare income per day (recent moving average) */
   income: number;
-  /** 1日あたりの車両の運行費 */
+  /** Vehicle running cost per day */
   running: number;
   profit: number;
   loadPct: number | null;
@@ -27,9 +27,9 @@ export interface StopEcon {
   name: string;
   kind: Mode;
   waiting: number;
-  /** 待ち人数 / 待機の上限(%) */
+  /** People waiting / waiting cap (%) */
   crowdPct: number;
-  /** この停留所に停まる路線の数 */
+  /** Number of routes that stop at this stop */
   routes: number;
 }
 
@@ -50,7 +50,7 @@ export interface Summary {
   idleVehicles: number;
 }
 
-/** ownerId の路線ごとの採算。ownerId=undefined なら全路線(ソロ) */
+/** Profitability per route for ownerId. With ownerId=undefined, all routes (solo) */
 export function routeEcon(t: Transit, ownerId?: number): RouteEcon[] {
   const out: RouteEcon[] = [];
   for (const r of t.routes.values()) {
@@ -76,7 +76,7 @@ export function routeEcon(t: Transit, ownerId?: number): RouteEcon[] {
   return out;
 }
 
-/** ownerId の停留所ごとの混雑(経由点は除く) */
+/** Crowding per stop for ownerId (waypoints excluded) */
 export function stopEcon(t: Transit, ownerId?: number): StopEcon[] {
   const count = new Map<number, number>();
   for (const r of t.routes.values()) for (const id of new Set(r.orders.map((o) => o.stopId))) count.set(id, (count.get(id) ?? 0) + 1);
@@ -89,7 +89,7 @@ export function stopEcon(t: Transit, ownerId?: number): StopEcon[] {
   return out;
 }
 
-/** ownerId の施設ごとの収支(売上は直近の1日の移動平均) */
+/** Income and expenses per facility for ownerId (sales are a moving average over recent days) */
 export function facilityEcon(facilities: Facility[], ownerId?: number): FacilityEcon[] {
   const out: FacilityEcon[] = [];
   for (const f of facilities) {
@@ -118,15 +118,15 @@ export interface DevRow {
   y: number;
   pop: number;
   dev: number;
-  /** 今の開発度の不動産収入/日 */
+  /** Real-estate income per day at the current development level */
   income: number;
-  /** 次の開発度にする費用(最高なら null) */
+  /** Cost to raise to the next development level (null at the maximum) */
   nextCost: number | null;
-  /** 次の開発度で増える不動産収入/日 */
+  /** Real-estate income per day gained at the next development level */
   nextGain: number;
 }
 
-/** 沿線開発の対象(自社の停留所。人口の多い順) */
+/** Targets for line development (the company's own stops, most populous first) */
 export function devRows(t: Transit, ownerId?: number): DevRow[] {
   const out: DevRow[] = [];
   for (const s of t.stops.values()) {

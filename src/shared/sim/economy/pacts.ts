@@ -1,13 +1,13 @@
-/** 提携(乗り入れ契約): 2社が合意すると、互いの線路・道路を通るときの通行料が割り引かれる(双方向) */
+/** Pacts (through-running agreements): when two companies agree, the tolls for using each other's tracks and roads are discounted (both ways) */
 export const PACT_DISCOUNTS = [0.25, 0.5, 0.75, 1] as const;
-/** 1社が同時に出せる申し込みの上限 */
+/** Max proposals one company can have open at once */
 export const MAX_PROPOSALS = 5;
 
 export interface Pact {
   id: number;
   a: number;
   b: number;
-  /** 通行料の割引率(1=無料) */
+  /** Toll discount rate (1 = free) */
   discount: number;
 }
 export interface PactProposal {
@@ -31,13 +31,13 @@ export class Pacts {
     return this.pacts.some((p) => (p.a === x && p.b === y) || (p.a === y && p.b === x)) || this.proposals.some((p) => (p.from === x && p.to === y) || (p.from === y && p.to === x));
   }
 
-  /** 2社の間の通行料の割引率(提携がなければ 0) */
+  /** Toll discount rate between two companies (0 if there is no pact) */
   discountBetween(x: number, y: number): number {
     if (x === y) return 0;
     return this.pacts.find((p) => (p.a === x && p.b === y) || (p.a === y && p.b === x))?.discount ?? 0;
   }
 
-  /** 申し込む。できなければ理由 */
+  /** Propose. On failure, returns the reason */
   propose(from: number, to: number, discount: number): string | null {
     if (from === to) return '自社とは提携できません';
     if (!(PACT_DISCOUNTS as readonly number[]).includes(discount)) return '割引率が不正です';
@@ -47,7 +47,7 @@ export class Pacts {
     return null;
   }
 
-  /** 申し込みへの返事(受け取った会社だけ)。承諾すると提携が成立する */
+  /** Reply to a proposal (only the receiving company). Accepting forms the pact */
   respond(who: number, id: number, accept: boolean): string | null {
     const i = this.proposals.findIndex((p) => p.id === id);
     if (i < 0 || this.proposals[i].to !== who) return '申し込みが見つかりません';
@@ -56,7 +56,7 @@ export class Pacts {
     return null;
   }
 
-  /** 提携の解消(当事者のどちらでも)、または申し込みの取り下げ(申し込んだ側) */
+  /** Dissolve a pact (either party) or withdraw a proposal (the proposer) */
   cancel(who: number, id: number): string | null {
     const i = this.pacts.findIndex((p) => p.id === id && (p.a === who || p.b === who));
     if (i >= 0) {
