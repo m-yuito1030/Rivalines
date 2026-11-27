@@ -198,4 +198,5 @@ export const EN_UI: Catalog = {
   'ui.startForm.t8': 'Licenses & credits',
   'ui.switchWorld': '🌐 Switch world',
   'ui.switchWorld.title': 'Choose between the live game and the next version again',
+  'ui.menu.t7': 'Manual',
 };

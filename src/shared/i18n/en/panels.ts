@@ -43,7 +43,7 @@ export const EN_PANELS: Catalog = {
   'ja:入札なし': 'No bids',
   'ja:あと{left}日': '{left} days left',
   'ja:最高額': 'Highest bid',
-  'ja:万円': '0,000 yen',
+  'ja:万円': '(×¥10,000)', // the bid input is in units of ¥10,000
   'ja:入札': 'Bid',
   'ja:街ごとの独占権を競りにかけます。落札すると、その街の範囲(街の規模で決まる半径)に、その種類の施設を建てられるのは自社だけになります。入札額は落札した時点で支払います(現金が足りないと流札)。':
     "Exclusive rights are auctioned per town. If you win, only your company can build that type of facility within the town's range (a radius set by the town's size). You pay when you win; if you lack the cash, the auction fails.",
@@ -110,7 +110,7 @@ export const EN_PANELS: Catalog = {
   'ja:融資の上限 / 年利': 'Loan limit / annual rate',
   'ja:株価 / 時価総額(発行{SHARES}株)': 'Share price / market cap ({SHARES} shares)',
   'ja:借入:': 'Borrow:',
-  'ja:{m}00万円': '¥{m}00,000',
+  'ja:{m}00万円': '¥{m},000,000', // 100万円 = ¥1,000,000 (the borrow / repay buttons: m = 1, 5, 20)
   'ja:返済:': 'Repay:',
   'ja:全額': 'All',
   'ja:株価の推移(直近{length}日)': 'Share price (last {length} days)',
