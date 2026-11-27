@@ -19,13 +19,13 @@ def design_lists():
         for j in range(n):
             want=None
             base_v=(j//len(pool)+ki*4)%15
-            for off in range(len(pool)):                      #             for off in range(len(pool)):                      # candidate types in order from j
+            for off in range(len(pool)):                      # candidate types in order from j
                 t=pool[(j+off)%len(pool)]
                 for dv in range(15):
                     d=t*15+(base_v+dv)%15
                     if d not in used: want=d;break
                 if want is not None: break
-            if want is None:                                    #             if want is None:                                    # if every candidate type is already filled, any unused design
+            if want is None:                                    # if every candidate type is already filled, any unused design
                 want=next(d for d in range(450) if d not in used)
             used.add(want);lst.append(want)
         out[kind]=lst

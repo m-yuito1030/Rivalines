@@ -5,7 +5,7 @@ import sys
 from fackit import *
 
 TYPES = {}
-VAR_BASE = (0, 2, 5, 8)  # VAR_BASE = (0, 2, 5, 8)  # designs that get another color (+4 for each kind)
+VAR_BASE = (0, 2, 5, 8)  # designs that get another color (+4 for each kind)
 def reg(name, names, geo=None):
     base = len(names)
     allnames = names + [names[b] + '(別色)' for b in VAR_BASE]
