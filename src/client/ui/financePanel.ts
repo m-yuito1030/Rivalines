@@ -107,8 +107,8 @@ export class FinancePanel extends ModalPanel {
       <div>${tr('株価 / 時価総額(発行{SHARES}株)', { SHARES: SHARES.toLocaleString() })}</div><div class="n"><b>${yen(c.stock)}</b> / ${yen(c.marketCap)}</div>
     </div>
     <h3 style="display:none"></h3>
-    <div class="frow">${tr('借入:')} ${[1, 5, 20].map((m) => `<button data-fa="borrow" data-amount="${m * LOAN_STEP}">${tr('{m}00万円', { m })}</button>`).join('')}
-      ${tr('返済:')} ${[1, 5].map((m) => `<button data-fa="repay" data-amount="${m * LOAN_STEP}">${tr('{m}00万円', { m })}</button>`).join('')}<button data-fa="repay" data-amount="0">${tr('全額')}</button></div>
+    <div class="frow">${tr('借入:')} ${[1, 5, 20].map((m) => `<button data-fa="borrow" data-amount="${m * LOAN_STEP}">${yen(m * LOAN_STEP)}</button>`).join('')}
+      ${tr('返済:')} ${[1, 5].map((m) => `<button data-fa="repay" data-amount="${m * LOAN_STEP}">${yen(m * LOAN_STEP)}</button>`).join('')}<button data-fa="repay" data-amount="0">${tr('全額')}</button></div>
     <h3>${tr('株価の推移(直近{length}日)', { length: c.stockHistory.length })}</h3>
     ${this.stockChart(c.stockHistory)}
     <h3>${tr('収支(直近{length}日 / 今日)', { length: c.history.length })}</h3>

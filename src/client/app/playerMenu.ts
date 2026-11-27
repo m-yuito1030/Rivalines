@@ -2,7 +2,7 @@ import type { PlayerInfo } from '../../shared/protocol';
 import type { Transit } from '../../shared/sim/network/transit';
 import { yen } from '../../shared/sim/economy/economy';
 import { net, toLoginScreen } from '../connection/net';
-import { tr } from '../i18n';
+import { onCurrencyChange, tr } from '../i18n';
 import { $, esc } from './dom';
 
 interface Deps {
@@ -27,6 +27,7 @@ export class PlayerMenu {
         .then((r) => d.notify(r.msg ?? (r.ok ? tr('保存しました') : tr('失敗しました'))));
     });
     $('menuBtn').addEventListener('click', () => this.open());
+    onCurrencyChange(() => !this.menu.hidden && this.renderList());
     $('menuClose').addEventListener('click', () => (this.menu.hidden = true));
     $('menuX').addEventListener('click', () => (this.menu.hidden = true));
     window.addEventListener('keydown', (e) => e.key === 'Escape' && !this.menu.hidden && (this.menu.hidden = true));
@@ -77,6 +78,13 @@ export class PlayerMenu {
 
   open(): void {
     this.d.beforeOpen();
+    this.renderList();
+    this.fillProfile();
+    this.menu.hidden = false;
+  }
+
+  /** The list of players. Redrawn when the display currency changes, because it shows market caps */
+  private renderList(): void {
     const grants = this.d.transit.grants.get(net.id);
     this.list.innerHTML = this.d
       .players()
@@ -85,8 +93,6 @@ export class PlayerMenu {
           `<div class="im"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#${p.color.toString(16).padStart(6, '0')}"></i> ${p.online ? '🟢' : '⚪'} ${esc(p.company)}<small class="muted"> (${esc(p.name)})</small> ・ ${tr('時価総額')} ${yen(p.marketCap)}${p.bio ? `<div class="muted">${esc(p.bio)}</div>` : ''}${p.id === net.id ? ` ${tr('(あなた)')}` : ` <button data-gift="${p.id}">${tr('送金')}</button> <button data-report="${p.id}" title="${tr('迷惑行為・不適切な名前や文章などを運営に知らせます')}">${tr('通報')}</button> <label class="muted" title="${tr('自社の全停留所をこの会社の路線が使えるようにします')}"><input type="checkbox" data-cgrant="${p.id}" ${grants?.has(p.id) ? 'checked' : ''}> ${tr('全駅を許可')}</label>`}</div>`,
       )
       .join('');
-    this.fillProfile();
-    this.menu.hidden = false;
   }
 
   private fillProfile(): void {
