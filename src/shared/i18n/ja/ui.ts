@@ -101,8 +101,6 @@ export const JA_UI: Catalog = {
   'ui.anaBtn': '🧮 経営分析',
   'ui.statsBtn.title': '統計 (I)',
   'ui.statsBtn': '📊 統計 (I)',
-  'ui.dnBtn.title': '昼夜の色合いを切り替えます。',
-  'ui.dnBtn': '🌓 昼夜',
   'ui.stopNameBtn.title': '駅名・バス停名・空港名の表示 / 非表示を切り替えます。',
   'ui.mapBtn.title': '画面右下のミニマップの表示 / 非表示を切り替えます (M)。',
   'ui.bulldozeOpts': '(ドラッグした範囲内の要素だけを撤去します)',
