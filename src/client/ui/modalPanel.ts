@@ -1,13 +1,13 @@
 /**
- * 画面いっぱいに出るウィンドウ(経営・ランキング・一覧・ダイヤ・統計・分析・入札)の共通部分。
- * 開閉と、開いている間の定期的な再描画を受け持つ。中身の描画(render)は各パネルが書く。
+ * The shared part of full-screen windows (management, ranking, list, timetable, statistics, analysis, auctions).
+ * Handles opening and closing, and redrawing periodically while open. Each panel writes its own content drawing (render).
  */
 export abstract class ModalPanel {
   private timer = 0;
 
   /**
-   * @param modal ウィンドウ全体の要素(hidden で開閉する)
-   * @param intervalMs 開いている間、render を呼ぶ間隔(ミリ秒)
+   * @param modal the element of the whole window (opened and closed with hidden)
+   * @param intervalMs the interval (ms) at which render is called while open
    */
   protected constructor(
     protected readonly modal: HTMLElement,
@@ -34,11 +34,11 @@ export abstract class ModalPanel {
     clearInterval(this.timer);
   }
 
-  /** 開いた直後に1回。既定は、すぐ描画する */
+  /** Once right after opening. By default, draw immediately */
   protected onOpen(): void {
     this.render();
   }
 
-  /** 中身を描く(開いている間、定期的に呼ばれる) */
+  /** Draw the content (called periodically while open) */
   protected abstract render(): void;
 }

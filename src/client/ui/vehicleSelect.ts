@@ -1,6 +1,6 @@
 import type { Transit, Vehicle } from '../../shared/sim/network/transit';
 
-/** 画面のタイル (x,y) にいる車両を探す(編成は車体のどこかが乗っていればよい。なければ隣のタイルまで)。いなければ null */
+/** Find the vehicle on screen tile (x,y) (a train counts if any part of the body is on it; otherwise up to the neighbouring tile). null if none */
 export function findVehicle(transit: Transit, size: number, x: number, y: number, tol = 1): Vehicle | null {
   let best: { v: Vehicle; d: number } | null = null;
   const consider = (v: Vehicle, tx: number, ty: number) => {

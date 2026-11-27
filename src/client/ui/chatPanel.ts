@@ -11,7 +11,7 @@ const clock = (at: number) => {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
-/** 全体チャット。窓は開閉でき、閉じている間に届いた発言は、メニューの印(赤い点)で知らせる */
+/** Public chat. The window opens and closes, and messages that arrive while it is closed are signalled by a mark (red dot) on the menu */
 export class ChatPanel {
   private readonly el = $('chat');
   private readonly logEl = $('chatLog');
@@ -38,7 +38,7 @@ export class ChatPanel {
       this.input.value = '';
       void net.chat(text).then((r) => {
         if (!r.ok) {
-          this.input.value = text; // 送れなかった文は、入力欄に戻す
+          this.input.value = text; // put the text that could not be sent back in the input box
           this.notify(r.msg ?? tr('失敗しました'));
         }
       });
@@ -56,7 +56,7 @@ export class ChatPanel {
         this.render();
       }
     });
-    // 入力中の文字(W・A・S・D・F・I など)を、ゲームのキー操作として受け取らない
+    // Do not take typed characters (W, A, S, D, F, I, etc.) as game key controls
     this.input.addEventListener('keydown', (e) => {
       e.stopPropagation();
       if (e.key === 'Escape') this.close();
@@ -102,7 +102,7 @@ export class ChatPanel {
     document.dispatchEvent(new CustomEvent('rivalines:unread'));
   }
 
-  /** 新しい発言があるか(メニュー全体の印に使う) */
+  /** Whether there is a new message (used for the mark on the whole menu) */
   get hasUnread(): boolean {
     return this.unread;
   }

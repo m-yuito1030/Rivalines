@@ -1,6 +1,6 @@
 /**
- * 「本当に実行してよいか」を確かめる小さなウィンドウ(ブラウザ標準の confirm は、スマホで出ないことや見た目が合わないため使わない)。
- * OK なら true、キャンセル・Esc・外側のタップなら false を返す。押し間違いを防ぐため、最初に選ばれているのはキャンセル側。
+ * A small window to confirm "really do it?" (the browser's built-in confirm is not used because it may not appear on phones and its look does not fit).
+ * Returns true for OK, false for Cancel, Esc, or a tap outside. To prevent misclicks, Cancel is initially selected.
  */
 import { tr } from '../i18n';
 

@@ -7,9 +7,9 @@ import { LISTING_DAYS, askingPrice, listedFacilities, listingLeft } from '../../
 import { net } from '../connection/net';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-/** 一覧に出す件数(多すぎると、画面が縦に長くなる) */
+/** Number of items to list (too many would make the screen very long) */
 const MAX_ROWS = 50;
-/** 言語を切り替えたときに変わるよう、読むたびに訳す */
+/** Translate every time it is read, so it follows a language switch */
 const SIZE_NAME = {
   get S() {
     return tr('小');
@@ -22,7 +22,7 @@ const SIZE_NAME = {
   },
 };
 
-/** 不動産物件: どの会社も持っていない売り出し中の施設の一覧。場所へ移動したり、評価額で購入したりできる */
+/** Real estate: a list of facilities for sale that no company owns. You can jump to a place or buy at the valuation */
 export class ForSalePanel extends ModalPanel {
   private pressed = false;
 
@@ -53,7 +53,7 @@ export class ForSalePanel extends ModalPanel {
     });
   }
 
-  /** 物件に最も近い街(場所の目安) */
+  /** The town nearest the property (a guide to its location) */
   private nearestTown(f: Facility): Town | undefined {
     let best: Town | undefined;
     let bd = Infinity;

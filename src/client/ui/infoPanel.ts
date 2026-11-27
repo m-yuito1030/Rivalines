@@ -25,16 +25,16 @@ const hm = (tod: number) => {
   const m = Math.floor(((((tod % DAY_TICKS) + DAY_TICKS) % DAY_TICKS) / DAY_TICKS) * 24 * 60);
   return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
 };
-/** tick → ゲーム内の分(切り上げ) */
+/** ticks -> in-game minutes (rounded up) */
 const mins = (t: number) => Math.ceil((t / DAY_TICKS) * 24 * 60);
 
-/** 施設の情報パネルのタブ */
+/** Tabs of the facility info panel */
 type FacTab = 'overview' | 'econ' | 'ads' | 'design';
 
 export type Selection =
   { kind: 'vehicle'; id: number } | { kind: 'stop'; id: number } | { kind: 'town'; id: number } | { kind: 'depot'; id: number } | { kind: 'facility'; id: number };
 
-/** タップした場所に停留所があればそれ、なければ街(建物の所属)を探す */
+/** If there is a stop at the tapped place, that; otherwise find the town (the building's owner town) */
 export function findSelection(map: GameMap, transit: Transit, x: number, y: number): Selection | null {
   const exact = transit.depotAtTile(x, y);
   if (exact) return { kind: 'depot', id: exact.id };
@@ -67,26 +67,26 @@ export function findSelection(map: GameMap, transit: Transit, x: number, y: numb
   return null;
 }
 
-/** 停留所(待ち人数・発車案内)と街(人口)の情報パネル。1秒ごとに更新する */
+/** Info panel for a stop (waiting count, departure board) and a town (population). Updates every second */
 export class InfoPanel {
   private lastParts: string[] = [];
-  /** 施設の情報パネルで開いているタブ */
+  /** The tab currently open in a facility's info panel */
   private facTab: FacTab = 'overview';
-  /** デザイン変更で選んでいるデザイン(施設 id → デザイン番号) */
+  /** The design chosen for a redesign (facility id -> design number) */
   private redesignSel = new Map<number, number>();
-  /** 車両の追跡(カメラが追いかける)。main が設定する */
+  /** Vehicle follow (the camera follows). Set by main */
   followId = -1;
   onFollow: (id: number) => void = () => {};
-  /** ボタンを押している間は再描画しない */
+  /** Do not redraw while a button is held down */
   private pressed = false;
-  /** 車両基地の購入フォームの選択(種類ごとに保持) */
+  /** The selection in the depot purchase form (kept per kind) */
   private buy: Partial<Record<Mode, { kind: string; modelId: string; cars: number; routeId: number }>> = {};
   private sel: Selection | null = null;
-  /** 編成ごとに選んだ「切り離す両数」(1秒ごとの再描画で消えないよう保持) */
+  /** The number of cars to detach, chosen per train (kept so the per-second redraw does not erase it) */
   private splitCount = new Map<number, number>();
   private timer = 0;
 
-  /** 会社の一覧(他社への許可の選択肢)。main が設定する */
+  /** The list of companies (choices for granting access to others). Set by main */
   players: () => { id: number; company: string }[] = () => [];
 
   constructor(
@@ -159,7 +159,7 @@ export class InfoPanel {
     return this.sel !== null;
   }
 
-  /** いま選んでいるもの(車両の経路表示の更新用) */
+  /** What is currently selected (for updating a vehicle's path display) */
   get selection(): Selection | null {
     return this.sel;
   }
@@ -184,7 +184,7 @@ export class InfoPanel {
     if (!this.sel) return;
     if (this.pressed) return;
     const ae = document.activeElement;
-    if (ae && (ae.tagName === 'SELECT' || ae.tagName === 'INPUT') && this.el.contains(ae)) return; // 選択中は再描画しない
+    if (ae && (ae.tagName === 'SELECT' || ae.tagName === 'INPUT') && this.el.contains(ae)) return; // do not redraw while a selection is in progress
     const parts =
       this.sel.kind === 'vehicle'
         ? this.vehicleHtml(this.sel.id)
@@ -196,7 +196,7 @@ export class InfoPanel {
               ? this.facilityHtml(this.sel.id)
               : this.townHtml(this.sel.id);
     if (parts === null) return this.close();
-    // 部分ごとに、変わったときだけ書き換える(操作ボタンは頻繁には入れ替わらない)
+    // Rewrite each part only when it changed (the action buttons are not swapped often)
     let kids = [...this.el.children] as HTMLElement[];
     if (kids.length !== parts.length) {
       this.el.innerHTML = parts.map(() => '<div></div>').join('');
@@ -212,14 +212,14 @@ export class InfoPanel {
     this.drawRedesignPreview();
   }
 
-  /** デザイン変更の見本(選んでいるデザインを、施設の大きさで描く) */
+  /** Preview for a redesign (draw the selected design at the facility's size) */
   private drawRedesignPreview(): void {
     const cv = this.el.querySelector<HTMLCanvasElement>('canvas.facRedesign');
     if (!cv) return;
     drawFacilityPreview(cv, cv.dataset.type as FacilityType, Number(cv.dataset.design), cv.dataset.size as 'S' | 'M' | 'L');
   }
 
-  /** 自社の施設のデザイン変更(同じ大きさのまま・費用あり)。変えられない施設は何も出さない */
+  /** Redesign of the company's own facility (same size, costs money). Shows nothing for a facility that cannot be changed */
   private redesignHtml(f: Facility): string {
     if ((f.owner ?? 'player') !== 'player' || f.playerId !== net.id) return '';
     const rule = redesignRule(f);
@@ -275,7 +275,7 @@ export class InfoPanel {
     this.lastParts = [];
   }
 
-  /** 駅の近くに停まっている編成の分割・連結・出発の操作 */
+  /** Split, couple, and depart operations for trains stopped near a station */
   private trainsHtml(stopId: number): string {
     const t = this.transit;
     const trains = t.trainsNear(stopId);
@@ -340,7 +340,7 @@ export class InfoPanel {
       if (r) h += `<div class="im">${tr('{name} 時刻表: {e}', { name: esc(r.name), e: x.etas.map((e) => hm(todOf(tick) + e)).join(' / ') })}</div>`;
     }
     h += '</div>';
-    // 他社への使用許可(持ち主だけ。許可がない他社は、この停留所を路線に使えない)
+    // Permission for other companies (the owner only. A company without permission cannot use this stop in a route)
     if (s.owner === net.id) {
       const others = this.players().filter((p) => p.id !== net.id);
       if (others.length) {
@@ -390,7 +390,7 @@ export class InfoPanel {
     this.render();
   }
 
-  /** 車両基地: 車両の購入(種別 → 車種 → 両数 → 配属する路線) */
+  /** Depot: buying vehicles (category -> model -> car count -> the route to assign it to) */
   private depotHtml(id: number): string[] | null {
     const d = this.transit.depots.get(id);
     if (!d) return null;
@@ -440,7 +440,7 @@ export class InfoPanel {
     ];
   }
 
-  /** 車両の情報: 路線・状態・積載・この先の停車駅。経路は地図上に矢印で出る */
+  /** Vehicle info: route, state, load, and the upcoming stops. The path is shown with arrows on the map */
   private vehicleHtml(id: number): string[] | null {
     const v = this.transit.vehicles.find((x) => x.id === id);
     if (!v) return null;
@@ -468,7 +468,7 @@ export class InfoPanel {
     ];
   }
 
-  /** 施設の情報を、タブごとの内容に分けて返す(概要・経営・広告)。自社の施設でなければ経営・広告は空 */
+  /** Return a facility's info split into per-tab content (overview, management, advertising). Management and advertising are empty unless it is the company's own facility */
   private facilitySections(f: Facility): { overview: string; econ: string; ads: string; own: boolean } {
     if (f.owner === 'public')
       return {
@@ -483,7 +483,7 @@ export class InfoPanel {
     const v = facilityValue(f);
     const spec = FACILITY_SPECS[f.type];
     const stopsNear = [...this.transit.stops.values()].filter((st) => !st.waypoint && st.facs?.includes(f.id));
-    const perVisit = spec.conversion * spec.spend; // 来場者1人あたりの売上
+    const perVisit = spec.conversion * spec.spend; // sales per visitor
     const upkeep = facilityUpkeep(f);
     const breakEven = perVisit > 0 ? Math.ceil(upkeep / perVisit) : 0;
     let econ = '';
@@ -509,7 +509,7 @@ export class InfoPanel {
           .join(' ')}</div>`;
         if (why && !active) ads += `<div class="im muted">${esc(why)}</div>`;
         if (perVisit > 0) {
-          // 料金: 上げると1人あたりの売上が増え、来場者は減る。条件ごとのいちばん儲かる段階を目安に出す
+          // Price: raising it increases sales per person but reduces visitors. Show the most profitable level for each condition as a guide
           const k = f.elast ?? elasticity(f.type, 0, stopsNear.length > 0, active);
           const cur = priceLevel(f);
           const best = bestLevel(k);
@@ -518,7 +518,7 @@ export class InfoPanel {
               `<button data-act="price" data-id="${f.id}" data-level="${i}" class="${i === cur ? 'on' : ''}" title="${tr('客単価 ×{mul} ・ 来場者 ×{toFixed} ・ 売上の目安 {revenueIndex}%', { mul: l.mul, toFixed: demandMul(l.mul, k).toFixed(2), revenueIndex: Math.round(revenueIndex(l.mul, k) * 100) })}">${l.label}${i === best ? '★' : ''}</button>`,
           ).join(' ')}</div>`;
           econ += `<div class="im muted">${tr('客単価 ×{mul}・来場者 ×{toFixed}(標準を100%として売上の目安 {revenueIndex}%)。★は今の条件でいちばん儲かる見込みの料金です。近くに同じ種類の施設が増える・駅がなくなると、最適な料金は下がります。', { mul: PRICE_LEVELS[cur].mul, toFixed: demandMul(PRICE_LEVELS[cur].mul, k).toFixed(2), revenueIndex: Math.round(revenueIndex(PRICE_LEVELS[cur].mul, k) * 100) })}</div>`;
-          // グレード・評判・新しさ
+          // Grade, reputation, and freshness
           const g = gradeOf(f);
           const rep = Math.round(repOf(f));
           const fresh = freshness(f, day);
@@ -555,14 +555,14 @@ export class InfoPanel {
     return { overview, econ, ads, own };
   }
 
-  /** 売り出し中の物件の案内(価格・残り日数・取り壊しの警告) */
+  /** Notice for a property for sale (price, days left, demolition warning) */
   private listingHtml(f: Facility): string {
     if (!isForSale(f)) return '';
     const left = listingLeft(f, Math.floor((this.getTick() + DAY_TICKS / 4) / DAY_TICKS));
     return `<div class="ib"><div class="ibt">${tr('🏘 売り出し中の物件')}</div><div class="im">${tr('価格')} <b>${yen(askingPrice(f))}</b>${tr('(評価額) ・ 残り')} <b class="${left <= 7 ? 'neg' : ''}">${tr('{left}日', { left })}</b></div><div class="im muted">${tr('どの会社も持っていません。購入すると自社の施設になります。{LISTING_DAYS}日間買い手がつかないと、取り壊されて更地に戻ります。', { LISTING_DAYS })}</div></div>`;
   }
 
-  /** 病院が、どの街の成長を何%速めているか */
+  /** How many percent faster a hospital makes which town grow */
   private hospitalHtml(f: Facility): string {
     if (f.type !== 'hospital') return '';
     const towns = this.map.towns.filter((t) => hospitalServes(f, t));
@@ -582,7 +582,7 @@ export class InfoPanel {
     const spec = FACILITY_SPECS[f.type];
     const sec = this.facilitySections(f);
     const design = this.redesignHtml(f);
-    // 使えるタブだけ並べる(自社の施設は 概要・経営・広告・デザイン、ほかは概要だけ)
+    // Line up only the usable tabs (own facility: overview, management, advertising, redesign; others: overview only)
     const tabs: [FacTab, string][] = [['overview', tr('概要')]];
     if (sec.own) {
       tabs.push(['econ', tr('経営')]);

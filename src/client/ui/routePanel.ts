@@ -11,7 +11,7 @@ import type { Cmd } from '../../shared/protocol';
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
 const MODE_ICON: Record<Mode, string> = { road: '🚌', rail: '🚆', air: '✈' };
-/** 言語を切り替えたときに変わるよう、読むたびに訳す */
+/** Translate every time it is read, so it follows a language switch */
 const MODE_LABEL: Record<Mode, string> = {
   get road() {
     return tr('バス');
@@ -37,7 +37,7 @@ const KIND_HINT: Record<Mode, string> = {
 
 const PERIODS = PERIOD_OPTIONS;
 
-/** ゲーム内時刻(HH:MM)⇔1日内tick。0:00 = 0 */
+/** In-game time (HH:MM) <-> ticks within a day. 0:00 = 0 */
 const todToHM = (tod: number) => {
   const mins = Math.floor(((((tod % DAY_TICKS) + DAY_TICKS) % DAY_TICKS) / DAY_TICKS) * 24 * 60);
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
@@ -46,24 +46,24 @@ const hmToTod = (hm: string) => {
   const [h, m] = hm.split(':').map(Number);
   return Math.round(((h * 60 + m) / (24 * 60)) * DAY_TICKS);
 };
-/** tick → ゲーム内「分」 */
+/** ticks -> in-game "minutes" */
 const ticksToMin = (t: number) => Math.round((t / DAY_TICKS) * 24 * 60);
 
 /**
- * 路線パネル: 路線の一覧と編集(停車順・待ち方式・車種・時刻表周期)、路線作成中の表示。
- * 構造が変わったとき(transit.version)だけ再描画し、入力中のフォームを壊さない。
+ * Route panel: the route list and editing (stopping order, waiting method, model, timetable period), and the display while creating a route.
+ * Redraws only when the structure changes (transit.version), so a form being typed in is not destroyed.
  */
 export class RoutePanel {
-  /** 路線作成中の種別と停留所(順) */
+  /** The kind and stops (in order) of the route being created */
   building: { kind: Mode; stops: number[] } | null = null;
-  /** 既存路線へ停留所(オーダー)を挿入中: index の位置に入る */
+  /** Inserting a stop (order) into an existing route: it goes at position `index` */
   inserting: { routeId: number; index: number } | null = null;
-  /** 一覧の開閉: ジャンル → 路線 → 車両 */
+  /** Expand/collapse of the list: category -> route -> vehicle */
   private openMode: Mode | null = null;
   private openRoute = -1;
   private seen = -1;
   private seenBuild = '';
-  /** 閉じるボタンを押したとき(main が、パネルを閉じる処理を入れる) */
+  /** When the close button is pressed (main adds the processing that closes the panel) */
   onClose: () => void = () => {};
 
   constructor(
@@ -89,7 +89,7 @@ export class RoutePanel {
     this.render();
   }
 
-  /** 操作をサーバーへ送る。失敗したら理由を表示する */
+  /** Send an action to the server. If it fails, show the reason */
   private async send(cmd: Cmd): Promise<boolean> {
     const r = await net.cmd(cmd);
     if (!r.ok && r.msg) alert(r.msg);
@@ -116,7 +116,7 @@ export class RoutePanel {
     this.render();
   }
 
-  /** 挿入する停留所がクリックされた */
+  /** The stop to insert was clicked */
   completeInsert(stopId: number): void {
     const ins = this.inserting;
     if (!ins) return;
@@ -133,7 +133,7 @@ export class RoutePanel {
     this.render();
   }
 
-  /** 毎フレーム呼んでよい(変化があった時だけ再描画) */
+  /** Fine to call every frame (redraws only when something changed) */
   refresh(live = true): void {
     const key = (this.building ? this.building.kind + this.building.stops.join(',') : '') + (this.inserting ? `i${this.inserting.routeId}:${this.inserting.index}` : '');
     if (this.transit.version !== this.seen || key !== this.seenBuild) this.render();
@@ -165,7 +165,7 @@ export class RoutePanel {
     if (t.routes.size === 0 && !this.building)
       html += `<div class="muted">${tr('上の ＋🚌 ＋🚆 ＋✈ で路線を作成します。バス停(B)・駅(K)・空港(P)は路線作成中にクリックしても設置されます。車両は車両基地(🏭)から購入します。')}</div>`;
     for (const m of ['road', 'rail', 'air'] as Mode[]) {
-      const rs = [...t.routes.values()].filter((r) => r.mode === m && (r.owner === undefined || r.owner === net.id)); // 自社の路線だけ一覧に出す
+      const rs = [...t.routes.values()].filter((r) => r.mode === m && (r.owner === undefined || r.owner === net.id)); // list only the company's own routes
       const open = this.openMode === m;
       const vcount = t.vehicles.filter((v) => t.routes.get(v.routeId)?.mode === m && (t.routes.get(v.routeId)?.owner ?? net.id) === net.id).length;
       html += `<div class="genre"><button data-act="gen" data-kind="${m}">${tr('{open} {m} {m2} ({length}路線・車両{vcount})', { open: open ? '▼' : '▶', m: MODE_ICON[m], m2: MODE_LABEL[m], length: rs.length, vcount })}</button></div>`;
@@ -181,7 +181,7 @@ export class RoutePanel {
     this.updateLive();
   }
 
-  /** 構造を変えずに数値だけ更新(待ち人数・積載・遅延・輸送人数) */
+  /** Update only the numbers without changing the structure (waiting counts, load, delay, passengers carried) */
   private updateLive(): void {
     const set = (el: Element, text: string) => {
       if (el.textContent !== text) el.textContent = text;
@@ -238,7 +238,7 @@ export class RoutePanel {
         return `<option value="${m.id}" ${m.id === cur.id ? 'selected' : ''}>${esc(m.name)} (${spec})</option>`;
       })
       .join('');
-    // 鉄道: 1両のみの車種は1両固定、2両以上の車種は任意の両数
+    // Rail: a single-car model is fixed at 1 car; a model of 2 or more cars can be any number of cars
     const cars = clampCars(cur, r.cars ?? cur.defaultCars);
     const carsHtml =
       r.mode === 'rail'
@@ -273,13 +273,13 @@ export class RoutePanel {
       }</div></div>`;
   }
 
-  /** オーダー行の操作: 上へ・下へ・削除・この後ろに挿入 */
+  /** Order row actions: up, down, delete, insert after this */
   private orderBtns(r: Route, i: number): string {
     const n = r.orders.length;
     return `<span class="ob"><button data-act="omove" data-r="${r.id}" data-o="${i}" data-d="-1" ${i === 0 ? 'disabled' : ''} title="${tr('上へ')}">▲</button><button data-act="omove" data-r="${r.id}" data-o="${i}" data-d="1" ${i === n - 1 ? 'disabled' : ''} title="${tr('下へ')}">▼</button><button data-act="oins" data-r="${r.id}" data-o="${i + 1}" title="${tr('この後ろに停留所を追加')}">${tr('＋')}</button><button data-act="odel" data-r="${r.id}" data-o="${i}" title="${tr('このオーダーを削除')}">✕</button></span>`;
   }
 
-  /** 出発時の条件付きジャンプ(条件を満たしたら N 番のオーダーへ) */
+  /** Conditional jump on departure (if the condition holds, go to order N) */
   private condHtml(r: Route, o: Order): string {
     const c = o.cond;
     const kinds: [string, string][] = [
@@ -325,7 +325,7 @@ export class RoutePanel {
     } else if (act === 'finish') this.finishBuild();
     else if (act === 'cancel') this.cancelBuild();
     else if (act === 'addveh') {
-      // 車両は最寄りの自社の車両基地から購入する(サーバーが検証・課金)
+      // Vehicles are bought from the nearest of the company's depots (the server validates and charges)
       const route = this.transit.routes.get(rid);
       if (!route) return;
       const m = modelOf(route.modelId);

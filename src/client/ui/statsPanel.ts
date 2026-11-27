@@ -57,7 +57,7 @@ export function townStats(t: Transit, towns: Town[]): TownStat[] {
   return [...by.values()];
 }
 
-/** 統計モーダル: 路線別の輸送人数・積載率、街の一覧(人口・待ち人数) */
+/** Statistics modal: passengers carried and load factor per route, and a town list (population, waiting counts) */
 export class StatsPanel extends ModalPanel {
   constructor(
     modal: HTMLElement,
