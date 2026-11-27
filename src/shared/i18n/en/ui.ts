@@ -107,8 +107,6 @@ export const EN_UI: Catalog = {
   'ui.anaBtn': '🧮 Analysis',
   'ui.statsBtn.title': 'Statistics (I)',
   'ui.statsBtn': '📊 Statistics (I)',
-  'ui.dnBtn.title': 'Switch the day/night lighting.',
-  'ui.dnBtn': '🌓 Day / night',
   'ui.stopNameBtn.title': 'Show or hide station, bus stop and airport names on the map.',
   'ui.mapBtn.title': 'Show or hide the minimap in the bottom right (M).',
   'ui.bulldozeOpts': '(Only the selected types inside the dragged area are removed.)',

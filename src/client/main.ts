@@ -98,11 +98,10 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   const worldRoot = new Container();
   worldRoot.addChild(chunks.container);
   app.stage.addChild(worldRoot);
-  // Day/night tint (a multiply overlay). Above the world, below the labels/HUD
+  // Day/night tint (a multiply overlay). Above the world, below the labels/HUD. It follows the in-game time sent by the server (there is no switch)
   const tintLayer = new Graphics();
   tintLayer.blendMode = 'multiply';
   app.stage.addChild(tintLayer);
-  let dayNight = localStorage.getItem('sim.daynight') !== 'off';
   let lastTint = -1;
   let lastW = 0;
   let lastH = 0;
@@ -287,15 +286,6 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   const track = (e: PointerEvent) => (mouse = { x: e.clientX, y: e.clientY });
   app.canvas.addEventListener('pointermove', track);
   app.canvas.addEventListener('pointerdown', track);
-
-  const dnBtn = $('dnBtn');
-  const syncDn = () => dnBtn.classList.toggle('on', dayNight);
-  syncDn();
-  dnBtn.addEventListener('click', () => {
-    dayNight = !dayNight;
-    localStorage.setItem('sim.daynight', dayNight ? 'on' : 'off');
-    syncDn();
-  });
 
   // Opening and closing the route panel (a bottom sheet on phones)
   const routesEl = $('routes');
@@ -630,7 +620,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     tools.draw();
     {
       const d0 = sim.date;
-      const color = dayNight ? tintOf(d0.hour + d0.minute / 60) : 0xffffff;
+      const color = tintOf(d0.hour + d0.minute / 60); // always follows the server's in-game time
       const w0 = app.screen.width;
       const h0 = app.screen.height;
       if (color !== lastTint || w0 !== lastW || h0 !== lastH) {
