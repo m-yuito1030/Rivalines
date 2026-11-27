@@ -126,6 +126,14 @@ export class Simulation {
     this.pacts.proposals = this.pacts.proposals.filter((p) => p.from !== id && p.to !== id);
     for (const l of this.auctions.lots) if (l.bid?.who === id) l.bid = undefined;
     this.auctions.rights = this.auctions.rights.filter((r) => r.owner !== id);
+    // Rivals the company had acquired become independent again (otherwise they would stay owned by nobody, and nobody could buy them)
+    for (const r of this.rivals) {
+      if (r.acquired && r.acquiredBy === id) {
+        r.acquired = false;
+        r.acquiredBy = undefined;
+      }
+    }
+    this.weekly.forget(id);
     this.players.delete(id);
     this.online.delete(id);
     this.transit.frozen.delete(id);

@@ -13,6 +13,11 @@ export type StartGame = (map: GameMap, sim: Simulation, mirror: Mirror, startAt:
  * Login, registration, resuming with a saved login, and automatic reconnection when disconnected.
  * On a successful login, receive the world and call startGame.
  */
+/** Translate a reason sent by the server. A suspension reason carries the operator's text, so translate only the fixed part around it */
+const BAN_PREFIX = 'このアカウントは利用停止中です(理由: ';
+const trReason = (reason: string): string =>
+  reason.startsWith(BAN_PREFIX) && reason.endsWith(')') ? tr('このアカウントは利用停止中です(理由: {reason})', { reason: reason.slice(BAN_PREFIX.length, -1) }) : tr(reason);
+
 export function initAuth(startGame: StartGame): void {
   const note = $('note');
   const errEl = $('err');
@@ -74,7 +79,7 @@ export function initAuth(startGame: StartGame): void {
     try {
       const r = await net.auth(kind, $<HTMLInputElement>('uname').value, $<HTMLInputElement>('upw').value);
       if (!r.ok) {
-        errEl.textContent = r.reason ? tr(r.reason) : tr('失敗しました');
+        errEl.textContent = r.reason ? trReason(r.reason) : tr('失敗しました');
         return authBusy(false);
       }
       await enterWorld(r.token!);

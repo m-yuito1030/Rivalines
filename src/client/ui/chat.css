@@ -1,5 +1,5 @@
 /* Public chat and announcements */
-#chat { position: absolute; left: 8px; bottom: 44px; width: 320px; max-width: calc(100vw - 16px); height: 260px; max-height: 50vh; display: flex; flex-direction: column; background: #101c2cee; border: 1px solid #345; border-radius: 10px; pointer-events: auto; font-size: 13px; z-index: 6; }
+#chat { position: absolute; left: 8px; bottom: 44px; width: 320px; max-width: calc(100vw - 16px); height: 260px; max-height: 50vh; display: flex; flex-direction: column; background: #101c2c; border: 1px solid #345; border-radius: 10px; pointer-events: auto; font-size: 13px; z-index: 6; }
 #chat[hidden] { display: none; }
 #chat .ch-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; border-bottom: 1px solid #234; font-weight: bold; }
 #chat .ch-head button { background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; width: 28px; height: 28px; cursor: pointer; }

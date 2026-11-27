@@ -375,7 +375,9 @@ server.on('upgrade', (req, socket, head) => {
         if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: LOCALES[lang].tr('操作が多すぎます。少し待ってください') } }));
         tokens -= 5; // saving writes to disk, so it counts for more
         const why = accounts.setProfile(c.id, m);
-        ws.send(JSON.stringify({ type: 'res', req: m.req, res: why ? { ok: false, msg: why } : { ok: true, msg: '会社の情報を保存しました' } }));
+        ws.send(
+          JSON.stringify({ type: 'res', req: m.req, res: why ? { ok: false, msg: LOCALES[lang].tr(why) } : { ok: true, msg: LOCALES[lang].tr('会社の情報を保存しました') } }),
+        );
       } else if (m.type === 'chat') {
         if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: LOCALES[lang].tr('操作が多すぎます。少し待ってください') } }));
         tokens--;
@@ -391,7 +393,9 @@ server.on('upgrade', (req, socket, head) => {
         tokens -= 5;
         const t = typeof m.target === 'number' ? accounts.byId(m.target) : undefined;
         const why = t ? reports.add({ id: c.id, name: a.name }, { id: t.id, name: t.name }, m.reason) : '相手が見つかりません';
-        ws.send(JSON.stringify({ type: 'res', req: m.req, res: why ? { ok: false, msg: why } : { ok: true, msg: '通報しました。運営が確認します' } }));
+        ws.send(
+          JSON.stringify({ type: 'res', req: m.req, res: why ? { ok: false, msg: LOCALES[lang].tr(why) } : { ok: true, msg: LOCALES[lang].tr('通報しました。運営が確認します') } }),
+        );
       } else if (m.type === 'cmd') {
         if (tokens <= 0) return void ws.send(JSON.stringify({ type: 'res', req: m.req, res: { ok: false, msg: LOCALES[lang].tr('操作が多すぎます。少し待ってください') } }));
         tokens--;
@@ -481,6 +485,11 @@ setInterval(() => void saveWorld().catch((e) => console.error('[world] 保存に
 // Unexpected exceptions and unhandled rejections must not kill the server (log and continue). On SIGTERM, save before exiting
 process.on('uncaughtException', (e) => console.error('[fatal?] 未処理の例外:', e.stack ?? e));
 process.on('unhandledRejection', (e) => console.error('[fatal?] 未処理の失敗:', e));
+// A ban made on the live side must also reach players already connected to this world (the next version reads the live accounts, so it never sees the kick).
+// Check every 10 s and disconnect anyone whose account is now suspended (only the explicit ban flag counts, never a missing account)
+setInterval(() => {
+  for (const c of [...clients]) if (accounts.byId(c.id)?.banned) kick(c.id, 4005);
+}, 10_000).unref();
 // Detect dead connections (clean up sockets that went silent, e.g. after a phone switched networks)
 setInterval(() => {
   for (const ws of wss.clients) {

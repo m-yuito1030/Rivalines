@@ -123,4 +123,27 @@ describe('会社の削除(sim.removePlayer)', () => {
     expect(sim.players.has(1)).toBe(false);
     expect(sim.players.has(2)).toBe(true);
   });
+
+  it('削除した会社が買収していた競合は、独立に戻る。先週の結果から消える', () => {
+    const size = 128;
+    const map = new GameMap(size, 1, new Uint8Array(size * size).fill(SEA_LEVEL + 20));
+    const sim = new Simulation(map, undefined, { multi: true });
+    sim.setOnline([1, 2]);
+    const [r0, r1] = sim.rivals;
+    r0!.acquired = true;
+    r0!.acquiredBy = 1;
+    r1!.acquired = true;
+    r1!.acquiredBy = 2;
+    sim.weekly.last = {
+      week: 1,
+      rows: [
+        { id: 1, nw: 5, pax: 5, profit: 5 },
+        { id: 2, nw: 1, pax: 1, profit: 1 },
+      ],
+    };
+    sim.removePlayer(1);
+    expect(r0).toMatchObject({ acquired: false, acquiredBy: undefined });
+    expect(r1).toMatchObject({ acquired: true, acquiredBy: 2 }); // other players' subsidiaries stay
+    expect(sim.weekly.last?.rows.map((r) => r.id)).toEqual([2]);
+  });
 });

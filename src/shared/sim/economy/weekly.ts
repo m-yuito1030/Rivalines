@@ -47,6 +47,12 @@ export class Weekly {
   private base = new Map<number, Metrics>();
   last?: WeeklyResult;
 
+  /** Remove a deleted company from the baselines and from last week's result (so it cannot be shown as a winner) */
+  forget(id: number): void {
+    this.base.delete(id);
+    if (this.last) this.last = { ...this.last, rows: this.last.rows.filter((r) => r.id !== id) };
+  }
+
   /**
    * Day close (day = the day just closed). On the last day of a week, finalize the result and start counting again.
    * A company without a baseline (one that joined midway) starts counting from that day. Returns the result when finalized
