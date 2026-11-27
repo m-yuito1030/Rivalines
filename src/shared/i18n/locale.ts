@@ -8,6 +8,8 @@
  * 文は「キー」で呼ぶ: locale.t('menu.finance') / locale.t('msg.loan', { amount: '¥1,000,000' })
  * 新しい言語を足すには、Ja か En を継承したクラスを作って、lookup と number / date の書き方を書き換える。
  */
+import { formatCompactMoney, formatMoney, getCurrency } from './currency';
+
 export type LangCode = 'ja' | 'en';
 export type Params = Record<string, string | number>;
 /** 文の一覧(キー → 文) */
@@ -63,12 +65,12 @@ export abstract class Locale {
 
   /** 金額の書き方 */
   money(n: number): string {
-    return `¥${this.number(n)}`;
+    return formatMoney(n);
   }
 
   /** 短い金額の書き方(狭い画面用) */
   compactMoney(n: number): string {
-    return `¥${new Intl.NumberFormat(this.tag, { notation: 'compact', maximumFractionDigits: 1 }).format(n)}`;
+    return getCurrency() === 'JPY' ? `¥${new Intl.NumberFormat(this.tag, { notation: 'compact', maximumFractionDigits: 1 }).format(n)}` : formatCompactMoney(n);
   }
 
   /** 日付と曜日(曜日は、その言語の文から) */

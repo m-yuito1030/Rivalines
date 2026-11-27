@@ -197,4 +197,5 @@ export const JA_UI: Catalog = {
   'ui.switchWorld': '🌐 世界を選ぶ',
   'ui.switchWorld.title': '本稼働と次期バージョンを選び直します',
   'ui.menu.t7': 'マニュアル',
+  'ui.currency': '通貨',
 };

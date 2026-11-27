@@ -110,7 +110,6 @@ export const EN_PANELS: Catalog = {
   'ja:融資の上限 / 年利': 'Loan limit / annual rate',
   'ja:株価 / 時価総額(発行{SHARES}株)': 'Share price / market cap ({SHARES} shares)',
   'ja:借入:': 'Borrow:',
-  'ja:{m}00万円': '¥{m},000,000', // 100万円 = ¥1,000,000 (the borrow / repay buttons: m = 1, 5, 20)
   'ja:返済:': 'Repay:',
   'ja:全額': 'All',
   'ja:株価の推移(直近{length}日)': 'Share price (last {length} days)',
@@ -514,4 +513,6 @@ export const EN_PANELS: Catalog = {
   'ja:次のものを撤去します: {parts}': 'Remove the following: {parts}',
   'ja:元に戻せません。よろしいですか?': 'This cannot be undone. Continue?',
   'ja:、': ', ',
+  'ja:表示だけを換算します(ゲームの中は円で、為替の変動はありません)。レート: {date} 時点 / {source}':
+    'Display only: amounts are converted for viewing (the game itself runs in yen, so exchange rates never move your money). Rates as of {date} / {source}',
 };

@@ -1,3 +1,4 @@
+import { formatMoney } from '../../i18n/currency';
 import { demandMul, elasticity, priceMul } from '../facility/pricing';
 import { gradeOf as facilityGrade, gradeSpendMul, repMul, repOf } from '../../world/facilityQuality';
 import { type VehicleModel, modelOf } from '../../data/models';
@@ -506,4 +507,5 @@ export function assetValue(map: GameMap, transit: Transit, rivals: Rival[] = [],
   return Math.round(a);
 }
 
-export const yen = (n: number) => `${n < 0 ? '-' : ''}¥${Math.abs(Math.round(n)).toLocaleString('ja-JP')}`;
+/** An amount for display. Always yen inside the game; the screen shows it in the player's chosen currency (src/shared/i18n/currency.ts). On the server this stays yen. */
+export const yen = (n: number): string => formatMoney(n);

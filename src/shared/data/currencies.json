@@ -1,0 +1,296 @@
+{
+  "base": "JPY",
+  "updatedAt": "2026-11-27",
+  "source": "Exchange Rate API (https://www.exchangerate-api.com)",
+  "note": "rate = how much of the currency one yen buys (display only)",
+  "currencies": {
+    "JPY": {
+      "symbol": "¥",
+      "decimals": 0,
+      "rate": 1,
+      "name": {
+        "ja": "日本円",
+        "en": "Japanese yen"
+      }
+    },
+    "USD": {
+      "symbol": "$",
+      "decimals": 2,
+      "rate": 0.006278,
+      "name": {
+        "ja": "米ドル",
+        "en": "US dollar"
+      }
+    },
+    "EUR": {
+      "symbol": "€",
+      "decimals": 2,
+      "rate": 0.005722,
+      "name": {
+        "ja": "ユーロ",
+        "en": "Euro"
+      }
+    },
+    "GBP": {
+      "symbol": "£",
+      "decimals": 2,
+      "rate": 0.004791,
+      "name": {
+        "ja": "英ポンド",
+        "en": "British pound"
+      }
+    },
+    "CNY": {
+      "symbol": "CN¥",
+      "decimals": 2,
+      "rate": 0.041893,
+      "name": {
+        "ja": "中国人民元",
+        "en": "Chinese yuan"
+      }
+    },
+    "KRW": {
+      "symbol": "₩",
+      "decimals": 0,
+      "rate": 8.44258,
+      "name": {
+        "ja": "韓国ウォン",
+        "en": "South Korean won"
+      }
+    },
+    "TWD": {
+      "symbol": "NT$",
+      "decimals": 0,
+      "rate": 0.20689,
+      "name": {
+        "ja": "台湾ドル",
+        "en": "New Taiwan dollar"
+      }
+    },
+    "HKD": {
+      "symbol": "HK$",
+      "decimals": 2,
+      "rate": 0.049203,
+      "name": {
+        "ja": "香港ドル",
+        "en": "Hong Kong dollar"
+      }
+    },
+    "SGD": {
+      "symbol": "S$",
+      "decimals": 2,
+      "rate": 0.008102,
+      "name": {
+        "ja": "シンガポールドル",
+        "en": "Singapore dollar"
+      }
+    },
+    "AUD": {
+      "symbol": "A$",
+      "decimals": 2,
+      "rate": 0.009465,
+      "name": {
+        "ja": "豪ドル",
+        "en": "Australian dollar"
+      }
+    },
+    "CAD": {
+      "symbol": "C$",
+      "decimals": 2,
+      "rate": 0.008941,
+      "name": {
+        "ja": "カナダドル",
+        "en": "Canadian dollar"
+      }
+    },
+    "NZD": {
+      "symbol": "NZ$",
+      "decimals": 2,
+      "rate": 0.01147,
+      "name": {
+        "ja": "ニュージーランドドル",
+        "en": "New Zealand dollar"
+      }
+    },
+    "CHF": {
+      "symbol": "CHF ",
+      "decimals": 2,
+      "rate": 0.005237,
+      "name": {
+        "ja": "スイスフラン",
+        "en": "Swiss franc"
+      }
+    },
+    "INR": {
+      "symbol": "₹",
+      "decimals": 2,
+      "rate": 0.580366,
+      "name": {
+        "ja": "インドルピー",
+        "en": "Indian rupee"
+      }
+    },
+    "BRL": {
+      "symbol": "R$",
+      "decimals": 2,
+      "rate": 0.036182,
+      "name": {
+        "ja": "ブラジルレアル",
+        "en": "Brazilian real"
+      }
+    },
+    "MXN": {
+      "symbol": "MX$",
+      "decimals": 2,
+      "rate": 0.123646,
+      "name": {
+        "ja": "メキシコペソ",
+        "en": "Mexican peso"
+      }
+    },
+    "THB": {
+      "symbol": "฿",
+      "decimals": 2,
+      "rate": 0.213745,
+      "name": {
+        "ja": "タイバーツ",
+        "en": "Thai baht"
+      }
+    },
+    "VND": {
+      "symbol": "₫",
+      "decimals": 0,
+      "rate": 162.099,
+      "name": {
+        "ja": "ベトナムドン",
+        "en": "Vietnamese dong"
+      }
+    },
+    "IDR": {
+      "symbol": "Rp ",
+      "decimals": 0,
+      "rate": 114.919,
+      "name": {
+        "ja": "インドネシアルピア",
+        "en": "Indonesian rupiah"
+      }
+    },
+    "PHP": {
+      "symbol": "₱",
+      "decimals": 2,
+      "rate": 0.400103,
+      "name": {
+        "ja": "フィリピンペソ",
+        "en": "Philippine peso"
+      }
+    },
+    "MYR": {
+      "symbol": "RM ",
+      "decimals": 2,
+      "rate": 0.02585,
+      "name": {
+        "ja": "マレーシアリンギット",
+        "en": "Malaysian ringgit"
+      }
+    },
+    "SEK": {
+      "symbol": "kr ",
+      "decimals": 2,
+      "rate": 0.06411,
+      "name": {
+        "ja": "スウェーデンクローナ",
+        "en": "Swedish krona"
+      }
+    },
+    "NOK": {
+      "symbol": "kr ",
+      "decimals": 2,
+      "rate": 0.061302,
+      "name": {
+        "ja": "ノルウェークローネ",
+        "en": "Norwegian krone"
+      }
+    },
+    "DKK": {
+      "symbol": "kr ",
+      "decimals": 2,
+      "rate": 0.042765,
+      "name": {
+        "ja": "デンマーククローネ",
+        "en": "Danish krone"
+      }
+    },
+    "PLN": {
+      "symbol": "zł ",
+      "decimals": 2,
+      "rate": 0.025638,
+      "name": {
+        "ja": "ポーランドズウォティ",
+        "en": "Polish zloty"
+      }
+    },
+    "CZK": {
+      "symbol": "Kč ",
+      "decimals": 2,
+      "rate": 0.139871,
+      "name": {
+        "ja": "チェココルナ",
+        "en": "Czech koruna"
+      }
+    },
+    "HUF": {
+      "symbol": "Ft ",
+      "decimals": 0,
+      "rate": 2.12889,
+      "name": {
+        "ja": "ハンガリーフォリント",
+        "en": "Hungarian forint"
+      }
+    },
+    "TRY": {
+      "symbol": "₺",
+      "decimals": 2,
+      "rate": 0.318541,
+      "name": {
+        "ja": "トルコリラ",
+        "en": "Turkish lira"
+      }
+    },
+    "ZAR": {
+      "symbol": "R ",
+      "decimals": 2,
+      "rate": 0.110139,
+      "name": {
+        "ja": "南アフリカランド",
+        "en": "South African rand"
+      }
+    },
+    "AED": {
+      "symbol": "AED ",
+      "decimals": 2,
+      "rate": 0.023058,
+      "name": {
+        "ja": "UAEディルハム",
+        "en": "UAE dirham"
+      }
+    },
+    "SAR": {
+      "symbol": "SAR ",
+      "decimals": 2,
+      "rate": 0.023544,
+      "name": {
+        "ja": "サウジリヤル",
+        "en": "Saudi riyal"
+      }
+    },
+    "ILS": {
+      "symbol": "₪",
+      "decimals": 2,
+      "rate": 0.020825,
+      "name": {
+        "ja": "イスラエルシェケル",
+        "en": "Israeli shekel"
+      }
+    }
+  }
+}

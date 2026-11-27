@@ -4,6 +4,18 @@
  * and sentences produced by the program via t('key').
  */
 import { LANG_CODES, LOCALES, type LangCode, type Locale, type Params, detectLang, isLangCode } from '../shared/i18n';
+import {
+  CURRENCY_CODES,
+  type CurrencyCode,
+  RATES_SOURCE,
+  RATES_UPDATED_AT,
+  convertMoneyText,
+  currencyName,
+  detectCurrency,
+  getCurrency,
+  isCurrencyCode,
+  setCurrency,
+} from '../shared/i18n/currency';
 
 const SAVED = 'rivalines-lang';
 
@@ -82,8 +94,64 @@ function syncLangSelects(): void {
   });
 }
 
+// ---- Display currency (per player, per browser: the choice is saved like the language) ----
+const CURRENCY_SAVED = 'rivalines-currency';
+const currencyListeners = new Set<(code: CurrencyCode) => void>();
+
+/** The currency amounts are shown in */
+export const currency = (): CurrencyCode => getCurrency();
+/** Rewrite the yen amounts in a message from the server ("¥1,234") into the chosen currency */
+export const localizeMoney = (text: string): string => convertMoneyText(text);
+/** Register a function to call when the currency changes (to redraw amounts that were built once) */
+export function onCurrencyChange(fn: (code: CurrencyCode) => void): void {
+  currencyListeners.add(fn);
+}
+
+/** Choose the display currency (saved, and every currency selector follows) */
+export function setCurrencyChoice(code: string): void {
+  if (!isCurrencyCode(code) || code === getCurrency()) return;
+  setCurrency(code);
+  try {
+    localStorage.setItem(CURRENCY_SAVED, code);
+  } catch {
+    /* Even if saving fails, it switches on this page */
+  }
+  syncCurrencySelects();
+  currencyListeners.forEach((fn) => fn(code));
+}
+
+/** Fill the currency selector (.currency-select) and its rate note, and wire it up to switching */
+function syncCurrencySelects(): void {
+  const names = (c: string) => `${c} — ${currencyName(c, current.code === 'ja' ? 'ja' : 'en')}`;
+  document.querySelectorAll<HTMLSelectElement>('select.currency-select').forEach((sel) => {
+    if (!sel.options.length) {
+      for (const c of CURRENCY_CODES) {
+        const op = document.createElement('option');
+        op.value = c;
+        sel.appendChild(op);
+      }
+      sel.addEventListener('change', () => setCurrencyChoice(sel.value));
+    }
+    for (const op of sel.options) op.textContent = names(op.value);
+    sel.value = getCurrency();
+  });
+  document.querySelectorAll<HTMLElement>('.currency-note').forEach((el) => {
+    el.textContent = current.tr('表示だけを換算します(ゲームの中は円で、為替の変動はありません)。レート: {date} 時点 / {source}', { date: RATES_UPDATED_AT, source: RATES_SOURCE });
+  });
+}
+
 /** Call once at startup */
 export function initI18n(): void {
+  let saved: string | null = null;
+  try {
+    saved = localStorage.getItem(CURRENCY_SAVED);
+  } catch {
+    /* No saved choice */
+  }
+  setCurrency(detectCurrency(saved, navigator.languages ?? [navigator.language]));
   applyDom();
   syncLangSelects();
+  syncCurrencySelects();
+  // The names (and the note) are in the current language, so redo them when the language changes
+  listeners.add(() => syncCurrencySelects());
 }

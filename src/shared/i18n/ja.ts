@@ -1,3 +1,4 @@
+import { getCurrency } from './currency';
 import { type Catalog, type LangCode, Locale } from './locale';
 import { JA_RULES } from './ja/rules';
 import { JA_UI } from './ja/ui';
@@ -15,6 +16,7 @@ export class Ja extends Locale {
   }
 
   override compactMoney(n: number): string {
+    if (getCurrency() !== 'JPY') return super.compactMoney(n); // 万 is only for yen
     return `${Math.round(n / 10000).toLocaleString('ja-JP')}万`;
   }
 

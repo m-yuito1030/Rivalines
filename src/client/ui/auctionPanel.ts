@@ -1,3 +1,4 @@
+import { currencySymbol, getCurrency, rateOf } from '../../shared/i18n/currency';
 import { tr } from '../i18n';
 import { ModalPanel } from './modalPanel';
 import type { AuctionState, Lot } from '../../shared/sim/economy/auctions';
@@ -10,6 +11,13 @@ import { net } from '../connection/net';
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 
 /** Auctions: bidding for monopoly rights per town. Only the winning company may build that kind of facility within the town's area */
+/**
+ * The bid input is a whole number in a unit that depends on the display currency:
+ * ¥10,000 for yen, and one unit of the currency for the others (so "10" means $10 for US dollars). Returns yen per unit.
+ */
+const bidUnit = (): number => (getCurrency() === 'JPY' ? 10_000 : 1 / rateOf(getCurrency()));
+const bidUnitLabel = (): string => (getCurrency() === 'JPY' ? tr('万円') : esc(currencySymbol(getCurrency()).trim()));
+
 export class AuctionPanel extends ModalPanel {
   private pressed = false;
   /** The bid amount input (in 10,000 yen). Kept across redraws */
@@ -45,7 +53,7 @@ export class AuctionPanel extends ModalPanel {
       if (b) {
         const id = Number(b.dataset.bid);
         const typed = Number(this.inputs.get(id));
-        const amount = Number.isFinite(typed) && typed > 0 ? Math.round(typed * 10_000) : Number(b.dataset.min);
+        const amount = Number.isFinite(typed) && typed > 0 ? Math.ceil(typed * bidUnit() - 1e-9) : Number(b.dataset.min);
         void net.cmd({ t: 'bid', lotId: id, amount }).then((r) => this.onMessage(r.msg ?? (r.ok ? tr('入札しました') : tr('失敗しました'))));
       }
     });
@@ -65,7 +73,7 @@ export class AuctionPanel extends ModalPanel {
     const row = (l: Lot) => {
       const min = l.bid ? Math.ceil((l.bid.amount * 1.05) / 10_000) * 10_000 : l.minBid;
       const mine = l.bid?.who === net.id;
-      return `<tr><td>${townLink(l.townId)}</td><td>${FACILITY_SPECS[l.type].icon} ${FACILITY_SPECS[l.type].name}</td><td>${l.bid ? `${yen(l.bid.amount)}(${mine ? `<b>${tr('自社')}</b>` : nameOf(l.bid.who)})` : tr('入札なし')}</td><td>${yen(min)}</td><td>${tr('あと{left}日', { left: l.left })}</td><td>${mine ? tr('最高額') : `<input type="number" data-lotin="${l.id}" min="${Math.ceil(min / 10_000)}" step="1" value="${this.inputs.get(l.id) ?? Math.ceil(min / 10_000)}" style="width:80px">${tr('万円')} <button data-bid="${l.id}" data-min="${min}">${tr('入札')}</button>`}</td></tr>`;
+      return `<tr><td>${townLink(l.townId)}</td><td>${FACILITY_SPECS[l.type].icon} ${FACILITY_SPECS[l.type].name}</td><td>${l.bid ? `${yen(l.bid.amount)}(${mine ? `<b>${tr('自社')}</b>` : nameOf(l.bid.who)})` : tr('入札なし')}</td><td>${yen(min)}</td><td>${tr('あと{left}日', { left: l.left })}</td><td>${mine ? tr('最高額') : `<input type="number" data-lotin="${l.id}" min="${Math.ceil(min / bidUnit())}" step="1" value="${this.inputs.get(l.id) ?? Math.ceil(min / bidUnit())}" style="width:80px">${bidUnitLabel()} <button data-bid="${l.id}" data-min="${min}">${tr('入札')}</button>`}</td></tr>`;
     };
     let h = `<div class="muted">${tr('街ごとの独占権を競りにかけます。落札すると、その街の範囲(街の規模で決まる半径)に、その種類の施設を建てられるのは自社だけになります。入札額は落札した時点で支払います(現金が足りないと流札)。')}</div>`;
     h += `<h3>${tr('開催中の競り(締め切りまで3日・2日ごとに新規)')}</h3>`;

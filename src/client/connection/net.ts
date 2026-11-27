@@ -1,4 +1,4 @@
-import { lang, tr } from '../i18n';
+import { lang, localizeMoney, tr } from '../i18n';
 import type { ClientMsg, Cmd, CmdResult, ServerMsg } from '../../shared/protocol';
 
 const SESSION = 'simulator-multi-session';
@@ -70,7 +70,8 @@ export class Net {
       ws.onmessage = (e) => {
         const m = JSON.parse(e.data as string) as ServerMsg;
         if (m.type === 'res') {
-          this.pending.get(m.req)?.(m.res);
+          // The server writes amounts in yen; show them in the player's currency
+          this.pending.get(m.req)?.(m.res.msg ? { ...m.res, msg: localizeMoney(m.res.msg) } : m.res);
           this.pending.delete(m.req);
           return;
         }
