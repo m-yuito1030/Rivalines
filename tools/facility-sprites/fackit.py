@@ -481,13 +481,13 @@ def Lcourt(s0,s1,t0,t1,col=(70,140,200)):
 
 
 # ===== Parts for the amusement park and stadium =====
-def W(r,**o): return dict(t='wheel',r=r,**o)            # def W(r,**o): return dict(t='wheel',r=r,**o)            # Ferris wheel
-def TENT(r,h,**o): return dict(t='tent',r=r,h=h,**o)    # def TENT(r,h,**o): return dict(t='tent',r=r,h=h,**o)    # circus tent
-def CAR(r,**o): return dict(t='carousel',r=r,**o)       # def CAR(r,**o): return dict(t='carousel',r=r,**o)       # carousel
-def COAST(L,h,**o): return dict(t='coaster',L=L,h=h,**o)  # def COAST(L,h,**o): return dict(t='coaster',L=L,h=h,**o)  # roller coaster
-def SLIDE(L,h,**o): return dict(t='slide',L=L,h=h,**o)  # def SLIDE(L,h,**o): return dict(t='slide',L=L,h=h,**o)  # water slide
-def BOWL(r,h,**o): return dict(t='bowl',r=r,h=h,**o)    # def BOWL(r,h,**o): return dict(t='bowl',r=r,h=h,**o)    # round stands (stadium)
-def PBOX(L,R,h,**o): return dict(t='pbox',L=L,R=R,h=h,**o)  # def PBOX(L,R,h,**o): return dict(t='pbox',L=L,R=R,h=h,**o)  # rectangular stands (the field in the middle)
+def W(r,**o): return dict(t='wheel',r=r,**o)            # Ferris wheel
+def TENT(r,h,**o): return dict(t='tent',r=r,h=h,**o)    # circus tent
+def CAR(r,**o): return dict(t='carousel',r=r,**o)       # carousel
+def COAST(L,h,**o): return dict(t='coaster',L=L,h=h,**o)  # roller coaster
+def SLIDE(L,h,**o): return dict(t='slide',L=L,h=h,**o)  # water slide
+def BOWL(r,h,**o): return dict(t='bowl',r=r,h=h,**o)    # round stands (stadium)
+def PBOX(L,R,h,**o): return dict(t='pbox',L=L,R=R,h=h,**o)  # rectangular stands (the field in the middle)
 def _ellipse(cx,cy,rx,ry,fill,outline=None):
     d.ellipse([cx-rx,cy-ry,cx+rx,cy+ry],fill=(*fill,255),outline=(*(outline or mul(fill,.55)),255))
 def _pitch(cx,cy,rx,ry,kind):

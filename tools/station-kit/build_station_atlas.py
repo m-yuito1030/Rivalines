@@ -39,7 +39,7 @@ def render_layer(name, side, st, ax, layer):
     if layer == 0:
         return k.render3(stacks, [], lambda s, t, dx, dy: k.gnd(name, side, st, ax)(s, t, dx, dy), (226, 222, 210), 'plaster', k.GEO, 'none', 1)
     old = k.ground
-    k.ground = lambda *a, **kw: None  #     k.ground = lambda *a, **kw: None  # do not draw the ground (only the things above)
+    k.ground = lambda *a, **kw: None  # do not draw the ground (only the things above)
     try:
         return k.render3(stacks, [], lambda s, t, dx, dy: (0, 0, 0), (226, 222, 210), 'plaster', k.GEO, 'none', 1)
     finally:
@@ -64,7 +64,7 @@ def main():
         print('station', v, os.path.getsize(os.path.join(OUT, f'station{v}.png')) // 1024, 'KB')
     info = {
         'tile': 64,
-        'groundTop': 28,  #         'groundTop': 28,  # y of the top vertex of the ground diamond within the cell
+        'groundTop': 28,  # y of the top vertex of the ground diamond within the cell
         'pieces': [k.pname(b, s) for b, s in k.PIECES],
         'styles': [{'name': NAMES[k.STY[b * 4][0]] + VARIANTS[v], 'key': k.STY[b * 4 + v][0]} for b in range(20) for v in range(4)],
     }

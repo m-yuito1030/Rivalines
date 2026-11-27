@@ -6,7 +6,7 @@ services:
   caddy:
     image: caddy:2-alpine
     container_name: rivalines-caddy
-    profiles: [https] #     profiles: [https] # not started by default
+    profiles: [https] # not started by default
     restart: unless-stopped
     depends_on: [rivalines-web]
     ports:
@@ -16,7 +16,7 @@ services:
       DOMAIN: "${DOMAIN:-localhost}"
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data #       - caddy-data:/data # the obtained certificates (deleting it means obtaining them again)
+      - caddy-data:/data # the obtained certificates (deleting it means obtaining them again)
       - caddy-config:/config
     mem_limit: 128m
     security_opt: [no-new-privileges:true]
@@ -27,7 +27,7 @@ services:
       context: .
       target: gateway
       additional_contexts:
-        live: ${LIVE_SRC:-.} #         live: ${LIVE_SRC:-.} # the production code. By default this place (the same version as next). To split the versions, point at the place prepared by scripts/live-checkout.sh
+        live: ${LIVE_SRC:-.} # the production code. By default this place (the same version as next). To split the versions, point at the place prepared by scripts/live-checkout.sh
     container_name: rivalines-web
     restart: unless-stopped
     depends_on: [server, server-next]
@@ -41,13 +41,13 @@ services:
     build: { context: "${LIVE_SRC:-.}", target: server }
     container_name: rivalines-server
     restart: unless-stopped
-    stop_grace_period: 30s #     stop_grace_period: 30s # on the termination signal, save the world before exiting
-    mem_limit: 2800m #     mem_limit: 2800m # of the 4 GB of memory, leave room for the OS, Caddy, nginx, and the next version
+    stop_grace_period: 30s # on the termination signal, save the world before exiting
+    mem_limit: 2800m # of the 4 GB of memory, leave room for the OS, Caddy, nginx, and the next version
     pids_limit: 200
     security_opt: [no-new-privileges:true]
     environment:
       WORLD_SIZE: "65535"
-      SPEED: "${SPEED:-0.5}" #       SPEED: "${SPEED:-0.5}" # game speed. 1 = one game day per 30 real minutes, 0.5 = one day per 60 minutes
+      SPEED: "${SPEED:-0.5}" # game speed. 1 = one game day per 30 real minutes, 0.5 = one day per 60 minutes
       MAX_ONLINE: "${MAX_ONLINE:-100}"
       REGISTER_PER_HOUR: "${REGISTER_PER_HOUR:-300}"
       ADMIN_KEY: "${ADMIN_KEY:?.env に ADMIN_KEY=長いランダムな文字列 を書いてください}"
@@ -62,7 +62,7 @@ services:
     container_name: rivalines-server-next
     restart: unless-stopped
     stop_grace_period: 30s
-    mem_limit: 400m #     mem_limit: 400m # a small world (about 150 MB of memory). At most 30 concurrent connections
+    mem_limit: 400m # a small world (about 150 MB of memory). At most 30 concurrent connections
     pids_limit: 200
     security_opt: [no-new-privileges:true]
     environment:
@@ -80,6 +80,6 @@ services:
       - rivalines-data:/shared:ro
 volumes:
   rivalines-data:
-  rivalines-next: #   rivalines-next: # the next version's world (may be wiped)
+  rivalines-next: # the next version's world (may be wiped)
   caddy-data:
   caddy-config:
