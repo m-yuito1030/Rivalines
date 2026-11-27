@@ -5,6 +5,7 @@ import { BASE, net, toLoginScreen } from '../connection/net';
 import { Mirror } from '../connection/mirror';
 import { $, sleep } from './dom';
 import { tr } from '../i18n';
+import { openRegisterModal } from './registerModal';
 import './resuming.css';
 
 /** What to do after entering a world (starting the game screen). Passed in from main */
@@ -55,8 +56,9 @@ export function initAuth(startGame: StartGame): void {
   });
 
   /** After login, enter the world */
-  async function enterWorld(token: string): Promise<void> {
-    note.textContent = tr('サーバーに接続中...');
+  async function enterWorld(token: string, fresh = false): Promise<void> {
+    // Someone who has just registered sees their own wording, not the same text as everyone who logs in
+    note.textContent = fresh ? tr('アカウントを作成しました。世界に入っています…') : tr('サーバーに接続中...');
     const init = await net.connect(token);
     // When the server's version differs from the version of the page now open (a stale page left open after an update), prompt a reload
     if (init.version && init.version !== __APP_VERSION__) {
@@ -73,7 +75,7 @@ export function initAuth(startGame: StartGame): void {
     const start = init.start ?? { x: map.size / 2, y: map.size / 2 };
     const R = 48;
     net.sendView(start.x - R, start.y - R, start.x + R, start.y + R);
-    note.textContent = tr('世界を受信中...');
+    note.textContent = fresh ? tr('あなたの会社を準備しています…') : tr('世界を受信中...');
     await new Promise<void>((res) => {
       mirror.onFirst = res;
       setTimeout(res, 8000);
@@ -105,7 +107,7 @@ export function initAuth(startGame: StartGame): void {
         errEl.textContent = r.reason ? trReason(r.reason) : tr('失敗しました');
         return authBusy(false);
       }
-      await enterWorld(r.token!);
+      await enterWorld(r.token!, kind === 'register');
     } catch (e) {
       const msg = (e as Error).message;
       if (/module script|dynamically imported module|Failed to fetch dynamically/i.test(msg)) return reloadOnStale();
@@ -117,7 +119,20 @@ export function initAuth(startGame: StartGame): void {
     e.preventDefault();
     void doAuth('login');
   });
-  $('register').addEventListener('click', () => void doAuth('register'));
+  // Sign-up has its own window (its own fields, notes, and agreement), separate from the login form
+  $('register').addEventListener('click', () => {
+    errEl.textContent = '';
+    openRegisterModal($<HTMLInputElement>('uname').value, async (name, password) => {
+      const r = await net.auth('register', name, password);
+      if (!r.ok) return { ok: false, reason: r.reason };
+      authBusy(true);
+      void enterWorld(r.token!, true).catch((e: Error) => {
+        errEl.textContent = e.message;
+        authBusy(false);
+      });
+      return { ok: true };
+    });
+  });
   void fetch(`${BASE}api/status`)
     .then((r) => r.json())
     .then((s: { world: { size: number }; accounts: number; maxOnline: number; online: number }) => {

@@ -37,3 +37,14 @@ button:disabled { opacity: 0.5; cursor: default; }
 .about ul { padding-left: 20px; color: #c4d2e2; }
 .about li { margin: 6px 0; }
 .shot { max-width: 100%; height: auto; border-radius: 10px; border: 1px solid #2c4561; margin: 6px 0 12px; }
+
+/* The sign-up window */
+.modal { position: fixed; inset: 0; background: #000b; display: grid; grid-template-columns: minmax(0, 1fr); place-items: center; z-index: 50; padding: 12px; }
+.modal[hidden] { display: none; }
+.modal .box { box-sizing: border-box; width: 440px; max-width: 100%; max-height: 94vh; overflow: auto; background: #15283f; border: 1px solid #456; border-radius: 12px; padding: 20px; display: grid; gap: 8px; }
+.modal h2 { margin: 0; font-size: 20px; color: #ffcf5a; }
+.modal p { margin: 0; }
+.modal .notes { margin: 0; padding-left: 1.3em; font-size: 12px; color: #b8c8da; display: grid; gap: 4px; }
+.modal .agree { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+.modal .agree input { width: auto; margin-top: 4px; }
+.modal .row { justify-content: flex-end; }

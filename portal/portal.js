@@ -16,11 +16,8 @@
       password: 'Password',
       login: 'Log in',
       register: 'Sign up',
-      agree1: 'By signing up, you agree to the ',
       terms: 'Terms of Service',
-      agree2: '. ',
       privacy: 'Privacy Policy',
-      agree3: ' (no email address or real name is needed).',
       hello: ', which world do you want to play?',
       liveTitle: 'Live',
       liveDesc: 'The world everyone plays in. Your company and records are kept.',
@@ -32,6 +29,20 @@
       nextDesc3: ' (the live world is not affected).',
       nextGo: 'Try the next version',
       shared: 'Your account is shared, and your company data is separate for each world. You can choose again anytime from "Choose world" in the game.',
+      regTitle: 'Sign up',
+      regLead: 'You only need a name and a password. No email address or real name is needed.',
+      regName: 'Name (2-16 characters: letters, digits, _ or -)',
+      regPw: 'Password (at least 6 characters)',
+      regPw2: 'Password (again)',
+      regNote1: 'Your name is visible to other players. Please do not use your real name.',
+      regNote2: 'Since you do not register an email address, if you forget your password you will have to contact the operators to get a temporary one.',
+      regNote3: 'One account per person.',
+      regAgree: 'I agree to the',
+      cancel: 'Cancel',
+      regGo: 'Create account',
+      badName: 'The name must be 2-16 characters (letters, digits, _ or -).',
+      shortPw: 'The password must be at least 6 characters.',
+      pwMismatch: 'The passwords do not match.',
       logout: 'Log out',
       licenses: 'Licenses',
       aboutTitle: 'What is Rivalines?',
@@ -60,11 +71,8 @@
       password: 'パスワード',
       login: 'ログイン',
       register: '新規登録',
-      agree1: '新規登録すると、',
       terms: '利用規約',
-      agree2: 'に同意したものとみなします。',
       privacy: 'プライバシーポリシー',
-      agree3: '(メールアドレスや本名は不要です)。',
       hello: ' さん、どちらの世界で遊びますか?',
       liveTitle: '本稼働',
       liveDesc: 'みんなが遊んでいる世界です。あなたの会社と記録は保存され続けます。',
@@ -76,6 +84,20 @@
       nextDesc3: '(消えても本稼働には影響しません)。',
       nextGo: '次期バージョンを試す',
       shared: 'アカウントは共通で、会社のデータは世界ごとに別です。ゲームの中の「🌐 世界を選ぶ」から、いつでも選び直せます。',
+      regTitle: '新規登録',
+      regLead: '名前とパスワードだけで登録できます。メールアドレスや本名は要りません。',
+      regName: '名前(2〜16文字。文字・数字・_ -)',
+      regPw: 'パスワード(6文字以上)',
+      regPw2: 'パスワード(もう一度)',
+      regNote1: '名前は、ほかのプレイヤーにも見えます。本名は使わないでください。',
+      regNote2: 'メールアドレスを登録しないので、パスワードを忘れたときは、運営に連絡して、仮のパスワードを出してもらうことになります。',
+      regNote3: 'アカウントは、1人につき1つです。',
+      regAgree: '次に同意します:',
+      cancel: 'キャンセル',
+      regGo: '登録する',
+      badName: '名前は2〜16文字(文字・数字・_-)です',
+      shortPw: 'パスワードは6文字以上です',
+      pwMismatch: 'パスワードが一致しません',
       logout: 'ログアウト',
       licenses: 'ライセンス',
       aboutTitle: 'Rivalines とは',
@@ -199,33 +221,67 @@
     }
   }
 
-  async function auth(kind) {
-    $('err').textContent = '';
-    for (const b of document.querySelectorAll('#authForm button')) b.disabled = true;
+  /** Log in or register. Returns true on success. `errEl` is where a failure is shown (the login form, or the sign-up window) */
+  async function auth(kind, name, password, errEl) {
+    errEl.textContent = '';
+    for (const b of document.querySelectorAll('#authForm button, #regForm button')) b.disabled = true;
     try {
       // lang: the server returns the reason for a failure in this language
-      const body = { name: $('uname').value, password: $('upw').value, lang };
+      const body = { name, password, lang };
       const r = await fetch(`/api/${kind}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
       const j = await r.json().catch(() => ({ ok: false, reason: t('badResponse') }));
       if (!j.ok) {
-        $('err').textContent = j.reason || t('failed');
-        return;
+        errEl.textContent = j.reason || t('failed');
+        return false;
       }
       localStorage.setItem(SESSION, JSON.stringify({ token: j.token, name: j.name }));
       $('upw').value = '';
       show();
+      return true;
     } catch {
-      $('err').textContent = t('noConnect');
+      errEl.textContent = t('noConnect');
+      return false;
     } finally {
-      for (const b of document.querySelectorAll('#authForm button')) b.disabled = false;
+      for (const b of document.querySelectorAll('#authForm button, #regForm button')) b.disabled = false;
+      $('regGo').disabled = !$('regAgree').checked;
     }
   }
 
+  // The sign-up window: its own fields, notes, and agreement (separate from the login form)
+  const NAME_OK = /^[\p{L}\p{N}_-]{2,16}$/u;
+  const closeReg = () => {
+    $('regModal').hidden = true;
+    for (const id of ['regPwIn', 'regPw2In']) $(id).value = '';
+    $('regErr').textContent = '';
+  };
+  $('register').addEventListener('click', () => {
+    $('err').textContent = '';
+    $('regNameIn').value = $('uname').value;
+    $('regAgree').checked = false;
+    $('regGo').disabled = true;
+    $('regModal').hidden = false;
+    ($('regNameIn').value ? $('regPwIn') : $('regNameIn')).focus();
+  });
+  $('regCancel').addEventListener('click', closeReg);
+  $('regAgree').addEventListener('change', () => ($('regGo').disabled = !$('regAgree').checked));
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('regModal').hidden) closeReg();
+  });
+  $('regForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const name = $('regNameIn').value.trim();
+    const pw = $('regPwIn').value;
+    const err = $('regErr');
+    if (!NAME_OK.test(name)) return void (err.textContent = t('badName'));
+    if (pw.length < 6) return void (err.textContent = t('shortPw'));
+    if (pw !== $('regPw2In').value) return void (err.textContent = t('pwMismatch'));
+    if (await auth('register', name, pw, err)) closeReg();
+  });
+
   $('authForm').addEventListener('submit', (e) => {
     e.preventDefault();
-    void auth('login');
+    void auth('login', $('uname').value, $('upw').value, $('err'));
   });
-  $('register').addEventListener('click', () => void auth('register'));
   $('logout').addEventListener('click', () => {
     localStorage.removeItem(SESSION);
     show();
