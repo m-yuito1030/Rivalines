@@ -47,7 +47,7 @@ describe('検索エンジン対策(SEO)', () => {
     }
   });
 
-  it('robots.txt: 全体を許可し、API を除き、サイトマップを指す。サイトマップは、トップと日本語ページだけ', () => {
+  it('robots.txt: 全体を許可し、API を除き、サイトマップを指す。サイトマップは、トップ・日本語ページ・マニュアル(英語と日本語)', () => {
     const robots = read('public/robots.txt');
     expect(robots).toMatch(/^User-agent: \*/m);
     expect(robots).toMatch(/^Disallow: \/api\//m);
@@ -56,7 +56,7 @@ describe('検索エンジン対策(SEO)', () => {
     expect(robots).not.toMatch(/^Disallow: \/(live|next)\//m);
     const sitemap = read('public/sitemap.xml');
     const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-    expect(locs).toEqual(['https://rivalines.com/', 'https://rivalines.com/ja.html']);
+    expect(locs).toEqual(['https://rivalines.com/', 'https://rivalines.com/ja.html', 'https://rivalines.com/manual.en.html', 'https://rivalines.com/manual.html']);
   });
 
   it('ゲーム本体(/live/ と /next/)は、検索結果に出さない(X-Robots-Tag: noindex)。トップには付けない', () => {
