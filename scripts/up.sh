@@ -1,7 +1,7 @@
 #!/bin/sh
-# 入り口・本稼働・次期バージョンを、まとめて作り直して起動する(データは消さない)。
-# 使い方: scripts/up.sh            全部
-#         scripts/up.sh next       次期バージョンだけ(入り口 web も含む)
+# Rebuild and start the entrance, production, and the next version together (data is not wiped).
+# Usage: scripts/up.sh            everything
+#         scripts/up.sh next       only the next version (the entrance web is included too)
 . "$(dirname "$0")/env-common.sh"
 need_live_src
 versions

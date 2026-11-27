@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# 世界とアカウントのデータ(docker のボリューム rivalines-data)を ~/backups に固めて保存する。14 日より古いものは消す。
-# 使い方: bash scripts/backup.sh   (cron で毎日回すとよい。docs/DEPLOY_VPS.md)
+# Pack the world and account data (the docker volume rivalines-data) into ~/backups. Backups older than 14 days are deleted.
+# Usage: bash scripts/backup.sh   (run it daily from cron; see docs/DEPLOY_VPS.md)
 set -euo pipefail
 DEST="${BACKUP_DIR:-$HOME/backups}"
 mkdir -p "$DEST"

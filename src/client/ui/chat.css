@@ -1,4 +1,4 @@
-/* 全体チャット・お知らせ */
+/* Public chat and announcements */
 #chat { position: absolute; left: 8px; bottom: 44px; width: 320px; max-width: calc(100vw - 16px); height: 260px; max-height: 50vh; display: flex; flex-direction: column; background: #101c2cee; border: 1px solid #345; border-radius: 10px; pointer-events: auto; font-size: 13px; z-index: 6; }
 #chat[hidden] { display: none; }
 #chat .ch-head { display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; border-bottom: 1px solid #234; font-weight: bold; }
@@ -22,10 +22,10 @@
   #chatForm input { min-height: 36px; font-size: 16px; }
   #chatLog .cm .ca { visibility: visible; }
 }
-/* 新しい発言・お知らせの印 */
+/* Mark for new messages and announcements */
 .unread { position: relative; }
 .unread::after { content: ''; position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: #ff4d4d; }
-/* メニューの中のお知らせ */
+/* Announcements inside the menu */
 #newsBox .nitem { background: #0b1420; border: 1px solid #345; border-radius: 6px; padding: 6px 8px; margin: 4px 0; }
 #newsBox .nitem b { color: #ffcf5a; }
 #newsBox .nitem small { color: #789; margin-left: 6px; }
