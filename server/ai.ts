@@ -14,6 +14,9 @@ import { TRAIN_MODELS, clampCars, modelOf } from '../src/shared/data/models';
 import { facilityValue, vehiclePrice } from '../src/shared/sim/economy/economy';
 import { execute } from './commands/index';
 import { PRICES } from './economyApi';
+import { hasSub } from '../src/shared/world/subway';
+import { subwayCost, subwayLine } from '../src/shared/world/subway';
+import { lineTiles } from '../src/shared/world/roads';
 
 /** Game ticks between one AI action and the next, before the company's style speeds it up or slows it down */
 export const AI_STEP_TICKS = 100;
@@ -23,6 +26,8 @@ export const EDGES_PER_STEP = 12;
 const MIN_DIST = 20;
 /** Wait this long after something fails */
 const RETRY = 900;
+/** A railway links two towns by subway instead when they are closer than this (tiles), about half of the time */
+const SUBWAY_MAX_DIST = 90;
 /** The platform length of the stations a railway builds */
 const STATION_LEN = 5;
 
@@ -72,6 +77,8 @@ interface RailProject {
   line: Tile[];
   cursor: number;
   routeId?: number;
+  /** A subway project: the tiles of the line with their depths (the line has two stops, one tile in from each end) */
+  sub?: { x: number; y: number; depth: number }[];
 }
 
 type Project = BusProject | RailProject;
@@ -325,7 +332,8 @@ export class AiPlanner {
     const have = [...t.depots.values()].some((d) => d.kind === kind && d.owner === s.id && dist(d, near) < 60);
     if (!have) {
       let ok = false;
-      for (let i = from; i < Math.min(upTo, tiles.length) && !ok; i++) ok = execute(this.sim, s.id, { t: 'place', tool: 'depot', x: tiles[i].x, y: tiles[i].y }).ok;
+      for (let i = from; i < Math.min(upTo, tiles.length) && !ok; i++)
+        ok = execute(this.sim, s.id, { t: 'place', tool: 'depot', x: tiles[i].x, y: tiles[i].y, ...(kind === 'rail' ? { kind } : {}) }).ok;
       if (!ok) return this.giveUp(s, p);
     }
     p.stage = 'route';
@@ -356,6 +364,12 @@ export class AiPlanner {
     const pair = this.choosePair(s);
     if (!pair) return null;
     // A station, a line, a depot, and a train cost a lot: wait until the company can pay for the whole thing and keep its reserve
+    const sub = dist(pair.a, pair.b) <= SUBWAY_MAX_DIST && hash01(this.sim.map.seed, s.id, s.routes + 7) < 0.5;
+    if (sub) {
+      const tiles = Math.abs(pair.a.x - pair.b.x) + Math.abs(pair.a.y - pair.b.y) + 3;
+      if (!this.canSpend(s, tiles * subwayCost(3) + 2 * (PRICES.stationBase + PRICES.stationTile) + PRICES.depotRail + 6_000_000)) return null;
+      return { type: 'rail', a: pair.a, b: pair.b, stage: 'stations', stations: [], ends: [], edges: [], line: [], cursor: 0, sub: [] };
+    }
     const estimate = dist(pair.a, pair.b) * 1.3 * PRICES.rail + 2 * (PRICES.stationBase + PRICES.stationTile * STATION_LEN) + PRICES.depotRail + 6_000_000;
     if (!this.canSpend(s, estimate)) return null;
     return { type: 'rail', a: pair.a, b: pair.b, stage: 'stations', stations: [], ends: [], edges: [], line: [], cursor: 0 };
@@ -396,6 +410,7 @@ export class AiPlanner {
   }
 
   private placeStations(s: AiState, p: RailProject): number {
+    if (p.sub) return this.planSubway(s, p);
     const sa = this.placeStation(s, p.a, p.b);
     const sb = sa ? this.placeStation(s, p.b, p.a) : null;
     if (!sa || !sb) return this.giveUp(s, p);
@@ -409,7 +424,57 @@ export class AiPlanner {
     return AI_STEP_TICKS;
   }
 
+  /** Plan a subway between two towns: an L-shaped line under the streets, sloping from depth 2 at the ends to depth 3 at the corner */
+  private planSubway(s: AiState, p: RailProject): number {
+    const A = { x: Math.round(p.a.x), y: Math.round(p.a.y) };
+    const B = { x: Math.round(p.b.x), y: Math.round(p.b.y) };
+    const C = { x: B.x, y: A.y };
+    const n1 = Math.abs(C.x - A.x);
+    const n2 = Math.abs(B.y - C.y);
+    // The stops sit one tile in from each end, on straight track: each straight run needs room for them
+    if ((n1 > 0 && n1 < 3) || (n2 > 0 && n2 < 3) || n1 + n2 < 6) return this.giveUp(s, p);
+    const first = subwayLine(A, C, 2, n1 > 0 ? 3 : 2) ?? lineTiles(A.x, A.y, C.x, C.y).map((t) => ({ ...t, depth: 2 }));
+    const second = subwayLine(C, B, n1 > 0 ? 3 : 2, 2) ?? lineTiles(C.x, C.y, B.x, B.y).map((t) => ({ ...t, depth: 2 }));
+    const tiles = [...first, ...second.slice(1)].map((t) => ({ x: t.x, y: t.y, depth: t.depth }));
+    const map = this.sim.map;
+    // Land only, and not where a surface rail already runs
+    if (tiles.some((t) => !map.inBounds(t.x, t.y) || map.levelAt(t.x, t.y) <= 0 || map.rail.get(map.idx(t.x, t.y)) !== 0)) return this.giveUp(s, p);
+    p.sub = tiles;
+    p.line = tiles.map((t) => ({ x: t.x, y: t.y }));
+    p.edges = tiles.slice(0, -1).map((t, i) => ({ a: { x: t.x, y: t.y }, b: { x: tiles[i + 1].x, y: tiles[i + 1].y } }));
+    p.stage = 'lay';
+    return AI_STEP_TICKS;
+  }
+
+  /** Lay the next few edges of a subway, and when the line is done put the two stops on it */
+  private laySubway(s: AiState, p: RailProject, sub: { x: number; y: number; depth: number }[]): number {
+    const map = this.sim.map;
+    const co = this.sim.playerCompany(s.id);
+    let laid = 0;
+    while (laid < EDGES_PER_STEP && p.cursor < p.edges.length) {
+      const { a, b } = p.edges[p.cursor];
+      const nb = sub[p.cursor + 1];
+      if (co.cash < subwayCost(4) * 2) return RETRY;
+      execute(this.sim, s.id, { t: 'build', tool: 'subway', a, b, z: [sub[p.cursor].depth, nb.depth] });
+      if (!hasSub(map.subway.get(map.idx(b.x, b.y)))) return this.giveUp(s, p);
+      p.cursor++;
+      laid++;
+    }
+    if (p.cursor >= p.edges.length) {
+      const ids: number[] = [];
+      for (const t of [sub[1], sub[sub.length - 2]]) {
+        const r = execute(this.sim, s.id, { t: 'ensureStop', x: t.x, y: t.y, kind: 'rail' });
+        if (!r.ok || r.id === undefined) return this.giveUp(s, p);
+        ids.push(r.id);
+      }
+      p.stations = ids;
+      p.stage = 'depot';
+    }
+    return AI_STEP_TICKS;
+  }
+
   private layRail(s: AiState, p: RailProject): number {
+    if (p.sub) return this.laySubway(s, p, p.sub);
     const map = this.sim.map;
     const co = this.sim.playerCompany(s.id);
     let laid = 0;

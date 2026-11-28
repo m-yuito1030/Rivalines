@@ -97,7 +97,7 @@ export class PathPlanner {
       }
       const c = ce.p;
       let ok = true;
-      const layer = rail ? m.rail : m.road;
+      const layer = rail ? { get: (i: number) => m.railAt(i) } : m.road;
       for (let i = 0; i + 1 < c.length && ok; i++) {
         const d = dirBetween(c[i], c[i + 1], s);
         ok = d >= 0 && (layer.get(c[i]) & (rail ? CONN(d) : OUT(d))) !== 0 && (layer.get(c[i + 1]) & CONN(opposite8(d))) !== 0;
