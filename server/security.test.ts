@@ -5,7 +5,7 @@ import { SEA_LEVEL } from '../src/shared/world/constants';
 import { execute } from './commands/index';
 import { validTxArgs } from './commands/route';
 import { MAX_ORDERS_PER_ROUTE, MAX_ROUTES_PER_PLAYER } from './commands/util';
-import { Governor, MSG_PER_SEC, isHeavy, messageLimit } from './limits';
+import { Governor, MSG_PER_SEC, isHeavy, messageLimit, originAllowed } from './limits';
 import { Replicator } from './replicate';
 import { Accounts } from './accounts';
 import type { Cmd } from '../src/shared/protocol';
@@ -267,5 +267,28 @@ describe('セキュリティ: コマンドの総当たり(型の崩れ)で例外
       for (let i = 0; i < 300; i++) sim.step();
     }).not.toThrow();
     expect(sim.transit.vehicleFailures).toBe(0);
+  });
+});
+
+describe('セキュリティ: WebSocket の接続元(Origin)', () => {
+  it('同じサイト・開発用のローカル・許可リストは通し、他のサイトと不正な値は断る。Origin がない(ブラウザ以外)は通す', () => {
+    expect(originAllowed('https://rivalines.com', 'rivalines.com', undefined)).toBe(true);
+    expect(originAllowed('https://rivalines.com', 'server:8091', 'rivalines.com')).toBe(true);
+    expect(originAllowed('https://rivalines.com', 'server:8091', 'rivalines.com, other')).toBe(true);
+    expect(originAllowed('http://localhost:5173', 'localhost:8091', undefined)).toBe(true);
+    expect(originAllowed('http://127.0.0.1:8092', 'server', undefined)).toBe(true);
+    expect(originAllowed('https://alias.example', 'rivalines.com', undefined, ['alias.example'])).toBe(true);
+    expect(originAllowed(undefined, 'rivalines.com', undefined)).toBe(true);
+    for (const bad of [
+      'https://evil.example',
+      'https://rivalines.com.evil.example',
+      'https://evilrivalines.com',
+      'null',
+      'file://x',
+      'javascript:alert(1)',
+      'not a url',
+      'https://rivalines.com:8443',
+    ])
+      expect(originAllowed(bad, 'rivalines.com', undefined), bad).toBe(false);
   });
 });

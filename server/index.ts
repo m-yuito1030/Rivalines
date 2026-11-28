@@ -16,7 +16,7 @@ import { Announcements } from './announcements';
 import { execute } from './commands/index';
 import { Replicator, type Client } from './replicate';
 import type { ClientMsg } from '../src/shared/protocol';
-import { Governor, WindowLimiter, isHeavy, messageLimit } from './limits';
+import { Governor, WindowLimiter, isHeavy, messageLimit, originAllowed } from './limits';
 
 const PORT = Number(process.env.PORT ?? 8091);
 const DATA = process.env.DATA_DIR ?? './data';
@@ -299,7 +299,14 @@ setInterval(
 ).unref();
 
 const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
+/** Extra sites allowed to open a connection (comma separated hosts, e.g. a second domain). The page's own host is always allowed */
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? '').split(',').filter(Boolean);
 server.on('upgrade', (req, socket, head) => {
+  const hdr = (k: string) => (Array.isArray(req.headers[k]) ? req.headers[k]![0] : (req.headers[k] as string | undefined));
+  if (!originAllowed(hdr('origin'), hdr('host'), hdr('x-forwarded-host'), ALLOWED_ORIGINS)) {
+    socket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
+    return socket.destroy();
+  }
   const token = new URL(req.url ?? '', 'http://x').searchParams.get('token') ?? '';
   const a = accounts.fromToken(token);
   const langParam = new URL(req.url ?? '', 'http://x').searchParams.get('lang');
