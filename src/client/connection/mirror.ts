@@ -5,6 +5,7 @@ import { CHUNK, CHUNK_SHIFT } from '../../shared/world/tileLayer';
 import type { MyVeh, PlayerInfo, ServerMsg } from '../../shared/protocol';
 import type { PactState } from '../../shared/sim/economy/pacts';
 import type { AuctionState } from '../../shared/sim/economy/auctions';
+import type { TownNews } from '../../shared/world/districts';
 import type { WeeklyState } from '../../shared/sim/economy/weekly';
 import type { GovInfo } from '../../shared/sim/economy/government';
 import type { Route, Stop, Depot, Vehicle } from '../../shared/sim/network/transit';
@@ -23,6 +24,8 @@ export class Mirror {
   weekly: WeeklyState = { week: 1, base: [] };
   /** The government's current state as sent by the server (null before the first message) */
   gov: GovInfo | null = null;
+  /** The latest news about the towns */
+  news: TownNews[] = [];
   /** Whether the first structure and finance data have arrived */
   ready = { struct: false, misc: false, towns: false };
   onFirst: (() => void) | null = null;
@@ -112,6 +115,7 @@ export class Mirror {
         this.auctions = msg.auctions ?? this.auctions;
         this.weekly = msg.weekly ?? this.weekly;
         this.gov = msg.gov ?? this.gov;
+        this.news = msg.news ?? this.news;
         this.ready.misc = true;
         break;
       case 'towns':

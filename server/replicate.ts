@@ -355,6 +355,7 @@ export class Replicator {
         auctions: sim.auctions.toJSON(),
         weekly: sim.weekly.toJSON(),
         gov: sim.govInfoFor(c.id),
+        news: sim.news.slice(-20),
       });
     }
   }
