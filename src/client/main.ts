@@ -595,6 +595,13 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     open() {},
     close: () => info.close(),
   };
+  // On a touch screen, the floating windows (tool options, route and info sheets, the guide) step aside while the map is being moved
+  let panTimer = 0;
+  camera.onGesture = (on) => {
+    window.clearTimeout(panTimer);
+    if (on) document.body.classList.add('panning');
+    else panTimer = window.setTimeout(() => document.body.classList.remove('panning'), 250);
+  };
   const windows: { isOpen: boolean; open(): void; close(): void }[] = [statsPanel, finPanel, rankPanel, diaPanel];
   const listWin = {
     get isOpen() {

@@ -99,6 +99,8 @@ const SINGLE: Tool[] = [
   ...NEW_FACILITY_TYPES,
 ];
 type Tile = { x: number; y: number };
+/** How far a finger may move (px) and still count as a tap */
+const TAP_SLOP = 10;
 const isFacilityTool = (t: string): t is FacilityType => (FACILITY_TYPES as string[]).includes(t);
 
 /** Construction tool: drag to lay a straight road / one-way / demolition, and show a preview */
@@ -118,6 +120,7 @@ export class ToolController {
   facilityPlanner: ((x: number, y: number, type: FacilityType) => FacilityPlan) | null = null;
   private start: Tile | null = null;
   private hover: Tile | null = null;
+  private downAt = { x: 0, y: 0 };
 
   constructor(
     private map: GameMap,
@@ -129,11 +132,13 @@ export class ToolController {
     /** A message about an action's result (whether a bridge or tunnel is possible, etc.) */
     public onMessage?: (msg: string) => void,
   ) {
+    this.camera.touchPans = () => SINGLE.includes(this.tool);
     canvas.addEventListener('pointerdown', (e) => {
       if (this.camera.multiTouch) this.start = null;
       if (e.button !== 0 || this.tool === 'pan' || this.camera.multiTouch) return;
       this.start = this.pick(e.clientX, e.clientY);
       this.hover = this.start;
+      this.downAt = { x: e.clientX, y: e.clientY };
     });
     canvas.addEventListener('pointermove', (e) => {
       this.hover = this.pick(e.clientX, e.clientY);
@@ -147,6 +152,11 @@ export class ToolController {
       }
       if (BUILD.includes(this.tool) && !this.canBuild()) {
         this.onMessage?.(tr('会社の評価が最悪のため、新規の開発はできません。待ち人数や渋滞を減らして評価を上げてください(撤去・路線編集・車両購入は可能です)'));
+        this.start = null;
+        return;
+      }
+      // On a touch screen, a swipe with a place-one-thing tool moves the map (the camera pans); only a tap places
+      if (e.pointerType === 'touch' && SINGLE.includes(this.tool) && Math.hypot(e.clientX - this.downAt.x, e.clientY - this.downAt.y) > TAP_SLOP) {
         this.start = null;
         return;
       }
