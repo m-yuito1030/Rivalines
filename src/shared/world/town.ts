@@ -1,3 +1,21 @@
+/** The character of a part of a town: a housing complex (rows of the same big apartment blocks), an office district, or a shopping street */
+export type DistrictKind = 'danchi' | 'office' | 'shop';
+
+/** A rectangle of a town (tiles, both ends included) with its own character. Old buildings inside are rebuilt to fit it (redevelopment) */
+export interface District {
+  id: number;
+  kind: DistrictKind;
+  name: string;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+  /** planned: nothing built yet / building: under redevelopment / done: finished */
+  state: 'planned' | 'building' | 'done';
+  /** Buildings put up under this district's rules so far (the district is finished when it reaches the kind's target) */
+  placed: number;
+}
+
 export interface Town {
   id: number; // 1-based (stored in map.owner)
   name: string;
@@ -12,6 +30,10 @@ export interface Town {
   pax: number;
   /** Town tier (0 village, 1 town, 2 city, 3 metropolis, 4 capital). Decided at birth; it grows only within that tier's population range. Absent in old saves, where it is decided from population */
   tier?: number;
+  /** Districts with their own character (absent in old saves: they are planned when the town next grows) */
+  districts?: District[];
+  /** How many population milestones the town has passed (for the news) */
+  milestone?: number;
 }
 
 /** Population per building level (1..3) (the baseline for villages and towns; bigger cities have more people per building = taller buildings: popMul) */

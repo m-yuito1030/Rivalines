@@ -30,4 +30,7 @@
 #newsBox .nitem b { color: #ffcf5a; }
 #newsBox .nitem small { color: #789; margin-left: 6px; }
 #newsBox .nitem div { white-space: pre-wrap; word-break: break-word; margin-top: 3px; }
+#townNewsBox .nitem { background: #0b1420; border: 1px solid #345; border-radius: 6px; padding: 6px 8px; margin: 4px 0; }
+#townNewsBox .nitem small { color: #789; margin-right: 6px; }
+#townNewsBox .empty { color: #789; }
 #newsBox .empty { color: #789; }

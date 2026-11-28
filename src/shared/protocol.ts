@@ -219,6 +219,8 @@ export type ServerMsg =
       weekly: WeeklyState;
       /** The government: the current and next national policy, the stance, the treasury, and this company's standing */
       gov?: GovInfo;
+      /** The latest news about the towns (district plans, rebuilding, population marks) */
+      news?: import('./world/districts').TownNews[];
     }
   | { type: 'towns'; towns: unknown[] }
   | { type: 'fac'; facilities: unknown[] }

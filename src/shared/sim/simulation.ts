@@ -1,6 +1,7 @@
 import type { GameMap } from '../world/gameMap';
 import { isAiId } from './economy/aiCompanies';
 import { Government, POLICIES, type GovInfo, classify, corporateTaxRate, policyOfDay, policyOfMonth, runningMul, stanceOfDay, LEVY_BASE, STANCES } from './economy/government';
+import type { TownNews } from '../world/districts';
 import { TOWN_REGION, growTown, makeRng, placeTowns, placeTownsRegion, type Rng } from '../world/towns';
 import { Transit, type TransitSave } from './network/transit';
 import type { Town } from '../world/town';
@@ -47,6 +48,9 @@ export interface SimState {
   rivals?: Rival[];
   rivalRng?: number;
   pubRng?: number;
+  /** The recent news about the towns, and the next news number */
+  news?: TownNews[];
+  nextNewsId?: number;
 }
 
 /** 30 real minutes = 1 in-game day (at speed x1). 1 tick = 0.1 real seconds (x1) */
@@ -217,6 +221,8 @@ export class Simulation {
       }
       if (restore.weekly) this.weekly.load(restore.weekly);
       this.gov.load(restore.gov);
+      this.news = restore.news ?? [];
+      this.nextNewsId = restore.nextNewsId ?? 1;
       this.rivals = restore.rivals ?? createRivals(this.rivalRng, this.multi ? 20 : 4);
       if (restore.rivalRng !== undefined) this.rivalRng.setState(restore.rivalRng);
       if (restore.pubRng !== undefined) this.pubRng.setState(restore.pubRng);
@@ -274,6 +280,8 @@ export class Simulation {
       rivals: this.rivals,
       rivalRng: this.rivalRng.getState(),
       pubRng: this.pubRng.getState(),
+      news: this.news,
+      nextNewsId: this.nextNewsId,
     };
   }
 
@@ -309,10 +317,18 @@ export class Simulation {
     this.lastMs = performance.now() - t0;
   }
 
+  /** The recent news about the towns (newest last). Kept short; the clients show the latest */
+  news: TownNews[] = [];
+  private nextNewsId = 1;
+  private readonly pushNews = (e: Omit<TownNews, 'id' | 'tick'>): void => {
+    this.news.push({ ...e, id: this.nextNewsId++, tick: this.tick });
+    if (this.news.length > 60) this.news.splice(0, this.news.length - 60);
+  };
+
   step(): void {
     this.tick++;
     if (this.tick % 100 === 0) this.finishSites();
-    for (const t of this.map.towns) if (this.tick >= t.nextGrowth) growTown(this.map, t, this.tick, this.rng, TICKS_PER_DAY);
+    for (const t of this.map.towns) if (this.tick >= t.nextGrowth) growTown(this.map, t, this.tick, this.rng, TICKS_PER_DAY, this.pushNews);
     this.transit.step(this.tick);
     if (this.tick % MIGRATE_EVERY === 0) this.migrated += migrateStep(this.map, this.transit, this.rng);
     if (this.tick % RATING_EVERY === 0) stepRating(this.rating, this.map, this.transit, Math.min(20, Math.max(0, this.multi ? 0 : -this.company.cash) / 1_000_000));

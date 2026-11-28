@@ -4,7 +4,8 @@ import type { GameMap } from './gameMap';
 import { canConnect, connect, hasRoad } from './roads';
 import { SPRITE_VARIANTS, fillerOf, makeBuilding } from './buildings';
 import { hospitalGrowth } from './hospital';
-import { POP_PER_LEVEL, TIERS, popMul, townTier, type Town } from './town';
+import { POP_PER_LEVEL, TIERS, popMul, townTier, type District, type Town } from './town';
+import { POP_MARKS, demolishMisfit, districtAt, districtVariant, noteBuilt, planDistrict, type NewsSink } from './districts';
 
 /** Deterministic random numbers (mulberry32). The state can be saved and restored */
 export interface Rng {
@@ -168,10 +169,14 @@ export interface PlaceOpts {
   level?: number;
   /** Place it as under construction (finishes in 2-3 days). now = the current tick, ticksPerDay = ticks in a day */
   site?: { now: number; ticksPerDay: number };
+  /** Build only inside this district, by its rules (redevelopment and the filling of a district) */
+  district?: District;
+  /** Where the news of a district that starts or finishes goes */
+  news?: NewsSink;
 }
 
 export function tryPlaceHouse(map: GameMap, town: Town, rng: () => number, opts: PlaceOpts = {}): boolean {
-  for (let tries = 0; tries < (opts.filter ? 60 : 12) && town.roads.length; tries++) {
+  for (let tries = 0; tries < (opts.filter || opts.district ? 60 : 12) && town.roads.length; tries++) {
     const ri = (rng() * town.roads.length) | 0;
     const idx = town.roads[ri];
     if (map.road.get(idx) === 0) {
@@ -187,6 +192,8 @@ export function tryPlaceHouse(map: GameMap, town: Town, rng: () => number, opts:
     const y = ry + DY[d];
     if (!isFree(map, x, y) || map.levelAt(x, y) !== map.levelAt(rx, ry)) continue;
     if (opts.filter && !opts.filter(x, y)) continue;
+    const dis = districtAt(town, x, y);
+    if (opts.district && dis !== opts.district) continue;
     const dist = Math.abs(x - town.x) + Math.abs(y - town.y);
     // The bigger the city, the wider its high-rise area at the centre
     const rs = TIERS[townTier(town)].radius / 10;
@@ -196,8 +203,14 @@ export function tryPlaceHouse(map: GameMap, town: Town, rng: () => number, opts:
     const r = rng();
     let level = opts.level ?? Math.min(maxLevel, r < T.l1 ? 1 : r < T.l2 ? 2 : 3);
     // More offices toward the centre, houses toward the outside
-    const office = rng() < Math.max(0, T.office - dist / (22 * rs));
-    const variant = (rng() * SPRITE_VARIANTS) | 0;
+    let office = rng() < Math.max(0, T.office - dist / (22 * rs));
+    let variant = (rng() * SPRITE_VARIANTS) | 0;
+    if (dis && opts.level === undefined) {
+      // Inside a district the buildings follow its character: the same big blocks, offices, or small shops
+      office = dis.kind === 'office';
+      level = dis.kind === 'danchi' ? 3 : dis.kind === 'office' ? (rng() < 0.6 ? 3 : 2) : rng() < 0.8 ? 1 : 2;
+      variant = districtVariant(town, dis, (rng() * 1000) | 0);
+    }
     let ax = x;
     let ay = y;
     if (level === 3) {
@@ -214,7 +227,10 @@ export function tryPlaceHouse(map: GameMap, town: Town, rng: () => number, opts:
           found = true;
         }
       }
-      if (!found) level = 2;
+      if (!found) {
+        if (dis?.kind === 'danchi' && opts.level === undefined) continue; // a housing complex is only big blocks: look for another place
+        level = 2;
+      }
     }
     const i = map.idx(ax, ay);
     map.building.set(i, makeBuilding(level, variant, office));
@@ -238,6 +254,7 @@ export function tryPlaceHouse(map: GameMap, town: Town, rng: () => number, opts:
       map.sites.set(i, opts.site.now + Math.round(opts.site.ticksPerDay * (BUILD_DAYS_MIN + rng() * (BUILD_DAYS_MAX - BUILD_DAYS_MIN))));
     }
     map.touch(ax, ay);
+    if (dis && dis.state !== 'done') noteBuilt(town, dis, opts.news);
     return true;
   }
   return false;
@@ -274,10 +291,30 @@ function tryExtendRoad(map: GameMap, town: Town, rng: () => number): boolean {
   return false;
 }
 
+/**
+ * Districts: now and then the town plans a new one, and the district being redeveloped gets one more step (an old building that does not fit is
+ * pulled down and a new one goes up, under construction). Also reports the population marks the town passes.
+ */
+function developDistricts(map: GameMap, town: Town, rng: () => number, site: PlaceOpts['site'], news?: NewsSink): void {
+  town.districts ??= [];
+  if (rng() < 0.15) planDistrict(map, town, rng, news);
+  const active = town.districts.find((d) => d.state !== 'done');
+  // Rebuilding may push a town a little past its tier's population limit (a big block holds more people than the houses it replaces)
+  if (active && town.pop < TIERS[townTier(town)].max * 1.05 && rng() < 0.6) {
+    demolishMisfit(map, town, active, rng);
+    tryPlaceHouse(map, town, rng, { district: active, site, news });
+  }
+  if (town.milestone === undefined) town.milestone = POP_MARKS.filter((m) => town.pop >= m).length; // the marks it was born past are not news
+  while (town.milestone < POP_MARKS.length && town.pop >= POP_MARKS[town.milestone]) news?.({ kind: 'pop', town: town.name, n: POP_MARKS[town.milestone++] });
+}
+
 /** Grow a town by one step */
-export function growTown(map: GameMap, town: Town, now: number, rng: () => number, ticksPerDay = 0): void {
+export function growTown(map: GameMap, town: Town, now: number, rng: () => number, ticksPerDay = 0, news?: NewsSink): void {
   // Once the tier's limit is reached it does not grow any more (a village stays a village, a city stays a city). If ticksPerDay is passed, buildings start under construction
-  if (town.pop < TIERS[townTier(town)].max && !tryPlaceHouse(map, town, rng, ticksPerDay ? { site: { now, ticksPerDay } } : {})) tryExtendRoad(map, town, rng);
+  const site = ticksPerDay ? { now, ticksPerDay } : undefined;
+  const T = TIERS[townTier(town)];
+  if (town.pop < T.max && !tryPlaceHouse(map, town, rng, { site, news })) tryExtendRoad(map, town, rng);
+  developDistricts(map, town, rng, site, news);
   scheduleNext(town, now, rng, hospitalGrowth(map, town).bonus);
 }
 

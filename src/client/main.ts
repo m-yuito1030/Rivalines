@@ -47,6 +47,7 @@ import { TransitLayer } from './render/transitLayer';
 import { ChatPanel } from './ui/chatPanel';
 import { GovPanel } from './ui/govPanel';
 import { NewsPanel } from './ui/newsPanel';
+import { TownNewsPanel } from './ui/townNews';
 import { ConstructionFx } from './render/constructionFx';
 import { UndergroundView } from './render/undergroundView';
 import { LEVEL_PX, SEA_LEVEL } from '../shared/world/constants';
@@ -595,6 +596,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     () => isTouch && closeWindows(),
   );
   const newsPanel = new NewsPanel();
+  const townNews = new TownNewsPanel(() => mirror.news);
+  window.setInterval(() => townNews.update(), 2000);
   const govPanel = new GovPanel((m) => tools.onMessage?.(m));
   const showDots = () => {
     const news = newsPanel.hasUnread;
