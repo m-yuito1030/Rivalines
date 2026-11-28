@@ -29,7 +29,6 @@ export class PlayerMenu {
     });
     $('menuBtn').addEventListener('click', () => this.open());
     onCurrencyChange(() => !this.menu.hidden && this.renderList());
-    $('menuClose').addEventListener('click', () => (this.menu.hidden = true));
     $('menuX').addEventListener('click', () => (this.menu.hidden = true));
     window.addEventListener('keydown', (e) => e.key === 'Escape' && !this.menu.hidden && (this.menu.hidden = true));
     this.list.addEventListener('change', (e) => {
