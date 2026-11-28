@@ -160,8 +160,9 @@
       <div id="airportOpts" hidden><button type="button" class="optx" title="閉じる (Esc)" data-i18n-title="ui.signalOpts.t1.title">✕</button>
         <b id="airportName">🛫 空港を建てる</b>
         <div class="row" id="airportSizes"><button type="button" data-asize="S" data-i18n="ui.facility.size.S">小</button><button type="button" data-asize="M" data-i18n="ui.facility.size.M">中</button><button type="button" data-asize="L" data-i18n="ui.facility.size.L">大</button><button type="button" data-asize="H" data-i18n="ui.airport.size.H">ハブ</button></div>
-        <label><span data-i18n="ui.stationOpts.t7">向き</span> <select id="airportAxis"><option value="x" selected data-i18n="ui.optAxis.t1">東西</option><option value="y" data-i18n="ui.optAxis.t2">南北</option></select></label>
-        <label><span data-i18n="ui.stationOpts.t6">デザイン</span> <span class="row"><select id="airportDesign"></select><button id="airportRand" type="button" title="ランダム" data-i18n-title="ui.optRand.title">🎲</button></span></label>
+        <div class="arow"><label><span data-i18n="ui.stationOpts.t7">向き</span> <select id="airportAxis"><option value="x" selected data-i18n="ui.optAxis.t1">東西</option><option value="y" data-i18n="ui.optAxis.t2">南北</option></select></label>
+          <label><span data-i18n="ui.stationOpts.t6">デザイン</span> <select id="airportDesign"></select></label>
+          <button id="airportRand" type="button" title="ランダム" data-i18n-title="ui.optRand.title">🎲</button></div>
         <canvas id="airportPreview" width="200" height="60"></canvas>
         <small id="airportInfo"></small>
         <small data-i18n="ui.airportOpts.note">クリックした位置が中心。平らな空き地が必要です。大きい空港ほど、大きな機体が使え、同時に多くの飛行機をさばけます。</small>
@@ -224,70 +225,69 @@
         <div class="row">
           <button type="button" id="switchWorld" title="本稼働と次期バージョンを選び直します" data-i18n="ui.switchWorld" data-i18n-title="ui.switchWorld.title">🌐 世界を選ぶ</button>
           <button type="button" id="logoutBtn" data-i18n="ui.logoutBtn">ログアウト</button>
-          <button type="button" id="menuClose" data-i18n="ui.menuClose">閉じる</button>
         </div>
       </div>
     </div>
 
     <div id="fin-modal" hidden>
       <div class="box">
-        <h2><span data-i18n="ui.fin-modal.t1">経営</span> <button type="button" id="finClose" data-i18n="ui.finClose">閉じる</button></h2>
+        <h2><span data-i18n="ui.fin-modal.t1">経営</span> <button type="button" id="finClose" class="xbtn" title="閉じる" data-i18n-title="ui.menuX.title">✕</button></h2>
         <div id="finBody"></div>
       </div>
     </div>
 
     <div id="rank-modal" hidden>
       <div class="box">
-        <h2><span data-i18n="ui.rank-modal.t1">ランキング</span> <button type="button" id="rankClose" data-i18n="ui.rankClose">閉じる</button></h2>
+        <h2><span data-i18n="ui.rank-modal.t1">ランキング</span> <button type="button" id="rankClose" class="xbtn" title="閉じる" data-i18n-title="ui.menuX.title">✕</button></h2>
         <div id="rankBody"></div>
       </div>
     </div>
 
     <div id="list-modal" hidden>
       <div class="box">
-        <h2><span data-i18n="ui.list-modal.t1">一覧</span> <button type="button" id="listClose" data-i18n="ui.listClose">閉じる</button></h2>
+        <h2><span data-i18n="ui.list-modal.t1">一覧</span> <button type="button" id="listClose" class="xbtn" title="閉じる" data-i18n-title="ui.menuX.title">✕</button></h2>
         <div id="listBody"></div>
       </div>
     </div>
 
     <div id="dia-modal" hidden>
       <div class="box">
-        <h2><span data-i18n="ui.dia-modal.t1">ダイヤ（運行図表）</span> <button type="button" id="diaClose" data-i18n="ui.diaClose">閉じる</button></h2>
+        <h2><span data-i18n="ui.dia-modal.t1">ダイヤ（運行図表）</span> <button type="button" id="diaClose" class="xbtn" title="閉じる" data-i18n-title="ui.menuX.title">✕</button></h2>
         <div id="diaBody"></div>
       </div>
     </div>
 
     <div id="analysis-modal" hidden>
       <div class="box">
-        <h2><span data-i18n="ui.analysis-modal.t1">経営分析</span> <button type="button" id="anaClose" data-i18n="ui.anaClose">閉じる</button></h2>
+        <h2><span data-i18n="ui.analysis-modal.t1">経営分析</span> <button type="button" id="anaClose" class="xbtn" title="閉じる" data-i18n-title="ui.menuX.title">✕</button></h2>
         <div id="anaBody"></div>
       </div>
     </div>
 
     <div id="sale-modal" hidden>
       <div class="box">
-        <h2><span data-i18n="ui.sale-modal.t1">不動産物件</span> <button type="button" id="saleClose" data-i18n="ui.saleClose">閉じる</button></h2>
+        <h2><span data-i18n="ui.sale-modal.t1">不動産物件</span> <button type="button" id="saleClose" class="xbtn" title="閉じる" data-i18n-title="ui.menuX.title">✕</button></h2>
         <div id="saleBody"></div>
       </div>
     </div>
 
     <div id="consult-modal" hidden>
       <div class="box">
-        <h2><span data-i18n="ui.consult-modal.t1">コンサル</span> <button type="button" id="consultClose" data-i18n="ui.saleClose">閉じる</button></h2>
+        <h2><span data-i18n="ui.consult-modal.t1">コンサル</span> <button type="button" id="consultClose" class="xbtn" title="閉じる" data-i18n-title="ui.menuX.title">✕</button></h2>
         <div id="consultBody"></div>
       </div>
     </div>
 
     <div id="auction-modal" hidden>
       <div class="box">
-        <h2><span data-i18n="ui.auction-modal.t1">入札・独占権</span> <button type="button" id="aucClose" data-i18n="ui.aucClose">閉じる</button></h2>
+        <h2><span data-i18n="ui.auction-modal.t1">入札・独占権</span> <button type="button" id="aucClose" class="xbtn" title="閉じる" data-i18n-title="ui.menuX.title">✕</button></h2>
         <div id="aucBody"></div>
       </div>
     </div>
 
     <div id="stats-modal" hidden>
       <div class="box">
-        <h2><span data-i18n="ui.stats-modal.t1">統計</span> <button type="button" id="statsClose" data-i18n="ui.statsClose">閉じる</button></h2>
+        <h2><span data-i18n="ui.stats-modal.t1">統計</span> <button type="button" id="statsClose" class="xbtn" title="閉じる" data-i18n-title="ui.menuX.title">✕</button></h2>
         <div id="statsBody"></div>
       </div>
     </div>

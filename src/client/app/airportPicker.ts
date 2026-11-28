@@ -1,5 +1,4 @@
 import {
-  AIR,
   AIRPORT_DESIGNS,
   AIRPORT_MAX_CLASS,
   AIRPORT_NAMES,
@@ -11,18 +10,8 @@ import {
 } from '../../shared/world/airportLayout';
 import { AIRPORT_PRICES, yen } from '../../shared/sim/economy/economy';
 import { $ } from './dom';
+import { drawAirPlan } from '../render/airColors';
 import { onCurrencyChange, onLangChange, tr } from '../i18n';
-
-/** Colours of the layout preview, by tile code */
-const COLORS: Record<number, string> = {
-  [AIR.RUNWAY]: '#2c2e33',
-  [AIR.TAXIWAY]: '#7d8187',
-  [AIR.APRON]: '#a3a7ae',
-  [AIR.STAND]: '#e3c84a',
-  [AIR.TERMINAL]: '#2f7dd1',
-  [AIR.BUILDING]: '#cfd5df',
-  [AIR.HANGAR]: '#d07a3a',
-};
 
 /** Inputs for placing an airport: the size (small / medium / large / hub) and which way the runway runs. Shows the layout and the price */
 export class AirportPicker {
@@ -82,16 +71,11 @@ export class AirportPicker {
       large: AIRPORT_MAX_CLASS[size] === 'L' ? '○' : '×',
     });
     const cv = $<HTMLCanvasElement>('airportPreview');
-    const cell = Math.max(3, Math.min(8, Math.floor(210 / Math.max(L.w, L.h))));
+    // As large as the panel allows (the longest side up to 250 px wide / 72 px tall), so that stands and taxiways can be told apart
+    const cell = Math.max(4, Math.min(22, Math.floor(250 / L.w), Math.floor(72 / L.h)));
     cv.width = L.w * cell;
     cv.height = L.h * cell;
-    const ctx = cv.getContext('2d')!;
-    for (let y = 0; y < L.h; y++) {
-      for (let x = 0; x < L.w; x++) {
-        ctx.fillStyle = COLORS[L.codes[y * L.w + x]] ?? '#000';
-        ctx.fillRect(x * cell, y * cell, cell, cell);
-      }
-    }
+    drawAirPlan(cv.getContext('2d')!, L.codes, L.w, L.h, cell);
     $('airportName').textContent = tr('🛫 空港({size})を建てる', { size: tr(AIRPORT_NAMES[size].ja) });
   }
 }

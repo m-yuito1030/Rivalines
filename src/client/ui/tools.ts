@@ -7,8 +7,9 @@ import { canConnect, lineTiles } from '../../shared/world/roads';
 import { type DragTool, applyBuild, dragRect } from '../../shared/world/buildApply';
 import { canConnectRail, railLineTiles } from '../../shared/world/rails';
 import { DX8, DY8 } from '../../shared/world/directions';
-import { canPlaceAirport } from '../../shared/world/airports';
-import { type AirportAxis, type AirportSize, airportFootprint } from '../../shared/world/airportLayout';
+import { airportTileOk, canPlaceAirport } from '../../shared/world/airports';
+import { AIR_COLORS_HEX } from '../render/airColors';
+import { type AirportAxis, type AirportSize, buildLayout } from '../../shared/world/airportLayout';
 import { planSpan } from '../../shared/world/spans';
 import { canDigAt, subwayLine } from '../../shared/world/subway';
 import { DEPTH_COLORS } from '../render/undergroundView';
@@ -275,21 +276,34 @@ export class ToolController {
     if (!this.hover) return;
     const sel = this.airportSel?.sel ?? { size: 'S' as AirportSize, axis: 'x' as AirportAxis, design: 0 };
     const o = this.airportSel ? this.airportSel.origin(this.hover.x, this.hover.y) : { x: this.hover.x - 1, y: this.hover.y - 1 };
-    const { w: fw, h: fh } = airportFootprint(sel.size, sel.axis, sel.design);
+    const L = buildLayout(sel.size, sel.axis, sel.design);
     const ok = canPlaceAirport(this.map, o.x, o.y, sel.size, sel.axis, sel.design);
-    const color = ok ? 0x66ff99 : 0xff4455;
-    const w = 2.5 / this.camera.zoom;
-    for (let j = 0; j < fh; j++) {
-      for (let i = 0; i < fw; i++) {
+    const lv0 = this.map.inBounds(o.x, o.y) ? this.map.levelAt(o.x, o.y) : 0;
+    const diamond = (tx: number, ty: number, lvl: number): number[] => {
+      const wx = (tx - ty) * 32;
+      const wy = (tx + ty) * 16 - lvl * LEVEL_PX;
+      return [wx, wy, wx + 32, wy + 16, wx, wy + 32, wx - 32, wy + 16];
+    };
+    // Each tile shows what it will become (runway, taxiway, stand, terminal...); a tile that cannot be built on is red
+    for (let j = 0; j < L.h; j++) {
+      for (let i = 0; i < L.w; i++) {
         const tx = o.x + i;
         const ty = o.y + j;
         const lvl = this.map.inBounds(tx, ty) ? this.map.levelAt(tx, ty) : 0;
-        const wx = (tx - ty) * 32;
-        const wy = (tx + ty) * 16 - lvl * LEVEL_PX;
-        g.poly([wx, wy, wx + 32, wy + 16, wx, wy + 32, wx - 32, wy + 16])
-          .fill({ color, alpha: 0.25 })
-          .stroke({ width: w, color, alpha: 0.9 });
+        const good = airportTileOk(this.map, tx, ty, lv0);
+        g.poly(diamond(tx, ty, lvl)).fill({ color: good ? (AIR_COLORS_HEX[L.codes[j * L.w + i]] ?? 0x888888) : 0xff4455, alpha: good ? 0.72 : 0.6 });
       }
     }
+    // The outline of the whole airport: green when it can be placed, red when not
+    const corners = [
+      [o.x, o.y],
+      [o.x + L.w, o.y],
+      [o.x + L.w, o.y + L.h],
+      [o.x, o.y + L.h],
+    ].map(([cx, cy]) => {
+      const lvl = this.map.inBounds(Math.min(cx, o.x + L.w - 1), Math.min(cy, o.y + L.h - 1)) ? this.map.levelAt(Math.min(cx, o.x + L.w - 1), Math.min(cy, o.y + L.h - 1)) : lv0;
+      return [(cx - cy) * 32, (cx + cy) * 16 - lvl * LEVEL_PX];
+    });
+    g.poly(corners.flat()).stroke({ width: 3 / this.camera.zoom, color: ok ? 0x66ff99 : 0xff4455, alpha: 0.95 });
   }
 }

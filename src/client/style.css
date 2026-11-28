@@ -406,5 +406,12 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 #airportOpts .row { display: flex; gap: 6px; margin: 6px 0; }
 #airportOpts .row button { flex: 1; background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; padding: 5px 8px; cursor: pointer; }
 #airportOpts .row button.on { background: #3a6ea5; border-color: #7bd; }
-#airportOpts canvas { display: block; margin: 8px 0; max-width: 100%; border: 1px solid #456; image-rendering: pixelated; }
+#airportOpts canvas { display: block; margin: 6px 0; max-width: 100%; border: 1px solid #456; border-radius: 4px; }
+#airportOpts .arow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
+#airportOpts .arow button { background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; padding: 2px 8px; cursor: pointer; }
+#airportOpts small { font-size: 11px; line-height: 1.35; }
+#airportOpts { width: 300px; }
 #airportOpts small { display: block; color: #9ab; margin-top: 4px; }
+/* The close button of the full-screen windows: a small square ✕ (the same look as the other close buttons) */
+#fin-modal h2 .xbtn, #rank-modal h2 .xbtn, #list-modal h2 .xbtn, #dia-modal h2 .xbtn, #analysis-modal h2 .xbtn, #sale-modal h2 .xbtn, #consult-modal h2 .xbtn, #auction-modal h2 .xbtn, #stats-modal h2 .xbtn { width: 28px; height: 28px; padding: 0; line-height: 1; font-size: 14px; flex: none; background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; cursor: pointer; }
+@media (pointer: coarse), (max-width: 820px) { #fin-modal h2 .xbtn, #rank-modal h2 .xbtn, #list-modal h2 .xbtn, #dia-modal h2 .xbtn, #analysis-modal h2 .xbtn, #sale-modal h2 .xbtn, #consult-modal h2 .xbtn, #auction-modal h2 .xbtn, #stats-modal h2 .xbtn { width: 36px; height: 36px; } }

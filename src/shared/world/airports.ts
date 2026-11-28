@@ -11,13 +11,15 @@ export function canPlaceAirport(map: GameMap, x: number, y: number, size: Airpor
   if (!map.inBounds(x, y) || !map.inBounds(x + w - 1, y + h - 1)) return false;
   const lv = map.levelAt(x, y);
   if (lv === 0) return false;
-  for (let j = 0; j < h; j++) {
-    for (let i = 0; i < w; i++) {
-      const k = map.idx(x + i, y + j);
-      if (map.levelAt(x + i, y + j) !== lv || map.road.get(k) || map.rail.get(k) || map.building.get(k) || map.air.get(k) || map.span.get(k)) return false;
-    }
-  }
+  for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (!airportTileOk(map, x + i, y + j, lv)) return false;
   return true;
+}
+
+/** Whether one tile can be part of an airport whose ground level is `lv`: in the map, at that level, dry and empty */
+export function airportTileOk(map: GameMap, x: number, y: number, lv: number): boolean {
+  if (!map.inBounds(x, y) || lv === 0 || map.levelAt(x, y) !== lv) return false;
+  const k = map.idx(x, y);
+  return !(map.road.get(k) || map.rail.get(k) || map.building.get(k) || map.air.get(k) || map.span.get(k));
 }
 
 /** Place it. Returns the coordinates of the terminal tile (the stop), or null if it cannot be placed */
