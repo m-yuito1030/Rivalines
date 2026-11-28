@@ -46,3 +46,19 @@ describe('facilityGeom: 施設スプライトの切り出しと描画位置', ()
     }
   });
 });
+
+describe('housing-complex blocks', () => {
+  it('the mark is told apart from ordinary buildings, and every design can be picked', async () => {
+    const { DANCHI_DESIGNS, DANCHI_VARIANT, isDanchi, makeBuilding } = await import('../../shared/world/buildings');
+    expect(isDanchi(makeBuilding(3, DANCHI_VARIANT, false))).toBe(true);
+    expect(isDanchi(makeBuilding(3, 24, false))).toBe(false); // an ordinary big building
+    expect(isDanchi(makeBuilding(2, DANCHI_VARIANT, false))).toBe(false); // a small one is never a housing-complex block
+    expect(isDanchi(makeBuilding(3, DANCHI_VARIANT, true))).toBe(false); // nor an office
+    const { danchiDesignOf } = await import('./buildingSprites');
+    const seen = new Set<number>();
+    for (let i = 0; i < 100000; i++) seen.add(danchiDesignOf(i / 100000));
+    expect(seen.size).toBe(DANCHI_DESIGNS);
+    expect(Math.max(...seen)).toBe(DANCHI_DESIGNS - 1);
+    expect(danchiDesignOf(1)).toBe(DANCHI_DESIGNS - 1); // hv = 1 does not run off the end
+  });
+});

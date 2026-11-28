@@ -1,6 +1,6 @@
 import { FACILITY_TILE } from './facilities';
 import type { GameMap } from './gameMap';
-import { buildingLevel, isOffice } from './buildings';
+import { DANCHI_VARIANT, buildingLevel, isOffice } from './buildings';
 import { POP_PER_LEVEL, TIERS, popMul, townTier, type District, type DistrictKind, type Town } from './town';
 
 /** A news item about the towns (shown in the menu's town news). The sentence is made on the screen, from these facts */
@@ -45,8 +45,10 @@ export const districtAt = (town: Town, x: number, y: number): District | undefin
 
 /** The look of the buildings in a district: the same few designs over and over (rows of the same apartment blocks) */
 export function districtVariant(town: Town, d: District, pick: number): number {
+  // A housing-complex block is drawn with one of the housing-complex sprites (chosen at random when drawn)
+  if (d.kind === 'danchi') return DANCHI_VARIANT;
   const base = (town.id * 13 + d.id * 7) % 25;
-  return d.kind === 'danchi' ? base : (base + (pick % (d.kind === 'office' ? 2 : 3)) * 5) % 25;
+  return (base + (pick % (d.kind === 'office' ? 2 : 3)) * 5) % 25;
 }
 
 const want = (town: Town): number => DISTRICTS_WANTED[townTier(town)];
