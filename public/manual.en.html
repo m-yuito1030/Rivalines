@@ -15,6 +15,7 @@
   h1 { font-size: 26px; margin: 0 0 4px; }
   h2 { font-size: 20px; margin: 44px 0 8px; border-left: 4px solid #3a6ea5; padding-left: 10px; scroll-margin-top: 12px; }
   h3 { font-size: 16px; margin: 26px 0 4px; color: #bcd6f2; }
+  h4 { font-size: 15px; margin: 18px 0 4px; color: #a9c8e8; }
   p, li { font-size: 15px; }
   ul, ol { padding-left: 22px; }
   li { margin: 4px 0; }
@@ -162,7 +163,7 @@
 <tr><td>Station</td><td>¥50,000 + ¥15,000 per platform tile</td></tr>
 <tr><td>Waypoint / signal</td><td>¥500 / ¥8,000</td></tr>
 <tr><td>Depot (road / rail / air)</td><td>¥100,000 / ¥150,000 / ¥400,000</td></tr>
-<tr><td>Airport</td><td>¥2,000,000</td></tr>
+<tr><td>Airport (small / medium / large / hub)</td><td>¥6,000,000 / ¥20,000,000 / ¥70,000,000 / ¥250,000,000</td></tr>
 <tr><td>Terraforming</td><td>¥800 per tile per level</td></tr>
 </table>
 <p class="muted">In a month of the "Public works" policy, construction costs 20% less.</p>
@@ -172,7 +173,7 @@
   <li><b>One-way (O):</b> makes a road passable only in the direction you drag. <b>Back to two-way (T)</b> removes it.</li>
   <li><b>Bridge / tunnel (Y):</b> drag between both ends to cross rivers and hills.</li>
   <li><b>Bus stop (B):</b> click on a road to place it.</li>
-  <li><b>Depot:</b> click on a road, a straight track, or an airport terminal. This is where you buy vehicles.</li>
+  <li><b>Depot:</b> click on a road, a straight track, or an airport hangar (or terminal). This is where you buy vehicles.</li>
 </ul>
 <h3>Tracks and stations</h3>
 <ul>
@@ -185,7 +186,29 @@
   <li><b>Depot (rail):</b> place on a straight track.</li>
 </ul>
 <h3>Airports</h3>
-<p>"🛫 Airport" goes on a flat, empty 3×3 area. Make air routes by clicking airports. You can also place an air depot on an airport terminal.</p>
+<p>"🛫 Airport" goes on flat, empty ground. Choose a <b>size (small, medium, large or hub)</b> and a <b>direction (east-west or north-south)</b>; the spot you click is the center of the airport. Before you place it, you see the layout and its cost, number of runways and number of stands.</p>
+<table>
+<tr><th>Size</th><th>Tiles</th><th>Runways</th><th>Stands</th><th>Aircraft</th><th>Cost</th></tr>
+<tr><td>Small</td><td>10×4</td><td>1</td><td>2</td><td>Small</td><td>¥6,000,000</td></tr>
+<tr><td>Medium</td><td>16×5</td><td>1</td><td>8</td><td>Small, medium</td><td>¥20,000,000</td></tr>
+<tr><td>Large</td><td>24×9</td><td>2</td><td>24</td><td>All</td><td>¥70,000,000</td></tr>
+<tr><td>Hub</td><td>40×11</td><td>2</td><td>60</td><td>All</td><td>¥250,000,000</td></tr>
+</table>
+<ul>
+  <li>An airport is made of <b>runways, taxiways, stands, a terminal and hangars</b>. The terminal (the blue tile) is the stop that routes use. The hangar is where the depot goes.</li>
+  <li>Make air routes by clicking airports.</li>
+  <li>A small airport cannot take big aircraft: small airports take small aircraft only, medium ones up to medium, and large airports and hubs take all.</li>
+  <li>It cannot be placed on uneven ground. Level it first with the terrain "Level ground" tool.</li>
+</ul>
+<h4>Aircraft on the ground, and holding</h4>
+<ul>
+  <li>An aircraft moves from the hangar to a stand and loads passengers there. To depart it taxis along the taxiways to the end of a runway, accelerates and takes off. After landing it taxis along the taxiways to a free stand.</li>
+  <li><b>A runway takes one aircraft at a time</b> (a takeoff or a landing). Two aircraft cannot land at the same time.</li>
+  <li>An aircraft that has to wait for the runway or a stand <b>flies circles near the airport (a holding pattern)</b> and comes down when it is free. Many aircraft circling is a sign that the airport is too small for the traffic.</li>
+  <li>A stand takes one aircraft. If all stands are taken, a new arrival cannot land and keeps circling.</li>
+  <li>Large airports and hubs have two runways, so they can handle a takeoff and a landing at the same time.</li>
+  <li>The old 3×3 airports keep working as before (aircraft fly straight from terminal to terminal).</li>
+</ul>
 <h3>Terrain</h3>
 <p>"⛰ Terrain ▾" has <b>Raise ground (U)</b>, <b>Lower ground (J)</b> and <b>Level ground (G)</b> (matches the area to the height of the first tile you click). The dragged area is affected.</p>
 <h3>Demolishing</h3>

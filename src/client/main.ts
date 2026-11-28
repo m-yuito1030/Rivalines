@@ -10,6 +10,7 @@ import { PaxBadges } from './app/paxBadges';
 import { bulldozeTargets } from './app/bulldozeTargets';
 import { confirmDialog } from './ui/confirm';
 import { FacilityPicker } from './app/facilityPicker';
+import { AirportPicker } from './app/airportPicker';
 import { Toolbar } from './app/toolbar';
 import { PlayerMenu } from './app/playerMenu';
 import { Application, Container, Graphics, Text } from 'pixi.js';
@@ -150,6 +151,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   const stationPicker = new StationPicker();
   const bulldozeOptions = new BulldozeOptions();
   const facilityPicker = new FacilityPicker();
+  const airportPicker = new AirportPicker();
   const toast = new Toast();
   /** Send an action to the server and show the result message */
   const run = async (cmd: Cmd): Promise<CmdResult> => {
@@ -174,7 +176,14 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       });
     } else if (tool === 'station') void run({ t: 'place', tool, x: tile.x, y: tile.y, opts: { ...stationPicker.opts } });
     else if (tool !== 'route' && tool !== 'pan')
-      void run({ t: 'place', tool: tool as PlaceTool, x: tile.x, y: tile.y, ...(FacilityPicker.choosable(tool) ? { fac: { ...facilityPicker.sel } } : {}) });
+      void run({
+        t: 'place',
+        tool: tool as PlaceTool,
+        x: tile.x,
+        y: tile.y,
+        ...(tool === 'airport' ? { air: { ...airportPicker.sel } } : {}),
+        ...(FacilityPicker.choosable(tool) ? { fac: { ...facilityPicker.sel } } : {}),
+      });
   });
   tools.remoteBuild = (tool, a, b) => {
     if ((tool as string) === 'bulldoze') {
@@ -189,6 +198,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   };
   tools.onMessage = (msg) => toast.show(msg);
   tools.facilityPlanner = (x, y, type) => facilityPicker.plan(map, x, y, type, facOcc);
+  tools.airportSel = airportPicker;
   tools.stationPlanner = (x, y) => stationPicker.plan(map, x, y, (i) => !!transit.stopAtTile(i % map.size, Math.floor(i / map.size)));
   const underground = new UndergroundView(map);
   // The haze goes right above the terrain (below stops and vehicles), so underground trains are not dimmed
@@ -312,6 +322,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     tools.setTool(t);
     stationPicker.setVisible(t === 'station');
     facilityPicker.setTool(t);
+    airportPicker.setVisible(t === 'airport');
     $('signalOpts').hidden = t !== 'signalline';
     $('subwayOpts').hidden = t !== 'subway' && t !== 'subwaydel';
     underground.active = t === 'subway' || t === 'subwaydel' || t === 'portal';

@@ -257,38 +257,119 @@ export function drawRail(ctx: CanvasRenderingContext2D, px: number, py: number, 
 }
 
 // ---------------------------------------------------------------- Airport
-/** Airport tile (1 = apron, 2 = runway, 3 = terminal) */
-export function drawAirTile(ctx: CanvasRenderingContext2D, px: number, py: number, kind: number): void {
-  ctx.fillStyle = kind === 2 ? '#43464c' : '#80848b';
+/** The airport tile codes around a tile: -u (west), +u (east), -v (north), +v (south). 0 = no airport tile there */
+export interface AirNeighbors {
+  u0: number;
+  u1: number;
+  v0: number;
+  v1: number;
+}
+const NO_AIR: AirNeighbors = { u0: 0, u1: 0, v0: 0, v1: 0 };
+const RUNWAY = 2;
+const TAXIWAY = 4;
+const STAND = 5;
+const HANGAR = 6;
+const BUILDING = 7;
+const isBlock = (c: number) => c === 3 || c === BUILDING || c === HANGAR;
+
+/** A quad in "runway coordinates": a runs along the runway, b across it (swapped into tile coordinates when the runway runs north-south) */
+function runwayQuad(ctx: CanvasRenderingContext2D, px: number, py: number, alongU: boolean, a0: number, a1: number, b0: number, b1: number): void {
+  const P = (a: number, b: number): number[] => (alongU ? [a, b] : [b, a]);
+  poly(ctx, px, py, [P(a0, b0), P(a1, b0), P(a1, b1), P(a0, b1)]);
+}
+
+/** A box on the tile (an airport building): the top and the walls that face away from other buildings */
+function airBox(ctx: CanvasRenderingContext2D, px: number, py: number, nb: AirNeighbors, h: number, top: string, wallL: string, wallR: string): void {
+  const a = 0.02;
+  const z = 0.98;
+  ctx.fillStyle = wallL;
+  if (!isBlock(nb.v1)) wallQuad(ctx, px, py, 'L', z, a, z, 0, h);
+  ctx.fillStyle = wallR;
+  if (!isBlock(nb.u1)) wallQuad(ctx, px, py, 'R', z, a, z, 0, h);
+  ctx.fillStyle = top;
+  poly(
+    ctx,
+    px,
+    py,
+    [
+      [a, a],
+      [z, a],
+      [z, z],
+      [a, z],
+    ],
+    h,
+  );
+}
+
+/**
+ * Airport tile. 1 apron, 2 runway, 3 terminal (the stop), 4 taxiway, 5 stand, 6 hangar, 7 terminal building.
+ * The runway and taxiway markings follow the neighbouring tiles, so they line up whichever way the airport is turned.
+ */
+export function drawAirTile(ctx: CanvasRenderingContext2D, px: number, py: number, kind: number, nb: AirNeighbors = NO_AIR): void {
+  ctx.fillStyle = kind === RUNWAY ? '#43464c' : kind === TAXIWAY ? '#5d6169' : '#80848b';
   poly(ctx, px, py, [
     [0, 0],
     [1, 0],
     [1, 1],
     [0, 1],
   ]);
-  if (kind === 2) {
-    // Edge lines, centre line, and threshold stripes
+  if (kind === RUNWAY) {
+    // The runway runs along the neighbouring runway tiles (east-west unless only the north-south neighbours are runway)
+    const alongU = nb.u0 === RUNWAY || nb.u1 === RUNWAY || (nb.v0 !== RUNWAY && nb.v1 !== RUNWAY);
+    const before = alongU ? nb.u0 : nb.v0;
+    const after = alongU ? nb.u1 : nb.v1;
+    // Edge lines and the dashed centre line
     ctx.fillStyle = '#f2f2f2';
-    poly(ctx, px, py, [
-      [0, 0.04],
-      [1, 0.04],
-      [1, 0.07],
-      [0, 0.07],
-    ]);
-    poly(ctx, px, py, [
-      [0, 0.93],
-      [1, 0.93],
-      [1, 0.96],
-      [0, 0.96],
-    ]);
-    for (const u of [0.06, 0.38, 0.7])
+    runwayQuad(ctx, px, py, alongU, 0, 1, 0.04, 0.07);
+    runwayQuad(ctx, px, py, alongU, 0, 1, 0.93, 0.96);
+    for (const u of [0.06, 0.38, 0.7]) runwayQuad(ctx, px, py, alongU, u, u + 0.2, 0.47, 0.53);
+    // Threshold stripes at the ends of the runway
+    for (const [has, a0] of [
+      [before, 0.1],
+      [after, 0.78],
+    ] as const)
+      if (has !== RUNWAY) for (const b of [0.14, 0.3, 0.46, 0.62, 0.78]) runwayQuad(ctx, px, py, alongU, a0, a0 + 0.12, b, b + 0.08);
+  } else if (kind === TAXIWAY) {
+    // Yellow centre line toward the taxiable neighbours
+    ctx.fillStyle = '#e3c84a';
+    const link = (c: number) => c === TAXIWAY || c === 1 || c === STAND || c === HANGAR;
+    const w = 0.025;
+    if (link(nb.u0) || link(nb.u1))
       poly(ctx, px, py, [
-        [u, 0.47],
-        [u + 0.2, 0.47],
-        [u + 0.2, 0.53],
-        [u, 0.53],
+        [link(nb.u0) ? 0 : 0.5 - w, 0.5 - w],
+        [link(nb.u1) ? 1 : 0.5 + w, 0.5 - w],
+        [link(nb.u1) ? 1 : 0.5 + w, 0.5 + w],
+        [link(nb.u0) ? 0 : 0.5 - w, 0.5 + w],
       ]);
-  } else {
+    if (link(nb.v0) || link(nb.v1))
+      poly(ctx, px, py, [
+        [0.5 - w, link(nb.v0) ? 0 : 0.5 - w],
+        [0.5 + w, link(nb.v0) ? 0 : 0.5 - w],
+        [0.5 + w, link(nb.v1) ? 1 : 0.5 + w],
+        [0.5 - w, link(nb.v1) ? 1 : 0.5 + w],
+      ]);
+  } else if (kind === STAND) {
+    // A painted parking box with a lead-in line
+    ctx.strokeStyle = '#e8e2b0';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    const pts = [
+      [0.14, 0.14],
+      [0.86, 0.14],
+      [0.86, 0.86],
+      [0.14, 0.86],
+      [0.14, 0.14],
+    ];
+    pts.forEach(([u, v], i) => (i ? ctx.lineTo(sx(px, u, v), sy(py, u, v)) : ctx.moveTo(sx(px, u, v), sy(py, u, v))));
+    ctx.stroke();
+    ctx.fillStyle = '#e3c84a';
+    poly(ctx, px, py, [
+      [0.46, 0],
+      [0.54, 0],
+      [0.54, 0.14],
+      [0.46, 0.14],
+    ]);
+  } else if (kind !== BUILDING && kind !== HANGAR) {
     // Joints of the apron
     ctx.strokeStyle = 'rgba(0,0,0,0.18)';
     ctx.lineWidth = 1;
@@ -298,6 +379,13 @@ export function drawAirTile(ctx: CanvasRenderingContext2D, px: number, py: numbe
     ctx.moveTo(sx(px, 0, 0.5), sy(py, 0, 0.5));
     ctx.lineTo(sx(px, 1, 0.5), sy(py, 1, 0.5));
     ctx.stroke();
+  }
+  if (kind === BUILDING) airBox(ctx, px, py, nb, 20, '#cfd5df', '#aeb7c6', '#97a1b2');
+  if (kind === HANGAR) {
+    airBox(ctx, px, py, nb, 15, '#a9a398', '#c8c1b2', '#a39c8d');
+    // The big door
+    ctx.fillStyle = '#585e66';
+    wallQuad(ctx, px, py, 'L', 0.98, 0.18, 0.82, 0, 10);
   }
   if (kind === 3) {
     const a = 0.1;

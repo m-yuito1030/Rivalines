@@ -228,3 +228,6 @@ export const kindsFor = (mode: Mode): string[] => [...new Set(modelsFor(mode).ma
 export const defaultModel = (mode: Mode): string => modelsFor(mode)[0].id;
 /** Clamp the car count to the model's range */
 export const clampCars = (m: VehicleModel, cars: number): number => Math.max(m.minCars, Math.min(m.maxCars, Math.round(cars) || m.defaultCars));
+
+/** The class of an aircraft model: S small, M medium, L large (an airport takes aircraft up to a class that depends on its size) */
+export const aircraftClass = (m: VehicleModel): 'S' | 'M' | 'L' => (m.kind === '小型機' ? 'S' : m.kind === '中型機' ? 'M' : 'L');

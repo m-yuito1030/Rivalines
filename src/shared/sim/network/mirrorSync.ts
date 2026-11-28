@@ -1,4 +1,5 @@
 import { Depot, Flight, KIND_INDEX, Route, Stop, Vehicle } from './types';
+import { cumulative } from './flightPath';
 import type { Transit } from './transit';
 
 /** Client: apply the structure, waiting counts, and vehicles that arrived from the server, and animate them smoothly */
@@ -40,18 +41,28 @@ export class MirrorSync {
       const prev = this.t.mirrorVeh.get(m.id);
       const path = m.path ? Uint32Array.from(m.path) : prev?.path;
       if (!path) continue; // the path has not arrived yet (normally does not happen)
-      this.t.mirrorVeh.set(m.id, { ...(prev ?? ({ arrived: 0, until: 0, retryAt: 0, offset: 0 } as Vehicle)), ...m, path, cargo: prev?.cargo ?? new Map() } as Vehicle);
+      // An aircraft's path arrives once (when it changes); afterwards only how far it has gone
+      const fm = m.flight as unknown as { id: number; done: number; dist?: number; pts?: number[]; sp?: number[] } | null;
+      let flight: Flight | null = null;
+      if (fm) {
+        if (fm.pts && fm.sp && fm.dist !== undefined) flight = { id: fm.id, pts: fm.pts, sp: fm.sp, cum: cumulative(fm.pts), dist: fm.dist, done: fm.done };
+        else if (prev?.flight && prev.flight.id === fm.id) {
+          flight = prev.flight;
+          flight.done = fm.done;
+        }
+      }
+      this.t.mirrorVeh.set(m.id, { ...(prev ?? ({ arrived: 0, until: 0, retryAt: 0, offset: 0 } as Vehicle)), ...m, flight, path, cargo: prev?.cargo ?? new Map() } as Vehicle);
       if (!prev) changed = true;
       // Record this state for interpolation (only when the path is the same can we interpolate between the previous state and this one)
       const old = this.t.snaps.get(m.id);
-      const same = old !== undefined && old.path === path;
-      const flight = m.flight as Flight | null;
+      // A new aircraft path (another leg: taxiing, the flight, a lap of the holding pattern...) cannot be interpolated from the previous one
+      const same = old !== undefined && old.path === path && (old.cur.fid ?? -1) === (flight?.id ?? -1);
       this.t.snaps.set(m.id, {
         path,
         prev: same ? old.cur : null,
         prevAt: same ? old.curAt : now,
         curAt: now,
-        cur: { pi: m.pi, t: m.t, trail: m.trail, done: flight ? flight.done : 0 },
+        cur: { pi: m.pi, t: m.t, trail: m.trail, done: flight ? flight.done : 0, fid: flight?.id },
       });
     }
     this.t.vehicles = [...this.t.mirrorVeh.values()];

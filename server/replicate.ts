@@ -1,7 +1,7 @@
 import type { WebSocket } from 'ws';
 import { aiProfile } from '../src/shared/sim/economy/aiCompanies';
 import type { Simulation } from '../src/shared/sim/simulation';
-import type { MyVeh, PlayerInfo, ServerMsg, TileRec, VehMsg } from '../src/shared/protocol';
+import type { FlightMsg, MyVeh, PlayerInfo, ServerMsg, TileRec, VehMsg } from '../src/shared/protocol';
 import type { Vehicle } from '../src/shared/sim/network/transit';
 import { CHUNK, CHUNK_SHIFT } from '../src/shared/world/tileLayer';
 import { assetValue } from '../src/shared/sim/economy/economy';
@@ -27,6 +27,8 @@ export interface Client {
   sent: Set<number>;
   /** Vehicles whose path was sent: id -> path identity */
   paths: Map<number, number>;
+  /** The id of the aircraft path each vehicle's screen already has (so the path is sent once) */
+  flights: Map<number, number>;
   structVer: number;
   facVer: number;
   townCount: number;
@@ -51,7 +53,7 @@ export class Replicator {
   }
 
   newClient(ws: WebSocket, id: number, name: string): Client {
-    return { ws, id, name, view: { x0: 0, y0: 0, x1: 0, y1: 0 }, sent: new Set(), paths: new Map(), structVer: -1, facVer: -1, townCount: -1, lastDiscover: 0 };
+    return { ws, id, name, view: { x0: 0, y0: 0, x1: 0, y1: 0 }, sent: new Set(), paths: new Map(), flights: new Map(), structVer: -1, facVer: -1, townCount: -1, lastDiscover: 0 };
   }
 
   setView(c: Client, x0: number, y0: number, x1: number, y1: number): void {
@@ -125,6 +127,18 @@ export class Replicator {
     return { type: 'chunk', cx, cy, tiles, edits };
   }
 
+  /** The aircraft's path: the whole path the first time (and when it changes), then only how far it has gone */
+  private flightMsg(c: Client, v: Vehicle): FlightMsg | null {
+    const f = v.flight;
+    if (!f) {
+      c.flights.delete(v.id);
+      return null;
+    }
+    if (c.flights.get(v.id) === f.id) return { id: f.id, done: f.done };
+    c.flights.set(v.id, f.id);
+    return { id: f.id, done: f.done, dist: f.dist, pts: f.pts, sp: f.sp };
+  }
+
   private vehMsg(c: Client, v: Vehicle): VehMsg {
     const pid = this.pathIds.get(v.path) ?? (this.pathIds.set(v.path, this.nextPathId), this.nextPathId++);
     const out: VehMsg = {
@@ -141,7 +155,7 @@ export class Replicator {
       speed: v.speed,
       trail: v.trail,
       len: v.len,
-      flight: v.flight,
+      flight: this.flightMsg(c, v),
       hx: v.hx,
       hy: v.hy,
       dir: v.dir,
@@ -163,8 +177,19 @@ export class Replicator {
     const m = this.sim.map;
     const { x0, y0, x1, y1 } = c.view;
     if (v.flight) {
-      const f = v.flight as { x0: number; y0: number; x1: number; y1: number };
-      return Math.max(f.x0, f.x1) >= x0 && Math.min(f.x0, f.x1) <= x1 && Math.max(f.y0, f.y1) >= y0 && Math.min(f.y0, f.y1) <= y1;
+      // The box around the aircraft's whole path (it may be anywhere on it)
+      const p = v.flight.pts;
+      let bx0 = Infinity;
+      let by0 = Infinity;
+      let bx1 = -Infinity;
+      let by1 = -Infinity;
+      for (let i = 0; i < p.length; i += 3) {
+        bx0 = Math.min(bx0, p[i]);
+        bx1 = Math.max(bx1, p[i]);
+        by0 = Math.min(by0, p[i + 1]);
+        by1 = Math.max(by1, p[i + 1]);
+      }
+      return bx1 >= x0 && bx0 <= x1 && by1 >= y0 && by0 <= y1;
     }
     const t = v.path[Math.min(v.pi, v.path.length - 1)];
     const x = t % m.size;
@@ -209,7 +234,10 @@ export class Replicator {
       }
       const gone: number[] = [];
       for (const id of c.paths.keys()) if (!present.has(id)) gone.push(id);
-      for (const id of gone) c.paths.delete(id);
+      for (const id of gone) {
+        c.paths.delete(id);
+        c.flights.delete(id);
+      }
       // Amounts earned by the company's own vehicles and facilities (the client draws them above whatever earned them)
       const earn: [number, number][] = [];
       for (const [vid, amt] of sim.vehicleEarn) {
