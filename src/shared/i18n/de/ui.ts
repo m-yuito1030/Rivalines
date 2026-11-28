@@ -89,6 +89,8 @@ export const DE_UI: Catalog = {
   'ui.tool.bulldoze': '🧹 Abreißen',
   'ui.dd.menu': '☰ Menü ▾',
   'ui.menuBtn.title': 'Spieler, Firmenprofil und Sprache',
+  'ui.guideBtn': "❓ So geht's los",
+  'ui.manualBtn': '📖 Handbuch',
   'ui.menuBtn': '⚙ Einstellungen & Spieler',
   'ui.routesBtn.title': 'Linienfenster',
   'ui.routesBtn': '📋 Linien',

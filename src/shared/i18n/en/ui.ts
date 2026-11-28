@@ -88,6 +88,8 @@ export const EN_UI: Catalog = {
   'ui.tool.bulldoze': '🧹 Demolish',
   'ui.dd.menu': '☰ Menu ▾',
   'ui.menuBtn.title': 'Players, company profile and language',
+  'ui.guideBtn': '❓ How to start',
+  'ui.manualBtn': '📖 Manual',
   'ui.menuBtn': '⚙ Settings & Players',
   'ui.routesBtn.title': 'Route panel',
   'ui.routesBtn': '📋 Routes',

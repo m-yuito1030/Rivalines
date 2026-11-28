@@ -90,6 +90,8 @@ export const FR_UI: Catalog = {
   'ui.tool.bulldoze': '🧹 Démolir',
   'ui.dd.menu': '☰ Menu ▾',
   'ui.menuBtn.title': "Joueurs, profil de l'entreprise et langue",
+  'ui.guideBtn': '❓ Pour commencer',
+  'ui.manualBtn': '📖 Manuel',
   'ui.menuBtn': '⚙ Réglages & joueurs',
   'ui.routesBtn.title': 'Panneau des lignes',
   'ui.routesBtn': '📋 Lignes',
