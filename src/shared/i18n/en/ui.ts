@@ -129,6 +129,9 @@ export const EN_UI: Catalog = {
   'ui.tool.subway': '🚇 Subway',
   'ui.tool.subway.title':
     'Subway Lays underground track. Pick the depth (1-4) at the start and the end, then drag: the track slopes between them. While building, the underground is shown and the surface is dimmed.',
+  'ui.tool.portal': '🚇 Portal',
+  'ui.tool.portal.title':
+    'Portal Joins the end of a depth-1 subway line to the dead end of a surface rail next to it. Put subway stations and depots on a straight subway track with the usual Station and Depot tools.',
   'ui.tool.subwaydel': '🚇 Remove subway',
   'ui.tool.subwaydel.title': 'Remove subway Drag to remove the underground track in the area.',
   'ui.subwayOpts': '🚇 Subway depth',

@@ -102,7 +102,7 @@ export class Motion {
       v.pi++;
       const cur = v.path[v.pi];
       if (this.t.onTile) this.t.onTile(v, route, cur);
-      if (m.rail.get(cur) === 0) {
+      if (m.railAt(cur) === 0) {
         v.cap = 0; // the track was removed: remove the train
         return false;
       }
@@ -114,7 +114,7 @@ export class Motion {
       if (v.pi < v.path.length - 1) {
         const nxt = v.path[v.pi + 1];
         const d = dirBetween(cur, nxt, s);
-        if (d < 0 || !(m.rail.get(cur) & CONN(d)) || !(m.rail.get(nxt) & CONN(opposite8(d))) || this.t.dispatch.takeReplan(v, route)) {
+        if (d < 0 || !(m.railAt(cur) & CONN(d)) || !(m.railAt(nxt) & CONN(opposite8(d))) || this.t.dispatch.takeReplan(v, route)) {
           // The track ahead broke / a track on the path changed: release reservations and search again
           for (let i = v.pi + 1; i < v.path.length; i++) if (this.t.reserved.get(v.path[i]) === v.id && !v.trail.includes(v.path[i])) this.t.reserved.delete(v.path[i]);
           v.path = Uint32Array.of(cur);

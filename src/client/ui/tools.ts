@@ -34,6 +34,7 @@ export type Tool =
   | 'railspan'
   | 'subway'
   | 'subwaydel'
+  | 'portal'
   | 'signal'
   | 'waypoint'
   | 'depot'
@@ -60,6 +61,7 @@ const BUILD: Tool[] = [
   'roadspan',
   'railspan',
   'subway',
+  'portal',
   'signal',
   'waypoint',
   'stop',

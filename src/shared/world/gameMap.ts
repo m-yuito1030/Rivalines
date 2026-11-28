@@ -34,6 +34,18 @@ export class GameMap {
   readonly subwayOwner: TileLayer<Uint16Array>;
   /** Increases whenever any subway tile changes (so the underground view knows to redraw) */
   subwayVer = 0;
+
+  /**
+   * The rail connections of a tile as the simulation sees them: the surface rail, plus the subway (bits 0-3) where there is one.
+   * Surface rail and subway never share a tile (the build rules forbid it), so the union cannot let a train change layers by mistake.
+   * Cheap when there is no subway yet (subwayVer is still 0).
+   */
+  railAt(i: number): number {
+    const r = this.rail.get(i);
+    if (this.subwayVer === 0) return r;
+    const s = this.subway.get(i);
+    return s & 0x80 ? r | (s & 15) : r;
+  }
   /** Building under construction: 1 = under construction (the building is placed but not yet usable). Saves are restored from SimState.sites */
   readonly construction: TileLayer;
   /** Server: tiles under construction (index) -> the tick they finish */

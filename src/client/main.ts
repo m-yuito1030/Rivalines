@@ -191,7 +191,9 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   tools.facilityPlanner = (x, y, type) => facilityPicker.plan(map, x, y, type, facOcc);
   tools.stationPlanner = (x, y) => stationPicker.plan(map, x, y, (i) => !!transit.stopAtTile(i % map.size, Math.floor(i / map.size)));
   const underground = new UndergroundView(map);
-  worldRoot.addChild(underground.shade, underground.tracks);
+  // The haze goes right above the terrain (below stops and vehicles), so underground trains are not dimmed
+  worldRoot.addChildAt(underground.shade, 1);
+  worldRoot.addChildAt(underground.tracks, 2);
   worldRoot.addChild(tools.overlay);
 
   const minimap = new Minimap($<HTMLCanvasElement>('minimap'), map, (tx, ty) => camera.centerOnTile(tx, ty));
@@ -312,7 +314,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     facilityPicker.setTool(t);
     $('signalOpts').hidden = t !== 'signalline';
     $('subwayOpts').hidden = t !== 'subway' && t !== 'subwaydel';
-    underground.active = t === 'subway' || t === 'subwaydel';
+    underground.active = t === 'subway' || t === 'subwaydel' || t === 'portal';
+    transitLayer.underground = underground.active;
     bulldozeOptions.setVisible(t === 'bulldoze');
     toolbar.highlight(t);
     if (t !== 'route' && (panel.building || panel.inserting)) panel.cancelBuild();

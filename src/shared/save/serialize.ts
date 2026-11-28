@@ -158,6 +158,7 @@ export function applyLayers(map: GameMap, d: DecodedSave): void {
     throw new Error('地形がセーブ時と一致しません(ゲームの更新で地形生成が変わった可能性があります)');
   }
   for (const [i, h] of d.header.edits ?? []) map.restoreEdit(i, h);
+  if (d.layers.subway.idx.length) map.subwayVer++; // the simulation reads the subway once subwayVer is non-zero (GameMap.railAt)
   for (const k of LAYERS) {
     const { idx, val } = d.layers[k];
     const layer = map[k] as TileLayer<Uint8Array | Uint16Array>;

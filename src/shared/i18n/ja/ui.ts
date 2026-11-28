@@ -123,6 +123,9 @@ export const JA_UI: Catalog = {
   'ui.tool.subway': '🚇 地下鉄',
   'ui.tool.subway.title':
     '地下鉄 地下の線路を敷設します。始点と終点の深さ(1〜4)を選んでドラッグすると、その間がなだらかに上り下りします。建設中は地下が表示され、地上は暗くなります。',
+  'ui.tool.portal': '🚇 出入口',
+  'ui.tool.portal.title':
+    '出入口 深さ1の地下鉄のはしを、となりの地上の線路のはし(行き止まり)につなぎます。地下鉄の駅・車両基地は、地上と同じ「駅」「車両基地」ツールで直線の線路の上に置きます。',
   'ui.tool.subwaydel': '🚇 地下鉄を撤去',
   'ui.tool.subwaydel.title': '地下鉄の撤去 ドラッグした範囲の地下の線路を撤去します。',
   'ui.subwayOpts': '🚇 地下鉄の深さ',

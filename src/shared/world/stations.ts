@@ -108,6 +108,7 @@ export function planStation(map: GameMap, x0: number, y0: number, o: StationOpti
     if (map.levelAt(x, y) !== lv || lv === 0) return fail('全タイルを同じ高さの陸地にしてください');
     const i = map.idx(x, y);
     if (map.building.get(i) || map.road.get(i) || map.air.get(i) || map.span.get(i)) return fail('建物・道路・空港・橋があります');
+    if (map.subway.get(i)) return fail('地下鉄の線路の上には造れません');
     if (occupied(i)) return fail('既存の駅・経由点と重なっています');
     const r = map.rail.get(i);
     if (r !== 0 && (r & ~ab) !== 0) return fail('既存の線路が分岐・交差しています(直線の線路のみ可)');

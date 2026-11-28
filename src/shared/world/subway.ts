@@ -49,7 +49,7 @@ export function subwayLine(a: Tile, b: Tile, z0: number, z1: number): { x: numbe
 }
 
 /** Whether a subway tile can be at (x,y): inside the map and on land (not under the sea or a lake) */
-export const canDigAt = (map: GameMap, x: number, y: number): boolean => map.inBounds(x, y) && map.levelAt(x, y) > 0;
+export const canDigAt = (map: GameMap, x: number, y: number): boolean => map.inBounds(x, y) && map.levelAt(x, y) > 0 && map.rail.get(map.idx(x, y)) === 0;
 
 /** Lay a subway line (see subwayLine). A tile that already has subway keeps its depth (so joining an existing line just meets it). Stops with a message at the first problem */
 export function layNewSubway(map: GameMap, a: Tile, b: Tile, z0: number, z1: number, io: SubwayIO): void {
@@ -58,7 +58,10 @@ export function layNewSubway(map: GameMap, a: Tile, b: Tile, z0: number, z1: num
   let prev: { x: number; y: number; depth: number } | null = null;
   let spent = 0;
   for (const t of line) {
-    if (!canDigAt(map, t.x, t.y)) return void io.msg(spent > 0 ? `水の下には造れません。ここまでで ${yen(spent)}` : '水の下には造れません');
+    if (!canDigAt(map, t.x, t.y)) {
+      const why = map.inBounds(t.x, t.y) && map.levelAt(t.x, t.y) > 0 ? '地上の線路と同じ場所には造れません(地上の線路とは出入口でつなぎます)' : '水の下には造れません';
+      return void io.msg(spent > 0 ? `${why}。ここまでで ${yen(spent)}` : why);
+    }
     const i = map.idx(t.x, t.y);
     let v = map.subway.get(i);
     const depth = hasSub(v) ? subDepth(v) : t.depth;
@@ -70,6 +73,7 @@ export function layNewSubway(map: GameMap, a: Tile, b: Tile, z0: number, z1: num
       v = makeSub(0, depth);
       map.subway.set(i, v);
       if (io.owner) map.subwayOwner.set(i, io.owner);
+      map.touch(t.x, t.y);
     }
     if (prev) {
       // t.d is the direction of travel into this tile (see the surface preview, which steps back with it)
@@ -77,10 +81,48 @@ export function layNewSubway(map: GameMap, a: Tile, b: Tile, z0: number, z1: num
       const pi = map.idx(prev.x, prev.y);
       map.subway.set(pi, map.subway.get(pi) | CONN(pd));
       map.subway.set(i, map.subway.get(i) | CONN(opposite(pd)));
+      map.touch(prev.x, prev.y);
+      map.touch(t.x, t.y);
     }
     prev = { x: t.x, y: t.y, depth };
   }
   map.subwayVer++;
+}
+
+/** Price of a portal (the mouth where a subway meets a surface rail) */
+export const PORTAL_COST = 30_000;
+
+/**
+ * Link the end of a subway line to a surface rail. The subway tile must be at depth 1 and the end of its line, and next to a surface rail that ends there
+ * (a rail with one connection). Both tiles get a connection toward each other, so trains can run between them.
+ */
+export function layPortal(map: GameMap, p: Tile, io: SubwayIO): void {
+  if (!map.inBounds(p.x, p.y)) return;
+  const i = map.idx(p.x, p.y);
+  const v = map.subway.get(i);
+  if (!hasSub(v)) return void io.msg('地下鉄の線路の上をクリックしてください');
+  if (subDepth(v) !== 1) return void io.msg('出入口にできるのは、いちばん浅い(深さ1)線路のはしだけです');
+  const conn = subConn(v);
+  if (conn === 0 || (conn & (conn - 1)) !== 0) return void io.msg('出入口にできるのは、線路のはし(つながりが1つだけの所)です');
+  for (let d = 0; d < 4; d++) {
+    if (conn & CONN(d)) continue;
+    const nx = p.x + DX[d];
+    const ny = p.y + DY[d];
+    if (!map.inBounds(nx, ny)) continue;
+    const ni = map.idx(nx, ny);
+    const r = map.rail.get(ni);
+    // A surface rail that ends here: one connection, straight directions only, and no span (bridge / tunnel)
+    if (r === 0 || (r & 0xf0) !== 0 || (r & (r - 1)) !== 0 || map.span.get(ni)) continue;
+    if (!io.afford(PORTAL_COST) || !io.pay(PORTAL_COST)) return void io.msg(`資金が足りません(出入口は ${yen(PORTAL_COST)})`);
+    map.rail.set(ni, r | CONN(opposite(d)));
+    map.subway.set(i, v | CONN(d));
+    if (!map.infraOwner.get(ni) && io.owner) map.infraOwner.set(ni, io.owner);
+    map.touch(nx, ny);
+    map.touch(p.x, p.y);
+    map.subwayVer++;
+    return;
+  }
+  io.msg('となりに、そこで終わっている地上の線路がありません(線路のはしにつなぎます)');
 }
 
 /** Remove the subway tiles on a straight line (only the company's own, or unowned ones), and the connections to them */
@@ -91,15 +133,24 @@ export function removeSubwayLine(map: GameMap, a: Tile, b: Tile, io: SubwayIO): 
     if (!hasSub(map.subway.get(i))) continue;
     const own = map.subwayOwner.get(i);
     if (io.owner && own && own !== io.owner) continue;
+    const had = subConn(map.subway.get(i));
     map.subway.set(i, 0);
     map.subwayOwner.set(i, 0);
+    map.touch(t.x, t.y);
     for (let d = 0; d < 4; d++) {
       const nx = t.x + DX[d];
       const ny = t.y + DY[d];
       if (!map.inBounds(nx, ny)) continue;
       const ni = map.idx(nx, ny);
       const nv = map.subway.get(ni);
-      if (hasSub(nv)) map.subway.set(ni, nv & ~CONN(opposite(d)));
+      if (hasSub(nv)) {
+        map.subway.set(ni, nv & ~CONN(opposite(d)));
+        map.touch(nx, ny);
+      } else if (had & CONN(d) && map.rail.get(ni) & CONN(opposite(d))) {
+        // The portal: take the link off the surface rail too
+        map.rail.set(ni, map.rail.get(ni) & ~CONN(opposite(d)));
+        map.touch(nx, ny);
+      }
     }
   }
   map.subwayVer++;
