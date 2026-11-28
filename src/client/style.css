@@ -62,6 +62,8 @@ body.debug #stats { display: block; }
 #toolbar { flex-wrap: wrap; justify-content: flex-start; left: 350px; right: 320px; transform: none; max-width: none; }
 #routes .rm { margin: 2px 0 4px; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
 #routes .rm select { max-width: 100%; }
+#routes .rm[hidden] { display: none; }
+#routes .rm.neg { color: #ff9d9d; }
 #routes .stopn em { color: #9ab; font-style: normal; font-size: 11px; margin-left: 4px; }
 
 #routes { display: none; }

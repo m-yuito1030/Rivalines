@@ -49,6 +49,7 @@ import { ChatPanel } from './ui/chatPanel';
 import { GovPanel } from './ui/govPanel';
 import { NewsPanel } from './ui/newsPanel';
 import { TownNewsPanel } from './ui/townNews';
+import { FirstGuide } from './ui/guide';
 import { ConstructionFx } from './render/constructionFx';
 import { UndergroundView } from './render/undergroundView';
 import { LEVEL_PX, SEA_LEVEL } from '../shared/world/constants';
@@ -613,6 +614,17 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   const newsPanel = new NewsPanel();
   const townNews = new TownNewsPanel(() => mirror.news);
   window.setInterval(() => townNews.update(), 2000);
+  // The first-steps card for a company that has no bus running yet, and the menu entries that bring it (and the manual) back
+  const openManual = () => window.open(document.querySelector<HTMLAnchorElement>('a[data-legal=manual]')!.href, '_blank', 'noopener');
+  const guide = new FirstGuide(transit, {
+    stop: () => setTool('stop'),
+    depot: () => setTool('depot'),
+    routes: () => routesWin.open(),
+    manual: openManual,
+  });
+  window.setInterval(() => guide.update(), 1500);
+  $('guideBtn').addEventListener('click', () => guide.show());
+  $('manualBtn').addEventListener('click', openManual);
   const govPanel = new GovPanel((m) => tools.onMessage?.(m));
   const showDots = () => {
     const news = newsPanel.hasUnread;

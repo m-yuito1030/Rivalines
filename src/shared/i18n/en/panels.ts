@@ -14,6 +14,9 @@ export const EN_PANELS: Catalog = {
   'ja:運賃収入/日': 'Fare income/day',
   'ja:運行費/日': 'Running cost/day',
   'ja:損益/日': 'Profit/day',
+  'ja:通行料/日': 'Tolls/day',
+  'ja:通行料 {toll}/日(運賃収入の {share}%): 他社の道路・線路を走る代金です。':
+    "Tolls {toll}/day ({share}% of fare income): the price of running on other companies' roads and tracks.",
   'ja:積載': 'Load',
   'ja:自社の路線がありません': 'You have no routes.',
   'ja:混雑している停留所(上位15)': 'Crowded stops (top 15)',

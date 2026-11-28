@@ -4,7 +4,8 @@ import { type Mode, clampCars, kindsFor, modelOf, modelsFor } from '../../shared
 import type { Order, Route, Transit } from '../../shared/sim/network/transit';
 import { FARE_MUL_MAX, FARE_MUL_MIN, fareDemand, fareMulOf } from '../../shared/sim/network/fares';
 import { DAY_TICKS, type OrderCond, PERIOD_OPTIONS, RANKS, todOf } from '../../shared/sim/network/transit';
-import type { Company } from '../../shared/sim/economy/economy';
+import { yen, type Company } from '../../shared/sim/economy/economy';
+import { TOLL_WARN } from '../../shared/sim/economy/analysis';
 import { net } from '../connection/net';
 import type { Cmd } from '../../shared/protocol';
 
@@ -201,6 +202,16 @@ export class RoutePanel {
       const load = vs.reduce((s, v) => s + v.load, 0);
       set(el, cap ? `${Math.round((load / cap) * 100)}%` : '-');
     });
+    // Tolls: shown once the route has paid any. Red when they eat a large share of the fare income
+    this.el.querySelectorAll<HTMLElement>('[data-tollrow]').forEach((el) => {
+      const r = this.transit.routes.get(Number(el.dataset.tollrow));
+      const toll = r?.toll ?? 0;
+      el.hidden = toll < 1;
+      if (el.hidden || !r) return;
+      const share = (r.income ?? 0) > 0 ? Math.round((toll / (r.income ?? 1)) * 100) : 0;
+      set(el, tr('通行料 {toll}/日(運賃収入の {share}%): 他社の道路・線路を走る代金です。', { toll: yen(toll), share }));
+      el.classList.toggle('neg', share >= TOLL_WARN * 100);
+    });
     this.el.querySelectorAll('[data-stuck]').forEach((el) => {
       const rid = Number((el as HTMLElement).dataset.stuck);
       set(el, String(this.transit.vehicles.filter((v) => v.routeId === rid && v.stuck > 20).length));
@@ -267,6 +278,7 @@ export class RoutePanel {
       <div class="rm"><button data-act="replace" data-r="${r.id}" title="${tr('この路線の全車両を、上で選んだ車種に置き換える(旧車両は評価額の50%で下取り)')}">${tr('🔁 全車両をこの車種に置き換え')}</button></div>
       <div class="rm">${tr('運賃')} <input type="number" data-f="fare" min="${FARE_MUL_MIN * 100}" max="${FARE_MUL_MAX * 100}" step="10" value="${Math.round(fareMulOf(r) * 100)}" style="width:64px">% <span class="muted">${tr('標準=100%。高いと1人の収入は増えるが乗客が減る(需要 {fareDemand}%)', { fareDemand: Math.round(fareDemand(fareMulOf(r)) * 100) })}</span></div>
       <div class="rm">${tr('積載')} <b data-load="${r.id}">-</b> ${tr('/ 停滞')} <b data-stuck="${r.id}">0</b>${tr('台')}${hasTimed ? ` ${tr('/ 周期')} <select data-f="period">${periods}</select> ${tr('/ 遅延')} <b data-late="${r.id}">-</b>` : ''}</div>
+      <div class="rm" data-tollrow="${r.id}" hidden></div>
       ${rows}
       <div class="rm muted">${tr('車両:')} ${
         this.transit.vehicles

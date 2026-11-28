@@ -197,6 +197,7 @@ export class Simulation {
       const own = this.map.subwayVer !== 0 && this.map.subway.get(tile) && !this.map.rail.get(tile) ? this.map.subwayOwner.get(tile) : this.map.infraOwner.get(tile);
       if (!own || own === route.owner) return;
       const toll = (this.map.railAt(tile) ? TOLL.rail : TOLL.road) * (1 - this.pacts.discountBetween(route.owner, own));
+      route.dayToll = (route.dayToll ?? 0) + toll;
       this.playerCompany(route.owner).pay('toll-out', toll);
       this.playerCompany(own).earn('toll-in', toll);
     };
@@ -405,8 +406,11 @@ export class Simulation {
       for (const r of this.transit.routes.values()) {
         const run = this.transit.vehicles.filter((v) => v.routeId === r.id).reduce((a, v) => a + vehiclePrice(modelOf(v.modelId), v.cars) * RUNNING_RATE, 0);
         r.income = (r.income ?? 0) * 0.8 + (r.dayRevenue ?? 0) * 0.2;
-        r.profit = r.income - run;
+        r.toll = (r.toll ?? 0) * 0.8 + (r.dayToll ?? 0) * 0.2;
+        // Profit counts the tolls too: a route that mostly pays tolls is not a profitable one
+        r.profit = r.income - run - r.toll;
         r.dayRevenue = 0;
+        r.dayToll = 0;
       }
     }
   }
