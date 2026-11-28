@@ -74,11 +74,13 @@ export const FR_SOCIAL: Catalog = {
   'ja:路線パネルで「＋🚌」→ バス停を順にクリック → Enter': "Dans le panneau des lignes, appuyez sur « ＋🚌 », cliquez sur les arrêts dans l'ordre, puis Entrée.",
   'ja:路線パネルを開く': 'Ouvrir le panneau des lignes',
   'ja:バスを買う': 'Acheter un bus',
-  'ja:路線パネルの「＋車両」。基地の入口が空くまで、続けて買えないことがあります': "Appuyez sur « + véhicule » dans le panneau des lignes. L'achat suivant peut demander un instant : la sortie du dépôt doit être libre.",
+  'ja:路線パネルの「＋車両」。基地の入口が空くまで、続けて買えないことがあります':
+    "Appuyez sur « + véhicule » dans le panneau des lignes. L'achat suivant peut demander un instant : la sortie du dépôt doit être libre.",
   'ja:はじめかた': 'Pour commencer',
   'ja:最初のバス路線ができました': 'Votre première ligne de bus circule',
   'ja:バス停と路線を増やして、街と街をつなぎましょう': 'Ajoutez des arrêts et des lignes pour relier les villes.',
-  'ja:路線パネルの「通行料」が運賃収入の3割を超えたら、自社の道路で走れないか考えましょう': 'Si les « péages » du panneau des lignes dépassent 30 % des recettes, voyez si vous pouvez circuler sur vos propres routes.',
+  'ja:路線パネルの「通行料」が運賃収入の3割を超えたら、自社の道路で走れないか考えましょう':
+    'Si les « péages » du panneau des lignes dépassent 30 % des recettes, voyez si vous pouvez circuler sur vos propres routes.',
   'ja:現金は「経営 (F)」で見られます': 'Votre trésorerie se voit dans « Finances (F) ».',
   'ja:閉じる(メニューからまた開けます)': 'Fermer (réouvrable depuis le menu)',
   'ja:くわしくは': 'Plus de détails dans le',

@@ -74,11 +74,13 @@ export const DE_SOCIAL: Catalog = {
   'ja:路線パネルで「＋🚌」→ バス停を順にクリック → Enter': 'Im Linienfenster „＋🚌“ drücken, die Haltestellen der Reihe nach anklicken, dann Enter.',
   'ja:路線パネルを開く': 'Linienfenster öffnen',
   'ja:バスを買う': 'Bus kaufen',
-  'ja:路線パネルの「＋車両」。基地の入口が空くまで、続けて買えないことがあります': 'Im Linienfenster „+ Fahrzeug“ drücken. Der nächste Kauf klappt eventuell erst, wenn die Depotausfahrt frei ist.',
+  'ja:路線パネルの「＋車両」。基地の入口が空くまで、続けて買えないことがあります':
+    'Im Linienfenster „+ Fahrzeug“ drücken. Der nächste Kauf klappt eventuell erst, wenn die Depotausfahrt frei ist.',
   'ja:はじめかた': "So geht's los",
   'ja:最初のバス路線ができました': 'Deine erste Buslinie fährt',
   'ja:バス停と路線を増やして、街と街をつなぎましょう': 'Baue weitere Haltestellen und Linien und verbinde die Städte.',
-  'ja:路線パネルの「通行料」が運賃収入の3割を超えたら、自社の道路で走れないか考えましょう': 'Übersteigt die „Maut“ im Linienfenster 30 % der Fahrgeldeinnahmen, überlege, ob du auf eigenen Straßen fahren kannst.',
+  'ja:路線パネルの「通行料」が運賃収入の3割を超えたら、自社の道路で走れないか考えましょう':
+    'Übersteigt die „Maut“ im Linienfenster 30 % der Fahrgeldeinnahmen, überlege, ob du auf eigenen Straßen fahren kannst.',
   'ja:現金は「経営 (F)」で見られます': 'Dein Bargeld siehst du unter „Finanzen (F)“.',
   'ja:閉じる(メニューからまた開けます)': 'Schließen (im Menü wieder aufrufbar)',
   'ja:くわしくは': 'Mehr im',
