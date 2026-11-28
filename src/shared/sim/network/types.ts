@@ -70,6 +70,9 @@ export interface Route {
   modelId: string; // model added by the "+ vehicle" button
   /** Fare income today, and income / profit per recent day (yen; for rankings) */
   dayRevenue?: number;
+  /** Tolls paid today for running over other companies' roads and tracks, and the same per day as a moving average */
+  dayToll?: number;
+  toll?: number;
   income?: number;
   profit?: number;
   /** Measured travel time per leg (ticks, indexed by departure order). Used to auto-build a timetable */
