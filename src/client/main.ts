@@ -209,7 +209,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   let subwayToolOn = false;
   // The haze goes right above the terrain (below stops and vehicles), so underground trains are not dimmed
   worldRoot.addChildAt(underground.shade, 1);
-  worldRoot.addChildAt(underground.tracks, 2);
+  worldRoot.addChildAt(underground.earth, 2);
+  worldRoot.addChildAt(underground.tracks, 3);
   worldRoot.addChild(tools.overlay);
 
   const minimap = new Minimap($<HTMLCanvasElement>('minimap'), map, (tx, ty) => camera.centerOnTile(tx, ty));
