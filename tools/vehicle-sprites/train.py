@@ -179,7 +179,7 @@ def car(sp,j,a,head):
     pw=W*(.58-.42*rd)/2
     nac=2 if L>40 else 1
     for k in range(nac): P.append(box(-L*.25+k*L*.3,0,z1+.5,3.6,max(2.4,pw*1.4),1.1,(200,204,208)))
-    if (j%3==0 or sp['name'] in('路面電車単車','路面電車連接低床','都電風','ライトレール風')) and (not head or j%2==0):
+    if sp.get('pan',True) and (j%3==0 or sp['name'] in('路面電車単車','路面電車連接低床','都電風','ライトレール風')) and (not head or j%2==0):
         px=L*.28 if not head else -L*.1
         P.append(box(px,0,z1+.5,2.2,2.4,1,(50,50,56)));P.append(extrude([(px-1,z1+.9),(px-.4,z1+.9),(px+2.2,z1+4.4),(px+1.6,z1+4.4)],'y',-.25,.25,(50,50,56)));P.append(box(px+1.9,0,z1+4.6,1.2,W*.55,.5,(50,50,56)))
     if head:

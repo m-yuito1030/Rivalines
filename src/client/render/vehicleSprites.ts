@@ -2,6 +2,8 @@ import { Rectangle, Texture } from 'pixi.js';
 import busUrl from '../assets/bus.png';
 import aircraftUrl from '../assets/aircraft.png';
 import trainUrl from '../assets/train.png';
+import subwayUrl from '../assets/subway.png';
+import subwayDesigns from '../../shared/data/subwayDesigns.json';
 import trainDesigns from '../../shared/data/trainDesigns.json';
 
 /** Magnification of vehicle sprites (made small to match the game's tiles. Adjust here if they look too big or too small) */
@@ -32,16 +34,22 @@ const loadImage = (url: string): Promise<HTMLImageElement | null> =>
 
 /** Carry on even on failure (then vehicles are drawn procedurally) */
 let trainBase: Texture | null = null;
+/** The subway trains' own atlas (design numbers 1000 and up) */
+let subwayBase: Texture | null = null;
 const trainCache = new Map<string, { tex: Texture; ax: number; ay: number; sc: number }>();
 
 export async function loadVehicleSprites(): Promise<void> {
   if (base.bus) return;
-  const [b, a, t] = await Promise.all([loadImage(busUrl), loadImage(aircraftUrl), loadImage(trainUrl)]);
+  const [b, a, t, sw] = await Promise.all([loadImage(busUrl), loadImage(aircraftUrl), loadImage(trainUrl), loadImage(subwayUrl)]);
   if (b) base.bus = Texture.from(b);
   if (a) base.air = Texture.from(a);
   if (t) trainBase = Texture.from(t);
-  for (const x of [base.bus, base.air, trainBase]) if (x) x.source.scaleMode = 'nearest';
+  if (sw) subwayBase = Texture.from(sw);
+  for (const x of [base.bus, base.air, trainBase, subwayBase]) if (x) x.source.scaleMode = 'nearest';
 }
+
+/** Sprite numbers from here up belong to the subway atlas (see tools/vehicle-sprites/subway.py) */
+const SUBWAY_DESIGN_BASE = 1000;
 
 type TrainMeta = { sc: number; h: number[][]; m: number[][] };
 
@@ -50,14 +58,15 @@ type TrainMeta = { sc: number; h: number[][]; m: number[][] };
  * The last car can be flipped by using the lead car with dir+4. sc is the scale that fits one car's length to the game's car spacing.
  */
 export function trainFrame(design: number, head: boolean, dir: number): { tex: Texture; ax: number; ay: number; sc: number } | null {
-  if (!trainBase) return null;
+  const atlas = design >= SUBWAY_DESIGN_BASE ? subwayBase : trainBase;
+  if (!atlas) return null;
   const key = `${design}|${head ? 1 : 0}|${dir}`;
   let e = trainCache.get(key);
   if (!e) {
-    const meta = (trainDesigns.designs as unknown as Record<string, TrainMeta>)[String(design)];
+    const meta = ((design >= SUBWAY_DESIGN_BASE ? subwayDesigns.designs : trainDesigns.designs) as unknown as Record<string, TrainMeta>)[String(design)];
     const f = meta?.[head ? 'h' : 'm'][dir];
     if (!meta || !f) return null;
-    e = { tex: new Texture({ source: trainBase.source, frame: new Rectangle(f[0], f[1], f[2], f[3]) }), ax: f[4] / f[2], ay: f[5] / f[3], sc: meta.sc };
+    e = { tex: new Texture({ source: atlas.source, frame: new Rectangle(f[0], f[1], f[2], f[3]) }), ax: f[4] / f[2], ay: f[5] / f[3], sc: meta.sc };
     trainCache.set(key, e);
   }
   return e;
@@ -70,7 +79,7 @@ export const vehicleSpritesReady = (kind: VehicleKind): boolean => !!base[kind];
 /** Depending on zoom, scale with nearest (pixels kept) when close and linear (smooth) when far */
 export function setVehicleSmoothing(zoom: number): void {
   const mode = zoom >= 1 ? 'nearest' : 'linear';
-  for (const t of [...Object.values(base), trainBase]) if (t && t.source.scaleMode !== mode) t.source.scaleMode = mode;
+  for (const t of [...Object.values(base), trainBase, subwayBase]) if (t && t.source.scaleMode !== mode) t.source.scaleMode = mode;
 }
 
 /** The texture and anchor for (kind, design, direction). null if the atlas is not loaded */
