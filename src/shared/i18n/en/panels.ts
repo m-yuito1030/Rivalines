@@ -163,6 +163,36 @@ export const EN_PANELS: Catalog = {
   'ja:1人採用するごとに {fee} かかります': 'Each hire costs {fee}.',
   'ja:多いほど応募が増えます。必要数に届くと採用は止まります': 'More money brings more applicants. Hiring stops once you have enough staff.',
   'ja:熟練度が上がります。新しく入った人は熟練度が低く、時間がたつと下がります': 'Raises skill. New hires start with low skill, and skill slowly falls over time.',
+  'ja:優良物件: {name}。価格 {price}、売上 {income}/日で、約{days}日で元が取れます(あと{left}日で取り壊し)。':
+    'Good property: {name}. Price {price}, sales {income}/day: pays for itself in about {days} days (demolished in {left} days).',
+  'ja:解約する': 'Cancel contract',
+  'ja:赤字の路線: {name}(1日 {loss} の赤字・乗車率 {load}%)。便を減らすか、行き先や運賃を見直しましょう。':
+    'Route losing money: {name} ({loss}/day loss, {load}% load). Cut service, or rethink its stops and fares.',
+  'ja:まだ路線がありません。まず、人の多い街に停留所を2つ作り、バスを走らせてみましょう。左のツールの「バス停」と「道路」を使い、路線を作って車両を買います。':
+    'You have no routes yet. Start by building two stops in busy towns and running a bus between them: use the Bus stop and Road tools on the left, make a route, and buy a vehicle.',
+  'ja:契約する(初回 {fee})': 'Sign up (first fee {fee})',
+  'ja:現金 {cash}': 'Cash {cash}',
+  'ja:借入が {loan} あり、現金に余裕があります。利息を減らすため、返済を考えましょう。': 'You owe {loan} and have spare cash. Consider repaying to cut interest.',
+  'ja:交通のない街: {name}(人口 {pop})。近くに停留所を作ると、乗客が見込めます。': 'Town with no service: {name} (population {pop}). A stop nearby should bring passengers.',
+  'ja:おすすめ': 'Advice',
+  'ja:いまのところ、特におすすめはありません。順調です。': 'Nothing to recommend right now. Things look good.',
+  'ja:沿線開発のおすすめ: {name}。開発費 {cost} で、不動産収入が {gain}/日 増え、約{days}日で元が取れます。':
+    'Line development: {name}. For {cost}, real-estate income rises by {gain}/day and pays back in about {days} days.',
+  'ja:場所へ': 'Go',
+  'ja:契約中(次の支払いは {left}日後・{fee})': 'Contract active (next fee in {left} days: {fee})',
+  'ja:現金が少なくなっています({cash})。借入(経営画面)を使うか、赤字の路線を見直しましょう。':
+    'Cash is low ({cash}). Take a loan (Finance screen) or review routes that lose money.',
+  'ja:車両のない路線: {name}。車両を買うか、使わないなら消しましょう。': 'Route with no vehicle: {name}. Buy a vehicle, or delete it if unused.',
+  'ja:従業員が足りません(必要 {need}人・いま {have}人)。動きが {pct}% に落ちています。経営画面で採用費と広告費の予算を上げましょう。':
+    'Not enough staff (need {need}, have {have}). Performance has fallen to {pct}%. Raise the hiring and advertising budgets in the Finance screen.',
+  'ja:混雑している停留所: {name}(待ち客 {pct}%)。車両を増やすか、路線を足しましょう。': 'Crowded stop: {name} ({pct}% waiting). Add vehicles or another route.',
+  'ja:買収の候補: {name}。買収額 {price}、利益 {profit}/日で、約{days}日で元が取れます。':
+    'Acquisition candidate: {name}. Price {price}, profit {profit}/day: pays back in about {days} days.',
+  'ja:{days}日ごとに {fee} を払うと、いま何をすればよいかを、重要な順に教えてくれます(優良物件・買収の候補・赤字の路線・混雑・交通のない街・沿線開発など)。いつでも解約できます。':
+    'For {fee} every {days} days, the consultant tells you what to do now, most important first (good properties, companies to buy, routes losing money, crowding, towns with no service, line development and more). You can cancel any time.',
+  'ja:従業員の研修をまだしていません。研修すると、運行費が下がり、乗客が増えます。':
+    'You have not trained your staff yet. Training lowers running costs and brings more passengers.',
+  'ja:コンサル料': 'Consulting fees',
   'ja:研修レベル': 'Training level',
   'ja:効果(現在)': 'Effect (current)',
   'ja:運行費 −{TRAINING}% / 乗客 +{TRAINING2}%': 'Running cost −{TRAINING}% / passengers +{TRAINING2}%',

@@ -2,6 +2,7 @@ import type { Cmd, CmdResult } from '../../src/shared/protocol';
 import type { CommandContext } from './context';
 import { fail } from './util';
 import { LISTING_DAYS } from '../../src/shared/sim/facility/listings';
+import { CONSULT } from '../../src/shared/sim/economy/consultTerms';
 import { STAFF } from '../../src/shared/sim/economy/staff';
 import { TRAINING } from '../../src/shared/sim/economy/economy';
 import { acquireRival, divestRival } from '../../src/shared/sim/economy/rivals';
@@ -39,6 +40,17 @@ export function fin(cmd: Extract<Cmd, { t: 'fin' }>, ctx: CommandContext): CmdRe
     if (!(STAFF.budgets as readonly number[]).includes(amount)) return fail(tr('不正な値です'));
     co.staffBudget[cmd.op === 'budget-hire' ? 'hire' : cmd.op === 'budget-ad' ? 'ad' : 'edu'] = amount;
     return { ok: true, msg: tr('1日の予算を {amount} にしました', { amount: yen(amount) }) };
+  }
+  if (cmd.op === 'consult-on') {
+    if (co.consult) return fail(tr('すでにコンサルと契約しています'));
+    if (!co.spend('consult', CONSULT.fee)) return fail(tr('資金が足りません(コンサル料 {fee})', { fee: yen(CONSULT.fee) }));
+    co.consult = { next: sim.day + CONSULT.days };
+    return { ok: true, msg: tr('コンサルと契約しました({fee}を支払い、{days}日ごとに同額がかかります)', { fee: yen(CONSULT.fee), days: CONSULT.days }) };
+  }
+  if (cmd.op === 'consult-off') {
+    if (!co.consult) return fail(tr('コンサルとは契約していません'));
+    co.consult = undefined;
+    return { ok: true, msg: tr('コンサルの契約を終えました') };
   }
   if (cmd.op === 'borrow') {
     const err = co.borrow(amount, co.credit, assets);

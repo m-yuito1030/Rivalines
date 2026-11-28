@@ -120,6 +120,7 @@
               <button id="diaBtn" title="ダイヤ（運行図表）：時刻表をスジ図で確認し、ドラッグして編集できます。待避の提案や路線の複製も行えます。" data-i18n="ui.diaBtn" data-i18n-title="ui.diaBtn.title">📈 ダイヤ</button>
               <button id="rankBtn" title="ランキング：会社・街・駅・路線のランキングを確認できます。" data-i18n="ui.rankBtn" data-i18n-title="ui.rankBtn.title">🏆 ランキング</button>
               <button id="saleBtn" title="不動産物件：どの会社も所有していない売り出し中の施設を、評価額で購入できます。28日間買い手がつかない場合は取り壊されます。" data-i18n="ui.saleBtn" data-i18n-title="ui.saleBtn.title">🏘 不動産物件</button>
+              <button id="consultBtn" title="コンサル：毎月一定の料金で、優良物件・買収の候補・見直すべき路線など、いまやるべきことを教えてくれます。" data-i18n="ui.consultBtn" data-i18n-title="ui.consultBtn.title">🧭 コンサル</button>
               <button id="aucBtn" title="入札・独占権：街ごとの独占権を競売で取得できます。" data-i18n="ui.aucBtn" data-i18n-title="ui.aucBtn.title">🏷 入札・独占権</button>
               <button id="anaBtn" title="経営分析：路線・停留所・施設の収支や混雑状況を確認できます。赤字の項目が上位に表示されます。" data-i18n="ui.anaBtn" data-i18n-title="ui.anaBtn.title">🧮 経営分析</button>
               <button id="statsBtn" title="統計 (I)" data-i18n="ui.statsBtn" data-i18n-title="ui.statsBtn.title">📊 統計 (I)</button>
@@ -261,6 +262,13 @@
       <div class="box">
         <h2><span data-i18n="ui.sale-modal.t1">不動産物件</span> <button type="button" id="saleClose" data-i18n="ui.saleClose">閉じる</button></h2>
         <div id="saleBody"></div>
+      </div>
+    </div>
+
+    <div id="consult-modal" hidden>
+      <div class="box">
+        <h2><span data-i18n="ui.consult-modal.t1">コンサル</span> <button type="button" id="consultClose" data-i18n="ui.saleClose">閉じる</button></h2>
+        <div id="consultBody"></div>
       </div>
     </div>
 

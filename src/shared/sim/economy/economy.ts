@@ -9,6 +9,7 @@ import { DAY_TICKS, type Stop, type Transit, todOf } from '../network/transit';
 import type { Rival } from './rivals';
 import { fiscalRange } from '../world/calendar';
 import { devIncome } from './development';
+import { CONSULT } from './consultTerms';
 import { DEFAULT_BUDGET, STAFF, type StaffBudget, requiredStaff, staffMulOf, staffRatio } from './staff';
 
 /** A company's management (funds, sales, costs, loans, acquisitions). Amounts in yen. */
@@ -116,6 +117,7 @@ export const CAT_LABEL: Record<string, string> = {
   levy: '大企業への課税',
   wage: '従業員の給料',
   recruit: '採用費',
+  consult: 'コンサル料',
 };
 
 export interface DayRecord {
@@ -178,6 +180,7 @@ export interface CompanyState {
   staffReady?: boolean;
   staffReq?: number;
   staffMul?: number;
+  consult?: { next: number };
 }
 
 /** Multiplayer: so facilities' daily earnings update only once, the Simulation sets the ID of the first company that does the close */
@@ -221,6 +224,8 @@ export class Company {
   /** Worked out every day (not by the screen): the staff needed, and the multiplier on speed / passengers / facility sales that follows from the shortage */
   staffReq = 0;
   staffMul = 1;
+  /** The consulting contract (the day the next fee is due), or undefined when there is none */
+  consult?: { next: number };
   /** Set by the government each day (not saved; it is derived from the date): construction cost multiplier, running cost multiplier, and the corporate tax rate for the next fiscal close */
   buildMul = 1;
   govRunMul = 1;
@@ -331,6 +336,13 @@ export class Company {
       this.trainingPending = undefined;
     }
     this.staffDay(map, transit, ownerId);
+    // Consulting fee: when it is due; if the company cannot pay, the contract ends
+    if (this.consult && day >= this.consult.next) {
+      if (this.afford(CONSULT.fee)) {
+        this.pay('consult', CONSULT.fee);
+        this.consult.next += CONSULT.days;
+      } else this.consult = undefined;
+    }
     // Interest (prorated daily)
     this.pay('interest', Math.round((this.loan * this.interestRate(this.credit)) / 360));
     // Profit of subsidiaries (acquired rivals)
@@ -421,7 +433,7 @@ export class Company {
     const sum = (cats: readonly string[]) => cats.reduce((a, k) => a + (f[k] ?? 0), 0);
     const revenue = sum(['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'toll-in', 'realestate', 'subsidy']);
     const running = f.running ?? 0;
-    const upkeep = (f.upkeep ?? 0) + (f['toll-out'] ?? 0) + (f.ad ?? 0) + (f.training ?? 0) + (f.levy ?? 0) + (f.wage ?? 0) + (f.recruit ?? 0);
+    const upkeep = (f.upkeep ?? 0) + (f['toll-out'] ?? 0) + (f.ad ?? 0) + (f.training ?? 0) + (f.levy ?? 0) + (f.wage ?? 0) + (f.recruit ?? 0) + (f.consult ?? 0);
     const depreciation = Math.round(this.infra * DEPRECIATION_RATE);
     this.infra -= depreciation;
     const opProfit = revenue - running - upkeep - depreciation;
@@ -529,6 +541,7 @@ export class Company {
       staffReady: this.staffReady,
       staffReq: this.staffReq,
       staffMul: this.staffMul,
+      consult: this.consult,
     };
   }
 
@@ -557,6 +570,7 @@ export class Company {
     c.staffReady = s.staffReady ?? false;
     c.staffReq = s.staffReq ?? 0;
     c.staffMul = s.staffMul ?? 1;
+    c.consult = s.consult;
     return c;
   }
 }
