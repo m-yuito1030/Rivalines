@@ -14,6 +14,9 @@ export const DE_PANELS: Catalog = {
   'ja:運賃収入/日': 'Fahrgeld/Tag',
   'ja:運行費/日': 'Betriebskosten/Tag',
   'ja:損益/日': 'Ergebnis/Tag',
+  'ja:通行料/日': 'Maut/Tag',
+  'ja:通行料 {toll}/日(運賃収入の {share}%): 他社の道路・線路を走る代金です。':
+    'Maut {toll}/Tag ({share} % der Fahrgeldeinnahmen): der Preis für die Fahrt auf Straßen und Gleisen anderer Unternehmen.',
   'ja:積載': 'Auslastung',
   'ja:自社の路線がありません': 'Du hast keine Linien.',
   'ja:混雑している停留所(上位15)': 'Überfüllte Haltestellen (Top 15)',
