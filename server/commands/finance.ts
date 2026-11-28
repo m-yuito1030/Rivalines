@@ -2,6 +2,7 @@ import type { Cmd, CmdResult } from '../../src/shared/protocol';
 import type { CommandContext } from './context';
 import { fail } from './util';
 import { LISTING_DAYS } from '../../src/shared/sim/facility/listings';
+import { STAFF } from '../../src/shared/sim/economy/staff';
 import { TRAINING } from '../../src/shared/sim/economy/economy';
 import { acquireRival, divestRival } from '../../src/shared/sim/economy/rivals';
 import { acquirePrice, assetValueFor, facilityValue, yen } from '../economyApi';
@@ -33,6 +34,11 @@ export function fin(cmd: Extract<Cmd, { t: 'fin' }>, ctx: CommandContext): CmdRe
   if (cmd.op === 'train') {
     const err = co.startTraining();
     return err ? fail(err) : { ok: true, msg: tr('従業員の研修を始めました({days}日後にレベル{to}になります)', { days: TRAINING.days, to: co.trainingPending!.to }) };
+  }
+  if (cmd.op === 'budget-hire' || cmd.op === 'budget-ad' || cmd.op === 'budget-edu') {
+    if (!(STAFF.budgets as readonly number[]).includes(amount)) return fail(tr('不正な値です'));
+    co.staffBudget[cmd.op === 'budget-hire' ? 'hire' : cmd.op === 'budget-ad' ? 'ad' : 'edu'] = amount;
+    return { ok: true, msg: tr('1日の予算を {amount} にしました', { amount: yen(amount) }) };
   }
   if (cmd.op === 'borrow') {
     const err = co.borrow(amount, co.credit, assets);

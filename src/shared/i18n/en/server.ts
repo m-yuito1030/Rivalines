@@ -8,6 +8,7 @@ export const EN_SERVER: Catalog = {
   'ja:{name}の使用許可を取り消しました': 'Revoked access to {name}.',
   'ja:自社の全停留所をその会社に開放しました': 'Opened all your stops to that company.',
   'ja:その会社への全体の許可を取り消しました': 'Revoked blanket access for that company.',
+  'ja:1日の予算を {amount} にしました': 'Set the daily budget to {amount}.',
   'ja:不正な操作です': 'Invalid action.',
   'ja:一度に敷設できるのは512タイルまでです': 'You can lay at most 512 tiles at once.',
   'ja:範囲が広すぎます(128×128タイルまで)': 'Area too large (up to 128×128 tiles).',

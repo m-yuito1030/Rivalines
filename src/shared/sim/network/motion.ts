@@ -8,13 +8,17 @@ import type { Transit } from './transit';
 export class Motion {
   constructor(private readonly t: Transit) {}
 
+  private staffMul(route: Route): number {
+    return this.t.speedMul?.(route.owner) ?? 1;
+  }
+
   stepAir(v: Vehicle, route: Route, tick: number): boolean {
     const f = v.flight;
     if (!f) {
       v.state = 'load';
       return true;
     }
-    f.done += v.speed * speedAt(f, f.done);
+    f.done += v.speed * this.staffMul(route) * speedAt(f, f.done);
     if (f.done >= f.dist) {
       f.done = f.dist;
       this.t.air.onFlightEnd(v, route, tick);
@@ -25,7 +29,7 @@ export class Motion {
   stepRoad(v: Vehicle, route: Route, tick: number): boolean {
     const m = this.t.map;
     const s = m.size;
-    v.t += v.speed;
+    v.t += v.speed * this.staffMul(route);
     while (v.t >= 1 && v.pi < v.path.length - 1) {
       const cur0 = v.path[v.pi];
       const nxt0 = v.path[v.pi + 1];
@@ -95,7 +99,7 @@ export class Motion {
       return true;
     }
     const hop = v.pi < v.path.length - 1 && dirBetween(v.path[v.pi], v.path[v.pi + 1], s) >= 4 ? Math.SQRT2 : 1;
-    v.t += (v.speed * this.railSpeedFactor(v)) / hop;
+    v.t += (v.speed * this.staffMul(route) * this.railSpeedFactor(v)) / hop;
     while (v.t >= 1 && v.pi < v.path.length - 1) {
       v.t -= 1;
       v.pi++;
