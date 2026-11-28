@@ -82,6 +82,8 @@ export const JA_UI: Catalog = {
   'ui.tool.bulldoze.title': '撤去 (X)',
   'ui.tool.bulldoze': '🧹 撤去',
   'ui.menuBtn.title': 'プレイヤー・会社情報・言語の設定',
+  'ui.guideBtn': '❓ はじめかた',
+  'ui.manualBtn': '📖 マニュアル',
   'ui.menuBtn': '⚙ 設定・プレイヤー',
   'ui.routesBtn.title': '路線パネル',
   'ui.routesBtn': '📋 路線',
