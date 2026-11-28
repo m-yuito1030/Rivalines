@@ -107,7 +107,7 @@ export function bulldoze(cmd: Extract<Cmd, { t: 'bulldoze' }>, ctx: CommandConte
 export function signalLine(cmd: Extract<Cmd, { t: 'signalLine' }>, ctx: CommandContext): CmdResult {
   const tr = ctx.tr;
   const { map, t, co } = ctx;
-  if (![cmd.a.x, cmd.a.y, cmd.b.x, cmd.b.y].every(Number.isInteger) || Math.max(Math.abs(cmd.a.x - cmd.b.x), Math.abs(cmd.a.y - cmd.b.y)) > 400)
+  if (!cmd.a || !cmd.b || ![cmd.a.x, cmd.a.y, cmd.b.x, cmd.b.y].every(Number.isInteger) || Math.max(Math.abs(cmd.a.x - cmd.b.x), Math.abs(cmd.a.y - cmd.b.y)) > 400)
     return fail(tr('範囲が不正です(400タイルまで)'));
   const step = Math.max(1, Math.min(20, Math.round(Number(cmd.interval) || 3)));
   const tiles = railLineTiles(cmd.a.x, cmd.a.y, cmd.b.x, cmd.b.y);

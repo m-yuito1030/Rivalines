@@ -34,6 +34,20 @@ const setup = (sim: Simulation, who = 1) => {
   return { route: rt.id!, a: a.id!, b: b.id! };
 };
 
+describe('セキュリティ: 信号の一括設置', () => {
+  it('範囲(a・b)が無い・不正な命令は、例外ではなく失敗として返る', () => {
+    const sim = world();
+    for (const cmd of [
+      { t: 'signalLine' },
+      { t: 'signalLine', a: null, b: { x: 1, y: 1 } },
+      { t: 'signalLine', a: { x: 1, y: 1 } },
+      { t: 'signalLine', a: { x: 'a', y: 1 }, b: { x: 3, y: 1 } },
+    ]) {
+      expect(execute(sim, 1, cmd as never).ok).toBe(false);
+    }
+  });
+});
+
 describe('セキュリティ: tx の引数', () => {
   it('メソッドごとに、個数・整数・方向(+1/-1)・有限の数を厳密に確かめる', () => {
     expect(validTxArgs('moveOrder', [3, 0, 1])).toBe(true);
