@@ -426,3 +426,7 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 /* The close button of the full-screen windows: a small square ✕ (the same look as the other close buttons) */
 #fin-modal h2 .xbtn, #rank-modal h2 .xbtn, #list-modal h2 .xbtn, #dia-modal h2 .xbtn, #analysis-modal h2 .xbtn, #sale-modal h2 .xbtn, #consult-modal h2 .xbtn, #auction-modal h2 .xbtn, #stats-modal h2 .xbtn { width: 28px; height: 28px; padding: 0; line-height: 1; font-size: 14px; flex: none; background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; cursor: pointer; }
 @media (pointer: coarse), (max-width: 820px) { #fin-modal h2 .xbtn, #rank-modal h2 .xbtn, #list-modal h2 .xbtn, #dia-modal h2 .xbtn, #analysis-modal h2 .xbtn, #sale-modal h2 .xbtn, #consult-modal h2 .xbtn, #auction-modal h2 .xbtn, #stats-modal h2 .xbtn { width: 36px; height: 36px; } }
+/* While a finger moves or zooms the map, the floating windows step aside (they come back when the finger lifts) */
+@media (pointer: coarse), (max-width: 820px) {
+  body.panning #stationOpts, body.panning #facilityOpts, body.panning #bulldozeOpts, body.panning #signalOpts, body.panning #subwayOpts, body.panning #airportOpts, body.panning #info, body.panning #routes, body.panning #guide { opacity: 0; pointer-events: none; transition: opacity 0.12s; }
+}

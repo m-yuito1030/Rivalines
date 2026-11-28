@@ -20,6 +20,12 @@ export class Camera {
   private pinch: { dist: number; cx: number; cy: number } | null = null;
   /** True from the start of a two-finger gesture until all fingers lift (used to cancel a build tool's drag) */
   multiTouch = false;
+  /** Whether a one-finger swipe on a touch screen pans the map (true for tools that place one thing per tap; drag tools keep the one-finger drag for building) */
+  touchPans: () => boolean = () => false;
+  /** Called when a touch pan or pinch starts / ends (the screen hides the floating windows while it lasts, so the map can be seen and moved) */
+  onGesture?: (active: boolean) => void;
+  private gestureOn = false;
+  private touchStart = new Map<number, { x: number; y: number }>();
 
   constructor(
     private world: Container,
@@ -29,14 +35,16 @@ export class Camera {
     el.style.touchAction = 'none';
     el.addEventListener('pointerdown', (e) => {
       this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (e.pointerType === 'touch') this.touchStart.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (this.pointers.size >= 2) {
         // Two fingers: pan + pinch zoom
+        this.setGesture(e.pointerType === 'touch');
         this.multiTouch = true;
         this.dragging = false;
         this.pinch = this.measure();
         return;
       }
-      if (e.button === 1 || e.button === 2 || (e.button === 0 && this.leftPans)) {
+      if (e.button === 1 || e.button === 2 || (e.button === 0 && (this.leftPans || (e.pointerType === 'touch' && this.touchPans())))) {
         this.dragging = true;
         this.last = { x: e.clientX, y: e.clientY };
         el.setPointerCapture(e.pointerId);
@@ -62,6 +70,8 @@ export class Camera {
         return;
       }
       if (!this.dragging) return;
+      const t0 = this.touchStart.get(e.pointerId);
+      if (t0 && Math.hypot(e.clientX - t0.x, e.clientY - t0.y) > 8) this.setGesture(true);
       this.x -= (e.clientX - this.last.x) / this.zoom;
       this.y -= (e.clientY - this.last.y) / this.zoom;
       this.last = { x: e.clientX, y: e.clientY };
@@ -70,13 +80,16 @@ export class Camera {
     el.addEventListener('contextmenu', (e) => e.preventDefault());
     const end = (e: PointerEvent) => {
       this.pointers.delete(e.pointerId);
+      this.touchStart.delete(e.pointerId);
       this.dragging = false;
       this.pinch = null;
-      if (this.pointers.size === 0) this.multiTouch = false;
-      else if (this.pointers.size === 1) {
+      if (this.pointers.size === 0) {
+        this.multiTouch = false;
+        this.setGesture(false);
+      } else if (this.pointers.size === 1) {
         // Two fingers -> one: let the remaining finger keep panning
         const [rest] = [...this.pointers.values()];
-        if (this.leftPans) {
+        if (this.leftPans || this.touchPans()) {
           this.dragging = true;
           this.last = { x: rest.x, y: rest.y };
         }
@@ -100,6 +113,12 @@ export class Camera {
     window.addEventListener('keydown', (e) => this.keys.add(e.key.toLowerCase()));
     window.addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
     window.addEventListener('blur', () => this.keys.clear());
+  }
+
+  private setGesture(on: boolean): void {
+    if (on === this.gestureOn) return;
+    this.gestureOn = on;
+    this.onGesture?.(on);
   }
 
   private measure() {
