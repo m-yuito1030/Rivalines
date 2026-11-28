@@ -146,6 +146,9 @@ export const DE_UI: Catalog = {
     'Portal Verbindet das Ende einer U-Bahn-Strecke in Tiefe 1 mit dem Stumpfende eines benachbarten Oberflächengleises. Nur nötig, wenn du ein Oberflächengleis anschließen willst.',
   'ui.tool.subwaydel': '🚇 Entfernen',
   'ui.tool.subwaydel.title': 'U-Bahn entfernen Ziehen, um die unterirdischen Gleise im Bereich zu entfernen.',
+  'ui.ugBtn': '👁 Untergrund',
+  'ui.ugBtn.title':
+    'Zwischen Oberfläche und Untergrund wechseln (Bild ab: Untergrund / Bild auf: Oberfläche). In der Untergrundansicht wird die Oberfläche zu einem durchsichtigen grauen Schatten und die U-Bahn erscheint klar in Farbe.',
   'ui.subwayLegend': 'Tiefenfarben (flach → tief)',
   'ui.subwayHow': '🚇 So baust du eine U-Bahn',
   'ui.subwayHow.t1': 'Mit „Gleis bauen“ die Tiefe wählen und über den Boden ziehen (auch diagonal)',

@@ -413,3 +413,9 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 #subwayOpts ol.subhow { margin: 0; padding-left: 18px; display: grid; gap: 2px; color: #cfe; }
 .sublegend { display: flex; align-items: center; gap: 4px; }
 .sublegend i { display: inline-block; min-width: 18px; text-align: center; font-style: normal; color: #05101c; font-weight: 700; border-radius: 4px; }
+
+/* The underground view switch: a floating button above the minimap (so the toolbar stays as wide as before) */
+#ugBtn { position: absolute; right: 10px; bottom: 218px; z-index: 6; padding: 8px 12px; border-radius: 10px; font-size: 13px; pointer-events: auto; background: #26384f; color: #eee; border: 1px solid #456; cursor: pointer; }
+#ugBtn:hover { background: #34506f; }
+#ugBtn.on { background: #2f7dd1; border-color: #8cf; }
+@media (max-width: 700px) { #ugBtn { bottom: 186px; right: 6px; } }

@@ -205,12 +205,12 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   tools.facilityPlanner = (x, y, type) => facilityPicker.plan(map, x, y, type, facOcc);
   tools.airportSel = airportPicker;
   tools.stationPlanner = (x, y) => stationPicker.plan(map, x, y, (i) => !!transit.stopAtTile(i % map.size, Math.floor(i / map.size)));
-  const underground = new UndergroundView(map);
+  const underground = new UndergroundView(map, chunks.container);
+  let manualUnderground = false;
   let subwayToolOn = false;
-  // The haze goes right above the terrain (below stops and vehicles), so underground trains are not dimmed
-  worldRoot.addChildAt(underground.shade, 1);
-  worldRoot.addChildAt(underground.earth, 2);
-  worldRoot.addChildAt(underground.tracks, 3);
+  // The grey backdrop goes under the (see-through) terrain, the tunnels right above it (below stops and vehicles)
+  worldRoot.addChildAt(underground.backdrop, 0);
+  worldRoot.addChildAt(underground.tracks, 2);
   worldRoot.addChild(tools.overlay);
 
   const minimap = new Minimap($<HTMLCanvasElement>('minimap'), map, (tx, ty) => camera.centerOnTile(tx, ty));
@@ -353,6 +353,17 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       setTool(b.dataset.tool as Tool);
     }),
   );
+  // Underground view on / off: the button, and PageDown / PageUp
+  const setUnderground = (on: boolean) => {
+    manualUnderground = on;
+    $('ugBtn').classList.toggle('on', on);
+  };
+  $('ugBtn').addEventListener('click', () => setUnderground(!manualUnderground));
+  window.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return;
+    if (e.key === 'PageDown') setUnderground(true);
+    else if (e.key === 'PageUp') setUnderground(false);
+  });
   window.addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
     if (k === 'enter' && panel.building) panel.finishBuild();
@@ -701,7 +712,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     constructionFx.draw(view, performance.now());
     // The underground is shown while a subway tool is selected, and also while a rail route is being made (so its subway stations can be clicked)
     const routeRail = panel.building?.kind === 'rail';
-    underground.active = subwayToolOn || routeRail;
+    underground.active = subwayToolOn || routeRail || manualUnderground;
     transitLayer.underground = underground.active;
     transitLayer.showAll = routeRail && !subwayToolOn;
     underground.draw(view);
