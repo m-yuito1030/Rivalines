@@ -149,6 +149,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     () => setToolRef('route'),
     () => setToolRef('pan'),
     () => sim.company,
+    (msg, error) => toast.show(msg, error),
   );
   const facOcc = (i: number) => !!transit.stopAtTile(i % map.size, Math.floor(i / map.size)) || !!transit.depotAtTile(i % map.size, Math.floor(i / map.size));
   const stationPicker = new StationPicker();
@@ -162,7 +163,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     if (cmd.t === 'place' || cmd.t === 'ensureStop') moneyFloat.setSpendAt(cmd.x + 0.5, cmd.y + 0.5);
     else if (cmd.t === 'build') moneyFloat.setSpendAt((cmd.a.x + cmd.b.x) / 2 + 0.5, (cmd.a.y + cmd.b.y) / 2 + 0.5);
     const r = await net.cmd(cmd);
-    if (r.msg) tools.onMessage?.(r.msg);
+    if (r.msg) toast.show(r.msg, !r.ok);
     return r;
   };
   const tools = new ToolController(map, camera, app.canvas, pick, (tool, tile) => {

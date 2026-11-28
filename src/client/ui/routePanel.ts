@@ -74,6 +74,8 @@ export class RoutePanel {
     private onStartBuild: () => void,
     private onEndBuild: () => void,
     _company: () => Company | null = () => null,
+    /** Where the result of an action is shown (a toast). error = the action failed */
+    private onMessage: (msg: string, error: boolean) => void = () => {},
   ) {
     el.addEventListener('click', (e) => this.onClick(e));
     el.addEventListener('change', (e) => this.onChange(e));
@@ -93,7 +95,7 @@ export class RoutePanel {
   /** Send an action to the server. If it fails, show the reason */
   private async send(cmd: Cmd): Promise<boolean> {
     const r = await net.cmd(cmd);
-    if (!r.ok && r.msg) alert(r.msg);
+    if (r.msg) this.onMessage(r.msg, !r.ok);
     return r.ok;
   }
 
@@ -105,7 +107,8 @@ export class RoutePanel {
           this.openMode = b.kind;
           this.openRoute = r.id;
           this.transit.version++;
-        } else if (r.msg) alert(r.msg);
+          if (r.msg) this.onMessage(r.msg, false);
+        } else if (r.msg) this.onMessage(r.msg, true);
       });
     }
     this.cancelBuild();

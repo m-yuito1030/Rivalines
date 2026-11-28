@@ -1115,3 +1115,32 @@ describe('施設のグレードと改装(コマンド)', () => {
     for (const f of sim.map.facilities) expect(isForSale(f)).toBe(true);
   });
 });
+
+describe('操作の結果の知らせ', () => {
+  it('バス停: 道路の外では理由つきで失敗し、道路の上では置いた知らせが返る。同じ場所にはすでにあると返る', () => {
+    const sim = world();
+    sim.setOnline([1]);
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 90, y: 100 }, b: { x: 120, y: 100 } });
+    const bad = execute(sim, 1, { t: 'place', tool: 'stop', x: 100, y: 90 });
+    expect(bad.ok).toBe(false);
+    expect(bad.msg).toContain('道路の上');
+    const ok = execute(sim, 1, { t: 'place', tool: 'stop', x: 100, y: 100 });
+    expect(ok.ok).toBe(true);
+    expect(ok.msg).toContain('バス停');
+    const again = execute(sim, 1, { t: 'place', tool: 'stop', x: 100, y: 100 });
+    expect(again.ok).toBe(true);
+    expect(again.msg).toContain('すでに');
+  });
+
+  it('路線を作ると、次にやること(車両を買う)を知らせる', () => {
+    const sim = world();
+    sim.setOnline([1]);
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 90, y: 100 }, b: { x: 120, y: 100 } });
+    const a = execute(sim, 1, { t: 'ensureStop', x: 92, y: 100, kind: 'road' });
+    const b = execute(sim, 1, { t: 'ensureStop', x: 118, y: 100, kind: 'road' });
+    expect(a.msg).toBeTruthy();
+    const r = execute(sim, 1, { t: 'routeCreate', stops: [a.id!, b.id!] });
+    expect(r.ok).toBe(true);
+    expect(r.msg).toContain('＋車両');
+  });
+});

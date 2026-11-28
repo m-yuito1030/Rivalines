@@ -9,6 +9,17 @@ import { DESIGN_COUNT, FACILITY_SPECS, FACILITY_TYPES, SPRITE_TYPES, facilityCos
 import type { FacilitySize, FacilityType } from '../../src/shared/world/facilities';
 import { AIRPORT_PRICES, PRICES, yen } from '../economyApi';
 
+/** Why a stop cannot go on this tile (in plain words, for the message) */
+function stopWhy(ctx: CommandContext, x: number, y: number, kind: 'road' | 'rail' | 'air'): string {
+  const { map, tr } = ctx;
+  if (!map.inBounds(x, y)) return tr('マップの外です');
+  const i = map.idx(x, y);
+  if (map.span.get(i)) return tr('橋・トンネルの上には置けません');
+  if (kind === 'road') return tr('バス停は道路の上に置きます。先に道路を引くか、道路の上をクリックしてください');
+  if (kind === 'rail') return tr('駅は直線の線路の上に置きます');
+  return tr('空港のターミナルの上に置いてください');
+}
+
 /** ensureStop */
 export function ensureStop(cmd: Extract<Cmd, { t: 'ensureStop' }>, ctx: CommandContext): CmdResult {
   const tr = ctx.tr;
@@ -24,9 +35,9 @@ export function ensureStop(cmd: Extract<Cmd, { t: 'ensureStop' }>, ctx: CommandC
   const cost = cmd.kind === 'rail' ? PRICES.stationBase + PRICES.stationTile : PRICES.stop;
   if (!co.afford(cost)) return fail(tr('資金が足りません(新しい停留所 {cost})', { cost: yen(cost) }));
   const st = t.addStop(cmd.x, cmd.y, cmd.kind);
-  if (!st) return fail(tr('ここには停留所を置けません'));
+  if (!st) return fail(stopWhy(ctx, cmd.x, cmd.y, cmd.kind));
   co.spend('build', cost);
-  return { ok: true, id: st.id };
+  return { ok: true, id: st.id, msg: tr('{name}を置きました({cost})', { name: st.name, cost: yen(cost) }) };
 }
 
 /** place */
@@ -38,9 +49,15 @@ export function place(cmd: Extract<Cmd, { t: 'place' }>, ctx: CommandContext): C
     const had = !!t.stopAtTile(x, y, 'road');
     if (!had && !co.afford(PRICES.stop)) return fail(tr('資金が足りません(バス停 {PRICES})', { PRICES: yen(PRICES.stop) }));
     const st = t.addStop(x, y, 'road');
-    if (!st) return fail(tr('ここにはバス停を置けません'));
+    if (!st) return fail(stopWhy(ctx, x, y, 'road'));
     if (!had) co.spend('build', PRICES.stop);
-    return { ok: true, id: st.id };
+    return {
+      ok: true,
+      id: st.id,
+      msg: had
+        ? tr('ここには、すでに{name}があります', { name: st.name })
+        : tr('{name}を置きました({cost})。もう1つ置いて、路線でつなぎます', { name: st.name, cost: yen(PRICES.stop) }),
+    };
   }
   if (tool === 'station') {
     const o = cmd.opts;

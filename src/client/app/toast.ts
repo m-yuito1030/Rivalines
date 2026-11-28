@@ -8,10 +8,12 @@ export class Toast {
     document.body.appendChild(this.el);
   }
 
-  show(msg: string): void {
+  /** error: a failed action. It stays a little longer and is red, so it is not mistaken for a success */
+  show(msg: string, error = false): void {
     this.el.textContent = msg;
     this.el.classList.add('show');
+    this.el.classList.toggle('error', error);
     clearTimeout(this.timer);
-    this.timer = window.setTimeout(() => this.el.classList.remove('show'), 2500);
+    this.timer = window.setTimeout(() => this.el.classList.remove('show'), error ? 5000 : 2800);
   }
 }
