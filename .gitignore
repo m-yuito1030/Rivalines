@@ -59,6 +59,7 @@ Thumbs.db
 .preview.pid
 handover/
 tools/facility-sprites/*_out/
+tools/vehicle-sprites/*_out/
 __pycache__/
 
 # 運用: 本稼働のバックアップ

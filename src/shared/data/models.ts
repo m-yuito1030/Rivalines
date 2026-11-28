@@ -1,6 +1,6 @@
 /**
  * Vehicle models (data-driven). Model numbers, names, and color schemes are all fictional.
- * 300 in total: 190 rail / 70 bus / 40 aircraft. The 8 original models (Mirai 8000 series, etc.) are fixed; the rest are generated deterministically.
+ * 320 in total: 210 rail / 70 bus / 40 aircraft. The 8 original models (Mirai 8000 series, etc.) are fixed; the rest are generated deterministically.
  */
 export type Mode = 'road' | 'rail' | 'air';
 
@@ -60,6 +60,11 @@ const KINDS: KindSpec[] = [
 ];
 
 import railDesigns from './trainDesigns.json';
+import subwayDesigns from './subwayDesigns.json';
+
+/** Subway trains have their own 30 designs (sprite numbers 1000-1029, a separate atlas). The first 10 are the earlier subway models, the other 20 are added at the end */
+const SUBWAY_SPRITE_BASE = 1000;
+const SUBWAY_DESIGNS = subwayDesigns.names.length;
 
 /** The original models (ID and performance fixed). For rail, cap is per car */
 const FIXED: (Omit<VehicleModel, 'minCars' | 'maxCars' | 'defaultCars'> & { cars?: [number, number]; dflt?: number })[] = [
@@ -189,6 +194,11 @@ function generate(): VehicleModel[] {
   const count = new Map<string, number>();
   for (const m of out) {
     const j = count.get(m.kind) ?? 0;
+    if (m.mode === 'rail' && m.kind === '地下鉄') {
+      m.sprite = SUBWAY_SPRITE_BASE + (j % SUBWAY_DESIGNS);
+      count.set(m.kind, j + 1);
+      continue;
+    }
     if (m.mode === 'rail') {
       // Rail: the j-th entry of the per-category design list (decided by tools/vehicle-sprites/build_train_atlas.py)
       const list = (railDesigns.kinds as Record<string, number[]>)[m.kind];
@@ -202,6 +212,25 @@ function generate(): VehicleModel[] {
     count.set(m.kind, j + 1);
     const kindOff = Object.keys(pools).indexOf(m.kind) * 3;
     m.sprite = pool[j % pool.length] * 10 + ((Math.floor(j / pool.length) + kindOff) % 10);
+  }
+  // The other subway designs get models of their own. A separate random sequence, so the models above (and the saves that use them) do not change
+  const srng = mulberry32(20261201);
+  const spec = KINDS.find((k) => k.kind === '地下鉄')!;
+  const between2 = (r: [number, number]) => r[0] + srng() * (r[1] - r[0]);
+  for (let d = out.filter((m) => m.kind === '地下鉄').length; d < SUBWAY_DESIGNS; d++) {
+    out.push({
+      id: `sw${String(d + 1).padStart(2, '0')}`,
+      mode: 'rail',
+      kind: '地下鉄',
+      name: `${subwayDesigns.names[d]}${1000 + d * 50}系`,
+      cap: Math.round(between2(spec.cap)),
+      speed: Math.round(between2(spec.speed) * 100) / 100,
+      minCars: spec.cars![0],
+      maxCars: spec.cars![1],
+      defaultCars: spec.dflt ?? 1,
+      body: 0xcfd4dc,
+      sprite: SUBWAY_SPRITE_BASE + d,
+    });
   }
   return out;
 }

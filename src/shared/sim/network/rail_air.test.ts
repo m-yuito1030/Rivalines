@@ -469,14 +469,18 @@ describe('駅のデザイン(従来の0〜99 + スプライトの100〜179)', ()
 });
 
 describe('車両300種・両数の指定', () => {
-  it('車両は300種(鉄道190・バス70・航空機40)で、ID・名前は重複せず、両数の範囲が正しい', async () => {
+  it('車両は320種(鉄道210・バス70・航空機40)で、ID・名前は重複せず、両数の範囲が正しい', async () => {
     const { ALL_MODELS, modelOf, legacyCarsOf, modelsFor, kindsFor } = await import('../../data/models');
-    expect(ALL_MODELS).toHaveLength(300);
-    expect(modelsFor('rail')).toHaveLength(190);
+    expect(ALL_MODELS).toHaveLength(320);
+    expect(modelsFor('rail')).toHaveLength(210);
     expect(modelsFor('road')).toHaveLength(70);
     expect(modelsFor('air')).toHaveLength(40);
-    expect(new Set(ALL_MODELS.map((m) => m.id)).size).toBe(300);
-    expect(new Set(ALL_MODELS.map((m) => m.name)).size).toBe(300);
+    expect(new Set(ALL_MODELS.map((m) => m.id)).size).toBe(320);
+    expect(new Set(ALL_MODELS.map((m) => m.name)).size).toBe(320);
+    // 地下鉄は専用の30デザイン(絵の番号 1000〜1029)
+    const sub = ALL_MODELS.filter((m) => m.kind === '地下鉄');
+    expect(sub).toHaveLength(30);
+    expect(sub.map((m) => m.sprite).sort((a, b) => a! - b!)).toEqual(Array.from({ length: 30 }, (_, i) => 1000 + i));
     for (const m of ALL_MODELS) {
       expect(m.cap).toBeGreaterThan(0);
       expect(m.speed).toBeGreaterThan(0);
@@ -614,14 +618,14 @@ describe('バス・航空機のスプライト割り当て', () => {
       expect(m.sprite).toBeGreaterThanOrEqual(0);
       expect(m.sprite).toBeLessThan(100);
     }
-    // 鉄道: 0〜449。全車種に割り当てられ、同じデザインは重複しない(190種すべて別)
+    // 鉄道: 地下鉄以外は 0〜449、地下鉄は専用の 1000〜1029。全車種に割り当てられ、同じデザインは重複しない
     const rail = modelsFor('rail');
     for (const m of rail) {
       expect(m.sprite).toBeGreaterThanOrEqual(0);
-      expect(m.sprite).toBeLessThan(450);
+      expect(m.sprite).toBeLessThan(m.kind === '地下鉄' ? 1030 : 450);
     }
     expect(new Set(rail.map((m) => m.sprite)).size).toBe(rail.length);
-    expect(ALL_MODELS).toHaveLength(300);
+    expect(ALL_MODELS).toHaveLength(320);
     // 種別ごとに、使われるデザインの種類が十分ある(同じ見た目ばかりにならない)
     for (const mode of ['road', 'air'] as const) {
       const ms = modelsFor(mode);
