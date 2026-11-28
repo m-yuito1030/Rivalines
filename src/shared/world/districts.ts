@@ -106,21 +106,24 @@ export function noteBuilt(town: Town, d: District, news?: NewsSink): void {
 const misfit = (kind: DistrictKind, building: number): boolean => {
   const lv = buildingLevel(building);
   const off = isOffice(building);
-  return kind === 'danchi' ? lv < 3 || off : kind === 'office' ? !off || lv < 2 : lv >= 3 || off;
+  // A shopping street only gives up offices (tall housing is left alone: pulling it down would shrink the town)
+  return kind === 'danchi' ? lv < 3 || off : kind === 'office' ? !off || lv < 2 : off;
 };
 
 /**
- * Pull down one building of the town that does not fit the district, and take its people off the town's count. Returns false if there is none.
+ * Pull down one building of the town that does not fit the district (and holds no more people than maxPop), and take its people off the town's count.
+ * Returns false if there is none.
  * Only the town's own houses and offices are touched: never a facility, a building under construction, or another company's property.
  */
-export function demolishMisfit(map: GameMap, town: Town, d: District, rng: () => number): boolean {
+export function demolishMisfit(map: GameMap, town: Town, d: District, rng: () => number, maxPop = Infinity): boolean {
   const cand: number[] = [];
   for (let y = d.y0; y <= d.y1; y++) {
     for (let x = d.x0; x <= d.x1; x++) {
       const i = map.idx(x, y);
       const b = map.building.get(i);
       if (!b || b === FACILITY_TILE || buildingLevel(b) === 0 || map.construction.get(i) || map.owner.get(i) !== town.id) continue;
-      if (misfit(d.kind, b)) cand.push(i);
+      // Only a building whose people the new one makes up for: rebuilding must not shrink the town
+      if (misfit(d.kind, b) && POP_PER_LEVEL[buildingLevel(b)] * popMul(town) <= maxPop) cand.push(i);
     }
   }
   if (!cand.length) return false;

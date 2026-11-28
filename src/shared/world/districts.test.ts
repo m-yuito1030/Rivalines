@@ -4,7 +4,10 @@ import { GameMap } from './gameMap';
 import { Simulation } from '../sim/simulation';
 import { buildingLevel, isOffice } from './buildings';
 import { DISTRICT_SPEC } from './districts';
-import { townTier } from './town';
+import { townTier, type District, type DistrictKind, type Town } from './town';
+import { SEA_LEVEL } from './constants';
+import { connect } from './roads';
+import { extendDistrictRoad, makeRng } from './towns';
 
 function makeSim(seed: number) {
   const size = 512;
@@ -69,5 +72,59 @@ describe('街の区画と再開発', () => {
 
   it('再開発のあとも、建物の人口と街の人口の差が極端にずれない(取り壊しで人口を引く)', () => {
     for (const t of sim.map.towns) expect(t.pop).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe('区画の道の形', () => {
+  /** A flat land with one straight road down the line x = x0 + 4 inside a 14x14 district (so the district has a road to branch from) */
+  function setup(kind: DistrictKind): { map: GameMap; town: Town; d: District } {
+    const size = 80;
+    const map = new GameMap(size, 1, new Uint8Array(size * size).fill(SEA_LEVEL + 10));
+    const d: District = { id: 1, kind, name: 't', x0: 20, y0: 20, x1: 33, y1: 33, state: 'building', placed: 0 };
+    const town: Town = { id: 1, name: 't', x: 27, y: 27, pop: 5000, houses: 0, roads: [], nextGrowth: 0, pax: 0, tier: 2, districts: [d] };
+    // The road down x = 24 (x0 + 4) and along y = 27 (the middle row)
+    for (let y = 20; y < 33; y++) connect(map, 24, y, 2, false);
+    for (let x = 20; x < 33; x++) connect(map, x, 27, 1, false);
+    for (let y = 20; y <= 33; y++) town.roads.push(map.idx(24, y));
+    for (let x = 20; x <= 33; x++) town.roads.push(map.idx(x, 27));
+    return { map, town, d };
+  }
+  const roadTiles = (map: GameMap, d: District) => {
+    const out: [number, number][] = [];
+    for (let y = d.y0; y <= d.y1; y++) for (let x = d.x0; x <= d.x1; x++) if (map.road.get(map.idx(x, y))) out.push([x, y]);
+    return out;
+  };
+
+  it('オフィス街は、4タイルおきの碁盤の目の道になる', () => {
+    const { map, town, d } = setup('office');
+    const before = roadTiles(map, d).length;
+    const rng = makeRng(5);
+    for (let i = 0; i < 80; i++) extendDistrictRoad(map, town, d, rng);
+    const after = roadTiles(map, d);
+    expect(after.length).toBeGreaterThan(before);
+    // Every road tile lies on a grid line (a column or a row that is a multiple of 4 from the corner), or on the two roads that were there at the start
+    for (const [x, y] of after) expect((x - d.x0) % 4 === 0 || (y - d.y0) % 4 === 0 || y === 27).toBe(true);
+  });
+
+  it('団地は、6タイルおきの短い行き止まりの道が出る', () => {
+    const { map, town, d } = setup('danchi');
+    const before = roadTiles(map, d).length;
+    const rng = makeRng(9);
+    for (let i = 0; i < 80; i++) extendDistrictRoad(map, town, d, rng);
+    const after = roadTiles(map, d);
+    expect(after.length).toBeGreaterThan(before);
+    for (const [x, y] of after) expect((x - d.x0) % 6 === 0 || (y - d.y0) % 6 === 0 || x === 24 || y === 27).toBe(true);
+  });
+
+  it('商店街は、中ほどの一本の通りだけが伸びる(区画の外には出ない)', () => {
+    const { map, town, d } = setup('shop');
+    const rng = makeRng(3);
+    for (let i = 0; i < 80; i++) extendDistrictRoad(map, town, d, rng);
+    for (const [x, y] of roadTiles(map, d)) expect(y === 26 || y === 27 || x === 24).toBe(true); // 26 is the middle row of the district; 27 and x = 24 were there at the start
+    // The middle row now runs through the whole district
+    for (let x = d.x0; x <= d.x1; x++) expect(map.road.get(map.idx(x, 26))).not.toBe(0);
+    // Nothing was laid outside the district
+    for (let y = 0; y < map.size; y++)
+      for (let x = 0; x < map.size; x++) if (map.road.get(map.idx(x, y)) && (x < d.x0 || x > d.x1 || y < d.y0 || y > d.y1)) expect.fail(`road outside at ${x},${y}`);
   });
 });
