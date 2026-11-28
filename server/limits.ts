@@ -64,3 +64,23 @@ export class WindowLimiter {
     return true;
   }
 }
+
+/**
+ * Whether a WebSocket connection may come from this page. Browsers always send the Origin of the page that opens the connection, so a page on
+ * another site can be refused (it cannot read the player's token anyway; this is an extra layer). No Origin (not a browser) is allowed.
+ * Allowed: the same host as the request (Host / X-Forwarded-Host), local development hosts, and the hosts listed in `allowed`
+ */
+export function originAllowed(origin: string | undefined, host: string | undefined, forwardedHost: string | undefined, allowed: string[] = []): boolean {
+  if (!origin) return true;
+  let u: URL;
+  try {
+    u = new URL(origin);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  const h = u.host.toLowerCase();
+  if (u.hostname === 'localhost' || u.hostname === '127.0.0.1' || u.hostname === '[::1]') return true;
+  const same = [host, forwardedHost?.split(',')[0]].some((x) => !!x && x.trim().toLowerCase() === h);
+  return same || allowed.some((a) => a.trim().toLowerCase() === h);
+}
