@@ -1,4 +1,5 @@
 import type { WebSocket } from 'ws';
+import { aiProfile } from '../src/shared/sim/economy/aiCompanies';
 import type { Simulation } from '../src/shared/sim/simulation';
 import type { MyVeh, PlayerInfo, ServerMsg, TileRec, VehMsg } from '../src/shared/protocol';
 import type { Vehicle } from '../src/shared/sim/network/transit';
@@ -320,16 +321,18 @@ export class Replicator {
     const sim = this.sim;
     const co = sim.players.get(id);
     const a = this.accounts.byId(id);
-    if (!co || !a) return null;
+    const profile = aiProfile(id);
+    if (!co || (!a && !profile)) return null;
     const assets = assetValue(sim.map, sim.transit, sim.rivals, id);
     let passengers = 0;
     for (const r of sim.transit.routes.values()) if (r.owner === id) passengers += r.carried ?? 0;
     return {
       id,
-      name: a.name,
-      company: a.company || a.name,
-      bio: a.bio ?? '',
-      color: a.color,
+      name: a?.name ?? profile!.name,
+      company: a ? a.company || a.name : profile!.name,
+      bio: a?.bio ?? '',
+      color: a?.color ?? profile!.color,
+      ...(profile ? { ai: { kind: profile.kind, style: profile.style } } : {}),
       online: sim.online.has(id),
       marketCap: co.marketCap,
       price: co.stock,

@@ -48,6 +48,7 @@ services:
     environment:
       WORLD_SIZE: "4096" # the next version uses a fixed-size world (its data may be wiped). If an older save has a different size, a new world is made
       WORLD_PREGEN: "1" # at startup, generate the towns of every region
+      AI_COMPANIES: "4" # computer-run companies that build bus routes between towns (0 = none)
       MAX_ONLINE: "30" # a world for testing, so fewer concurrent connections
       ADMIN_KEY: "${ADMIN_KEY:-}"
       ENV_NAME: next

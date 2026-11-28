@@ -7,6 +7,7 @@ import type { PactState } from './sim/economy/pacts';
 import type { AuctionState } from './sim/economy/auctions';
 import type { WeeklyState } from './sim/economy/weekly';
 import type { GovInfo } from './sim/economy/government';
+import type { AiKind, AiStyle } from './sim/economy/aiCompanies';
 export type Pt = { x: number; y: number };
 
 /** Kinds of elements to demolish */
@@ -152,6 +153,8 @@ export interface PlayerInfo {
   bio: string;
   color: number;
   online: boolean;
+  /** A computer-run company (no account: cannot be sent money, reported, or granted access), with what it specializes in and how it plays */
+  ai?: { kind: AiKind; style: AiStyle };
   marketCap: number;
   price: number;
   netWorth: number;

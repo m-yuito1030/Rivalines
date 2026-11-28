@@ -1,4 +1,5 @@
 import type { GameMap } from '../world/gameMap';
+import { isAiId } from './economy/aiCompanies';
 import { Government, POLICIES, type GovInfo, classify, corporateTaxRate, policyOfDay, policyOfMonth, runningMul, stanceOfDay, LEVY_BASE, STANCES } from './economy/government';
 import { TOWN_REGION, growTown, makeRng, placeTowns, placeTownsRegion, type Rng } from '../world/towns';
 import { Transit, type TransitSave } from './network/transit';
@@ -395,6 +396,7 @@ export class Simulation {
   private rankedOnline(): { id: number; netWorth: number }[] {
     const out: { id: number; netWorth: number }[] = [];
     for (const id of this.online) {
+      if (isAiId(id)) continue; // the government's size classes are for players only
       const c = this.players.get(id);
       if (c) out.push({ id, netWorth: c.netWorth(assetValue(this.map, this.transit, this.rivals, id)) });
     }

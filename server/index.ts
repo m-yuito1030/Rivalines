@@ -11,6 +11,7 @@ import { applyLayers, decodeSave, encodeSave } from '../src/shared/save/serializ
 import { Accounts } from './accounts';
 import { Reports } from './reports';
 import { Chat } from './chat';
+import { AiPlanner } from './ai';
 import { Announcements } from './announcements';
 import { execute } from './commands/index';
 import { Replicator, type Client } from './replicate';
@@ -95,8 +96,11 @@ async function saveWorld(): Promise<void> {
 const governor = new Governor();
 const repl = new Replicator(sim, accounts);
 const clients = new Set<Client>();
+/** Computer-run companies (0 = none). They run whenever the world runs, so they count as always online. See server/ai.ts */
+const ai = new AiPlanner(sim, Number(process.env.AI_COMPANIES ?? 0));
+ai.init();
 /** Reflect which companies are online (disconnected companies stop) */
-const syncOnline = () => sim.setOnline([...clients].map((c) => c.id));
+const syncOnline = () => sim.setOnline([...[...clients].map((c) => c.id), ...ai.ids]);
 // A company is created the first time its account connects (so merely registered accounts do not bloat the world data)
 syncOnline();
 const registrations = new WindowLimiter(REGISTER_PER_HOUR);
@@ -468,6 +472,7 @@ function tickLoop() {
   }
   const tick0 = sim.tick;
   sim.advance((now - last) / 1000, 60);
+  ai.step();
   last = now;
   // When the world did not advance by even one tick, send nothing. Sending the same state makes the client alternate between
   // "stalled" and "jumped" stretches, so vehicles look jerky (with game speed 0.5, every other 100 ms loop does not advance)
