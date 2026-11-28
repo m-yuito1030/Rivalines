@@ -10,7 +10,9 @@ Rows (top to bottom, runway east-west; north-south is the same layout transposed
 runway, taxiway, stand rows, **terminal row** (hangar, terminal building, hangar), stand rows, and for large airports a second taxiway and runway.
 The first and last columns are a taxiway that goes around, so every stand can be reached.
 
-| Size | Tiles | Runways | Stands | Aircraft | Price |
+Each size has **10 designs** (`SPECS[size].designs`, one row string per design: runway `R`, taxiway `T`, apron `A`, stand row `S<n>`, hangar row `H<n>`, terminal row `M<pos><width><hangars>`; the token grammar is above `SPECS`). Design 0 is the layout described above. The width is fixed per size; the number of rows, the terminal position, the hangars and the stand rows vary. The size of a placed airport is worked out from its number of stands (`sizeByStands`), so every design of a size must stay inside that range; `airportLayout.test.ts` checks this, that everything is reachable on the ground, and that no design repeats. The `place` command takes `air.design` (0-9). Notes: a runway row must be next to a taxiway row, and a taxiway row between two runway rows would be cut off from the ring (do not add one).
+
+| Size (design 0) | Tiles | Runways | Stands | Aircraft | Price |
 |---|---|---|---|---|---|
 | S | 10x4 | 1 | 2 | small | 6M |
 | M | 16x5 | 1 | 8 | small, medium | 20M |

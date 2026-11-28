@@ -1,4 +1,14 @@
-import { AIR, AIRPORT_MAX_CLASS, AIRPORT_NAMES, AIRPORT_SIZES, type AirportAxis, type AirportSize, airportFootprint, buildLayout } from '../../shared/world/airportLayout';
+import {
+  AIR,
+  AIRPORT_DESIGNS,
+  AIRPORT_MAX_CLASS,
+  AIRPORT_NAMES,
+  AIRPORT_SIZES,
+  type AirportAxis,
+  type AirportSize,
+  airportFootprint,
+  buildLayout,
+} from '../../shared/world/airportLayout';
 import { AIRPORT_PRICES, yen } from '../../shared/sim/economy/economy';
 import { $ } from './dom';
 import { onCurrencyChange, onLangChange, tr } from '../i18n';
@@ -16,7 +26,7 @@ const COLORS: Record<number, string> = {
 
 /** Inputs for placing an airport: the size (small / medium / large / hub) and which way the runway runs. Shows the layout and the price */
 export class AirportPicker {
-  readonly sel: { size: AirportSize; axis: AirportAxis } = { size: 'S', axis: 'x' };
+  readonly sel: { size: AirportSize; axis: AirportAxis; design: number } = { size: 'S', axis: 'x', design: 0 };
   private readonly el = $('airportOpts');
 
   constructor() {
@@ -28,6 +38,16 @@ export class AirportPicker {
     );
     $<HTMLSelectElement>('airportAxis').addEventListener('input', (e) => {
       this.sel.axis = (e.target as HTMLSelectElement).value === 'y' ? 'y' : 'x';
+      this.refresh();
+    });
+    const sel = $<HTMLSelectElement>('airportDesign');
+    for (let i = 0; i < AIRPORT_DESIGNS; i++) sel.append(new Option(String(i + 1), String(i)));
+    sel.addEventListener('input', () => {
+      this.sel.design = Number(sel.value) || 0;
+      this.refresh();
+    });
+    $('airportRand').addEventListener('click', () => {
+      this.sel.design = Math.floor(Math.random() * AIRPORT_DESIGNS);
       this.refresh();
     });
     onLangChange(() => this.refresh());
@@ -42,14 +62,15 @@ export class AirportPicker {
 
   /** Top-left tile of an airport whose middle is placed at the clicked tile */
   origin(x: number, y: number): { x: number; y: number } {
-    const { w, h } = airportFootprint(this.sel.size, this.sel.axis);
+    const { w, h } = airportFootprint(this.sel.size, this.sel.axis, this.sel.design);
     return { x: x - Math.floor(w / 2), y: y - Math.floor(h / 2) };
   }
 
   private refresh(): void {
-    const { size, axis } = this.sel;
+    const { size, axis, design } = this.sel;
     document.querySelectorAll<HTMLButtonElement>('#airportSizes [data-asize]').forEach((b) => b.classList.toggle('on', b.dataset.asize === size));
-    const L = buildLayout(size, axis);
+    $<HTMLSelectElement>('airportDesign').value = String(design);
+    const L = buildLayout(size, axis, design);
     $('airportInfo').textContent = tr('{w}×{h} タイル ・ 建設費 {cost} ・ 滑走路 {runways}本 ・ 駐機場 {stands}か所 ・ 小型機{small}/中型機{medium}/大型機{large}', {
       w: L.w,
       h: L.h,

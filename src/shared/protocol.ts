@@ -56,7 +56,7 @@ export type Cmd =
       y: number;
       opts?: StationOptions;
       fac?: { design: number; size: 'S' | 'M' | 'L' };
-      air?: { size: 'S' | 'M' | 'L' | 'H'; axis: 'x' | 'y' };
+      air?: { size: 'S' | 'M' | 'L' | 'H'; axis: 'x' | 'y'; design?: number };
     }
   | { t: 'ensureStop'; x: number; y: number; kind: Mode }
   | { t: 'routeCreate'; stops: number[] }
