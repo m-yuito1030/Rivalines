@@ -9,6 +9,8 @@ import { canConnectRail, railLineTiles } from '../../shared/world/rails';
 import { DX8, DY8 } from '../../shared/world/directions';
 import { canPlaceAirport } from '../../shared/world/airports';
 import { planSpan } from '../../shared/world/spans';
+import { canDigAt, subwayLine } from '../../shared/world/subway';
+import { DEPTH_COLORS } from '../render/undergroundView';
 import type { StationPlan } from '../../shared/world/stations';
 import { FACILITY_TYPES, NEW_FACILITY_TYPES, type FacilityPlan, type FacilityType, type NewFacilityType } from '../../shared/world/facilities';
 
@@ -30,6 +32,8 @@ export type Tool =
   | 'level'
   | 'roadspan'
   | 'railspan'
+  | 'subway'
+  | 'subwaydel'
   | 'signal'
   | 'waypoint'
   | 'depot'
@@ -55,6 +59,7 @@ const BUILD: Tool[] = [
   'level',
   'roadspan',
   'railspan',
+  'subway',
   'signal',
   'waypoint',
   'stop',
@@ -141,10 +146,12 @@ export class ToolController {
 
   /** In communication (multiplayer): drag actions are sent to the server. Otherwise run locally */
   remoteBuild: ((tool: DragTool, a: Tile, b: Tile) => void) | null = null;
+  /** The subway tool: depth at the start and at the end of the line */
+  subwayZ: [number, number] = [1, 1];
 
   private apply(a: Tile, b: Tile): void {
     if (this.remoteBuild) return this.remoteBuild(this.tool as DragTool, a, b);
-    applyBuild(this.map, this.tool as DragTool, a, b, { afford: (c) => this.afford(c), pay: (c) => this.pay(c), msg: (m) => this.onMessage?.(m) });
+    applyBuild(this.map, this.tool as DragTool, a, b, { z: this.subwayZ, afford: (c) => this.afford(c), pay: (c) => this.pay(c), msg: (m) => this.onMessage?.(m) });
   }
 
   /** Every frame: draw the hover/drag range */
@@ -169,6 +176,7 @@ export class ToolController {
       return;
     }
     if (this.tool === 'roadspan' || this.tool === 'railspan') return this.drawSpanPreview(g, w);
+    if (this.tool === 'subway' || this.tool === 'subwaydel') return this.drawSubwayPreview(g, w);
     if (isFacilityTool(this.tool) && this.facilityPlanner) {
       const plan = this.facilityPlanner(this.hover.x, this.hover.y, this.tool);
       const color = plan.ok ? 0x66ff99 : 0xff4455;
@@ -217,6 +225,27 @@ export class ToolController {
         .fill({ color, alpha: 0.25 })
         .stroke({ width: w, color, alpha: 0.9 });
     }
+  }
+
+  /** Preview of a subway line: tiles take the colour of their depth (red if the line cannot be built) */
+  private drawSubwayPreview(g: Graphics, w: number): void {
+    const hover = this.hover;
+    if (!hover) return;
+    const a = this.start ?? hover;
+    const del = this.tool === 'subwaydel';
+    const line = this.start && !del ? subwayLine(a, hover, this.subwayZ[0], this.subwayZ[1]) : null;
+    const tiles = this.start ? lineTiles(a.x, a.y, hover.x, hover.y) : [{ x: a.x, y: a.y }];
+    tiles.forEach((t, i) => {
+      const lvl = this.map.inBounds(t.x, t.y) ? this.map.levelAt(t.x, t.y) : 0;
+      const wx = (t.x - t.y) * 32;
+      const wy = (t.x + t.y) * 16 - lvl * LEVEL_PX;
+      const ok = this.map.inBounds(t.x, t.y) && (del || canDigAt(this.map, t.x, t.y));
+      const depth = line?.[i]?.depth ?? this.subwayZ[0];
+      const color = del ? 0xff8844 : !this.start ? DEPTH_COLORS[depth - 1] : line && ok ? DEPTH_COLORS[depth - 1] : 0xff4455;
+      g.poly([wx, wy, wx + 32, wy + 16, wx, wy + 32, wx - 32, wy + 16])
+        .fill({ color, alpha: 0.3 })
+        .stroke({ width: w, color, alpha: 0.95 });
+    });
   }
 
   private drawSpanPreview(g: Graphics, w: number): void {

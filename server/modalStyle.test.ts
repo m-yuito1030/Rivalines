@@ -30,7 +30,7 @@ describe('全画面ウィンドウのスマホ用スタイル', () => {
 
   it('ツールの設定ウィンドウ(駅・施設・撤去・信号)にも、閉じるボタン(✕)がある', () => {
     const html = readFileSync('index.html', 'utf8');
-    for (const id of ['stationOpts', 'facilityOpts', 'bulldozeOpts', 'signalOpts'])
+    for (const id of ['stationOpts', 'facilityOpts', 'bulldozeOpts', 'signalOpts', 'subwayOpts'])
       expect(html, id).toMatch(new RegExp(`<div id="${id}" hidden><button type="button" class="optx"`));
   });
 });

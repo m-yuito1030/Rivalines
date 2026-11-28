@@ -69,6 +69,8 @@
               <button data-tool="railauto" title="線路の自動敷設 始点から終点までドラッグすると、既存の線路を活用しながら、障害物や高低差を避けて最短経路で接続します。" data-i18n="ui.tool.railauto" data-i18n-title="ui.tool.railauto.title">🪄 線路を自動敷設</button>
               <button data-tool="signalline" title="信号を並べる 線路をドラッグすると、ドラッグした方向に合わせて一方向の信号を一定間隔で設置します。" data-i18n="ui.tool.signalline" data-i18n-title="ui.tool.signalline.title">🚦 信号を並べる</button>
               <button data-tool="signal" title="信号 (N) 直線の線路をクリックすると、信号の向きを切り替えられます。斜めの線路にも設置できます。なし → 方向1 → 方向2 → なし(複線など、一方向に列車を走らせる場合に使用します)" data-i18n="ui.tool.signal" data-i18n-title="ui.tool.signal.title">🚦 信号 (N)</button>
+              <button data-tool="subway" title="地下鉄 地下の線路を敷設します。始点と終点の深さ(1〜4)を選んでドラッグすると、その間がなだらかに上り下りします。建設中は地下が表示され、地上は暗くなります。" data-i18n="ui.tool.subway" data-i18n-title="ui.tool.subway.title">🚇 地下鉄</button>
+              <button data-tool="subwaydel" title="地下鉄の撤去 ドラッグした範囲の地下の線路を撤去します。" data-i18n="ui.tool.subwaydel" data-i18n-title="ui.tool.subwaydel.title">🚇 地下鉄を撤去</button>
               <button data-tool="railspan" title="線路の橋 / トンネル (H) 両端をドラッグして設置します。" data-i18n="ui.tool.railspan" data-i18n-title="ui.tool.railspan.title">🌉 橋・トンネル (H)</button>
             </div>
           </div>
@@ -140,6 +142,10 @@
         <span class="row"><button type="button" data-bkset="all" data-i18n="ui.bulldoze.set.all">すべての交通施設</button><button type="button" data-bkset="road" data-i18n="ui.bulldoze.set.road">道路のみ</button><button type="button" data-bkset="rail" data-i18n="ui.bulldoze.set.rail">線路のみ</button><button type="button" data-bkset="signal" data-i18n="ui.bulldoze.set.signal">信号のみ</button><button type="button" data-bkset="none" data-i18n="ui.bulldoze.set.none">解除</button></span>
       </div>
       <div id="signalOpts" hidden><button type="button" class="optx" title="閉じる (Esc)" data-i18n-title="ui.signalOpts.t1.title">✕</button><span data-i18n="ui.signalOpts">🚦 信号の間隔</span> <input id="optSigInt" type="number" min="1" max="20" value="3" style="width:3.5em"> <span data-i18n="ui.signalOpts_2">タイル間隔(ドラッグした方向に一方向ずつ設置)</span></div>
+      <div id="subwayOpts" hidden><button type="button" class="optx" title="閉じる (Esc)" data-i18n-title="ui.subwayOpts.t1.title">✕</button><span data-i18n="ui.subwayOpts">🚇 地下鉄の深さ</span>
+        <label><span data-i18n="ui.subwayOpts.start">始点</span> <select id="optSubZ0"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
+        <label><span data-i18n="ui.subwayOpts.end">終点</span> <select id="optSubZ1"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
+        <span data-i18n="ui.subwayOpts.note">深いほど高くなります。1タイルで深さは1段まで変えられます。</span></div>
       <div id="facilityOpts" hidden><button type="button" class="optx" title="閉じる (Esc)" data-i18n-title="ui.facilityOpts.t1.title">✕</button>
         <b id="facTitle">施設</b>
         <div class="row" id="facSizes"><button type="button" data-fsize="S" data-i18n="ui.facility.size.S">小</button><button type="button" data-fsize="M" data-i18n="ui.facility.size.M">中</button><button type="button" data-fsize="L" data-i18n="ui.facility.size.L">大</button></div>

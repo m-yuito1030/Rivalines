@@ -4,10 +4,11 @@ import { autoRailPath, canConnectRail, connectRail, railLineTiles } from './rail
 import { CONN, DX8, DY8 } from './directions';
 import { PRICES, yen } from '../sim/economy/economy';
 import { buildSpan, planSpan } from './spans';
+import { layNewSubway, removeSubwayLine } from './subway';
 import { MAX_TERRAFORM_AREA, lower, raise, setLevel } from './terraform';
 
-export type DragTool = 'road' | 'oneway' | 'twoway' | 'bulldoze' | 'rail' | 'railauto' | 'raise' | 'lower' | 'level' | 'roadspan' | 'railspan';
-export const DRAG_TOOLS: readonly string[] = ['road', 'oneway', 'twoway', 'bulldoze', 'rail', 'railauto', 'raise', 'lower', 'level', 'roadspan', 'railspan'];
+export type DragTool = 'road' | 'oneway' | 'twoway' | 'bulldoze' | 'rail' | 'railauto' | 'raise' | 'lower' | 'level' | 'roadspan' | 'railspan' | 'subway' | 'subwaydel';
+export const DRAG_TOOLS: readonly string[] = ['road', 'oneway', 'twoway', 'bulldoze', 'rail', 'railauto', 'raise', 'lower', 'level', 'roadspan', 'railspan', 'subway', 'subwaydel'];
 export const RECT_TOOLS: readonly string[] = ['raise', 'lower', 'level'];
 type Tile = { x: number; y: number };
 
@@ -18,6 +19,8 @@ export interface BuildIO {
   msg: (m: string) => void;
   /** Multiplayer: the owner (company) of the tiles laid. Demolition only works on the company's own (or unowned) tiles */
   owner?: number;
+  /** The subway tool: the depth at the start and at the end of the line (1-4; the depth changes evenly along it, as a slope) */
+  z?: [number, number];
   /** Report tiles where track or road changed (to narrow down which paths need searching again) */
   touched?: (x: number, y: number) => void;
 }
@@ -49,6 +52,13 @@ export function applyBuild(map: GameMap, tool: DragTool, a: Tile, b: Tile, io: B
       const changed = tool === 'raise' ? raise(map, t.x, t.y) : tool === 'lower' ? lower(map, t.x, t.y) : setLevel(map, t.x, t.y, target);
       if (changed) io.pay(PRICES.terraform);
     }
+    return;
+  }
+  if (tool === 'subway' || tool === 'subwaydel') {
+    // Subway is its own layer: it does not touch the surface network, so no path needs searching again
+    const z = io.z ?? [1, 1];
+    if (tool === 'subway') layNewSubway(map, a, b, z[0], z[1], io);
+    else removeSubwayLine(map, a, b, io);
     return;
   }
   if (tool === 'roadspan' || tool === 'railspan') {

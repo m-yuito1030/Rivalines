@@ -23,6 +23,7 @@ export function build(cmd: Extract<Cmd, { t: 'build' }>, ctx: CommandContext): C
     pay: (c) => co.spend('build', c),
     msg: (m) => msgs.push(m),
     owner: who,
+    z: Array.isArray(cmd.z) && cmd.z.length === 2 && cmd.z.every((n) => Number.isInteger(n) && n >= 1 && n <= 4) ? (cmd.z as [number, number]) : undefined,
     touched: (x, y) => changed.push([x, y]),
   });
   t.touchNetworkTiles(changed); // paths through the changed tiles are searched again at the next departure / next tile

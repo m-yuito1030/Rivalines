@@ -28,6 +28,12 @@ export class GameMap {
   readonly air: TileLayer;
   /** Building: 0 = none, bits 0-1 = level (1..3), bits 2-5 = look variant */
   readonly building: TileLayer;
+  /** Subway tiles (see subway.ts): connections, depth, and a present flag. Separate from the surface layers, so it can lie under buildings and roads */
+  readonly subway: TileLayer;
+  /** Multiplayer: the company that owns each subway tile (0 = none) */
+  readonly subwayOwner: TileLayer<Uint16Array>;
+  /** Increases whenever any subway tile changes (so the underground view knows to redraw) */
+  subwayVer = 0;
   /** Building under construction: 1 = under construction (the building is placed but not yet usable). Saves are restored from SimState.sites */
   readonly construction: TileLayer;
   /** Server: tiles under construction (index) -> the tick they finish */
@@ -79,6 +85,8 @@ export class GameMap {
     this.span = u8Layer(size);
     this.building = u8Layer(size);
     this.construction = u8Layer(size);
+    this.subway = u8Layer(size);
+    this.subwayOwner = u16Layer(size);
     this.owner = u16Layer(size);
     this.infraOwner = u16Layer(size);
   }

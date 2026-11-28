@@ -2,7 +2,9 @@ import type { SimState } from '../sim/simulation';
 import { type GameMap, heightHash } from '../world/gameMap';
 import type { TileLayer } from '../world/tileLayer';
 
-const LAYERS = ['road', 'building', 'rail', 'air', 'span', 'owner', 'infraOwner'] as const;
+const LAYERS = ['road', 'building', 'rail', 'air', 'span', 'owner', 'infraOwner', 'subway', 'subwayOwner'] as const;
+/** Layers of v5 (before the subway) */
+const LAYERS_V5 = ['road', 'building', 'rail', 'air', 'span', 'owner', 'infraOwner'] as const;
 /** Layers of the old versions (v3/v4) */
 const LAYERS_OLD = ['road', 'building', 'rail', 'air', 'span', 'owner'] as const;
 type LayerKey = (typeof LAYERS)[number];
@@ -23,7 +25,7 @@ export interface CameraState {
 }
 
 export interface SaveHeader {
-  version: 3 | 4 | 5;
+  version: 3 | 4 | 5 | 6;
   terrainVersion: number;
   size: number;
   seed: number;
@@ -68,7 +70,7 @@ export function metaOf(map: GameMap, sim: SimState, gameDate: string, savedAt = 
 /** Turn the game state into gzip-compressed bytes. Terrain (heights) is regenerated from the seed, so it is not saved */
 export async function encodeSave(map: GameMap, sim: SimState, camera?: CameraState): Promise<Uint8Array<ArrayBuffer>> {
   const header: SaveHeader = {
-    version: 5,
+    version: 6,
     terrainVersion: TERRAIN_VERSION,
     size: map.size,
     seed: map.seed,
@@ -133,8 +135,8 @@ export async function decodeSave(compressed: Uint8Array<ArrayBuffer>): Promise<D
     }
     return { header, layers };
   }
-  if (header.version !== 4 && header.version !== 5) throw new Error(`未対応のセーブバージョン: ${header.version}`);
-  for (const k of header.version === 4 ? LAYERS_OLD : LAYERS) {
+  if (header.version !== 4 && header.version !== 5 && header.version !== 6) throw new Error(`未対応のセーブバージョン: ${header.version}`);
+  for (const k of header.version === 4 ? LAYERS_OLD : header.version === 5 ? LAYERS_V5 : LAYERS) {
     const cnt = dv.getUint32(o, true);
     o += 4;
     if (o + cnt * 6 > raw.length) throw new Error('セーブデータが壊れています');
