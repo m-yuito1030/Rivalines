@@ -178,7 +178,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       void run({ t: 'ensureStop', x: tile.x, y: tile.y, kind: b.kind }).then((r) => {
         if (r.ok && r.id !== undefined && b.stops[b.stops.length - 1] !== r.id) panel.addToBuild(r.id);
       });
-    } else if (tool === 'station') void run({ t: 'place', tool, x: tile.x, y: tile.y, opts: { ...stationPicker.opts } });
+    } else if (tool === 'subdepot') void run({ t: 'place', tool: 'depot', x: tile.x, y: tile.y, kind: 'rail' });
+    else if (tool === 'station') void run({ t: 'place', tool, x: tile.x, y: tile.y, opts: { ...stationPicker.opts } });
     else if (tool !== 'route' && tool !== 'pan')
       void run({
         t: 'place',
@@ -204,9 +205,11 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   tools.facilityPlanner = (x, y, type) => facilityPicker.plan(map, x, y, type, facOcc);
   tools.airportSel = airportPicker;
   tools.stationPlanner = (x, y) => stationPicker.plan(map, x, y, (i) => !!transit.stopAtTile(i % map.size, Math.floor(i / map.size)));
-  const underground = new UndergroundView(map);
-  // The haze goes right above the terrain (below stops and vehicles), so underground trains are not dimmed
-  worldRoot.addChildAt(underground.shade, 1);
+  const underground = new UndergroundView(map, chunks.container);
+  let manualUnderground = false;
+  let subwayToolOn = false;
+  // The grey backdrop goes under the (see-through) terrain, the tunnels right above it (below stops and vehicles)
+  worldRoot.addChildAt(underground.backdrop, 0);
   worldRoot.addChildAt(underground.tracks, 2);
   worldRoot.addChild(tools.overlay);
 
@@ -328,9 +331,10 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     facilityPicker.setTool(t);
     airportPicker.setVisible(t === 'airport');
     $('signalOpts').hidden = t !== 'signalline';
-    $('subwayOpts').hidden = t !== 'subway' && t !== 'subwaydel';
-    underground.active = t === 'subway' || t === 'subwaydel' || t === 'portal';
-    transitLayer.underground = underground.active;
+    // Every subway tool shows the underground (and the how-to panel)
+    const subwayTool = t === 'subway' || t === 'subwaydel' || t === 'portal' || t === 'substation' || t === 'subdepot';
+    $('subwayOpts').hidden = !subwayTool;
+    subwayToolOn = subwayTool;
     bulldozeOptions.setVisible(t === 'bulldoze');
     toolbar.highlight(t);
     if (t !== 'route' && (panel.building || panel.inserting)) panel.cancelBuild();
@@ -349,6 +353,17 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       setTool(b.dataset.tool as Tool);
     }),
   );
+  // Underground view on / off: the button, and PageDown / PageUp
+  const setUnderground = (on: boolean) => {
+    manualUnderground = on;
+    $('ugBtn').classList.toggle('on', on);
+  };
+  $('ugBtn').addEventListener('click', () => setUnderground(!manualUnderground));
+  window.addEventListener('keydown', (e) => {
+    if (e.target instanceof HTMLInputElement || e.target instanceof HTMLSelectElement || e.target instanceof HTMLTextAreaElement) return;
+    if (e.key === 'PageDown') setUnderground(true);
+    else if (e.key === 'PageUp') setUnderground(false);
+  });
   window.addEventListener('keydown', (e) => {
     const k = e.key.toLowerCase();
     if (k === 'enter' && panel.building) panel.finishBuild();
@@ -371,7 +386,14 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
 
   // Town name labels (screen coordinates)
   const labelTexts = new Map<number, Text>();
-  const stopLabels = new StopLabels(labels, transit, map, $('stopNameBtn'));
+  const stopLabels = new StopLabels(
+    labels,
+    transit,
+    map,
+    $('stopNameBtn'),
+    () => underground.active,
+    () => transitLayer.showAll,
+  );
   const forSaleLabels = new ForSaleLabels(labels, map, () => sim.day);
 
   (window as unknown as Record<string, unknown>).__mp = { map, sim, camera, net, mirror };
@@ -675,7 +697,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     tools.draw();
     {
       const d0 = sim.date;
-      const color = tintOf(d0.hour + d0.minute / 60); // always follows the server's in-game time
+      // It always follows the server's in-game time, except underground: there it is the same day and night (otherwise the subway view goes dark at night)
+      const color = underground.active ? 0xffffff : tintOf(d0.hour + d0.minute / 60);
       const w0 = app.screen.width;
       const h0 = app.screen.height;
       if (color !== lastTint || w0 !== lastW || h0 !== lastH) {
@@ -687,6 +710,11 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     }
     transitLayer.draw(view, new Set(panel.building?.stops ?? []));
     constructionFx.draw(view, performance.now());
+    // The underground is shown while a subway tool is selected, and also while a rail route is being made (so its subway stations can be clicked)
+    const routeRail = panel.building?.kind === 'rail';
+    underground.active = subwayToolOn || routeRail || manualUnderground;
+    transitLayer.underground = underground.active;
+    transitLayer.showAll = routeRail && !subwayToolOn;
     underground.draw(view);
     const tD = performance.now();
     perfSim = perfSim * 0.9 + (tB - tA) * 0.1;

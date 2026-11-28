@@ -1144,3 +1144,37 @@ describe('操作の結果の知らせ', () => {
     expect(r.msg).toContain('＋車両');
   });
 });
+
+describe('地下鉄の駅と車両基地', () => {
+  it('地下鉄の線路の上に駅を置け、地上や曲がり角・線路のない所では理由つきで断る', () => {
+    const sim = world();
+    sim.setOnline([1]);
+    execute(sim, 1, { t: 'build', tool: 'subway', a: { x: 90, y: 100 }, b: { x: 120, y: 100 }, z: [2, 2] });
+    const ok = execute(sim, 1, { t: 'place', tool: 'substation', x: 100, y: 100 });
+    expect(ok.ok).toBe(true);
+    expect(ok.msg).toContain('地下鉄');
+    // On the end tile (one connection only) and on bare ground there is no station
+    expect(execute(sim, 1, { t: 'place', tool: 'substation', x: 90, y: 100 }).ok).toBe(false);
+    const bare = execute(sim, 1, { t: 'place', tool: 'substation', x: 100, y: 105 });
+    expect(bare.ok).toBe(false);
+    expect(bare.msg).toContain('線路を引く');
+    const again = execute(sim, 1, { t: 'place', tool: 'substation', x: 100, y: 100 });
+    expect(again.msg).toContain('すでに');
+  });
+
+  it('地下鉄の車両基地は、道路の下でも kind: rail で置ける。駅2つ・路線・電車まで進める', () => {
+    const sim = world();
+    sim.setOnline([1]);
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 90, y: 100 }, b: { x: 120, y: 100 } }); // a street right above the subway
+    execute(sim, 1, { t: 'build', tool: 'subway', a: { x: 90, y: 100 }, b: { x: 120, y: 100 }, z: [1, 1] });
+    const depot = execute(sim, 1, { t: 'place', tool: 'depot', x: 95, y: 100, kind: 'rail' });
+    expect(depot.ok).toBe(true);
+    expect(sim.transit.depots.get(depot.id!)!.kind).toBe('rail');
+    const a = execute(sim, 1, { t: 'place', tool: 'substation', x: 100, y: 100 });
+    const b = execute(sim, 1, { t: 'place', tool: 'substation', x: 115, y: 100 });
+    const r = execute(sim, 1, { t: 'routeCreate', stops: [a.id!, b.id!] });
+    expect(r.ok).toBe(true);
+    const v = execute(sim, 1, { t: 'buyVehicle', routeId: r.id!, modelId: 'sw11', cars: 4 });
+    expect(v.msg ?? '').not.toContain('購入できません');
+  });
+});

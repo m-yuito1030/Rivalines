@@ -37,6 +37,8 @@ export type Tool =
   | 'subway'
   | 'subwaydel'
   | 'portal'
+  | 'substation'
+  | 'subdepot'
   | 'signal'
   | 'waypoint'
   | 'depot'
@@ -64,6 +66,8 @@ const BUILD: Tool[] = [
   'railspan',
   'subway',
   'portal',
+  'substation',
+  'subdepot',
   'signal',
   'waypoint',
   'stop',
@@ -76,7 +80,24 @@ const BUILD: Tool[] = [
   'hotel',
   ...NEW_FACILITY_TYPES,
 ];
-const SINGLE: Tool[] = ['stop', 'route', 'station', 'airport', 'signal', 'waypoint', 'depot', 'stadium', 'amusement', 'mall', 'park', 'department', 'hotel', ...NEW_FACILITY_TYPES];
+const SINGLE: Tool[] = [
+  'stop',
+  'route',
+  'substation',
+  'subdepot',
+  'station',
+  'airport',
+  'signal',
+  'waypoint',
+  'depot',
+  'stadium',
+  'amusement',
+  'mall',
+  'park',
+  'department',
+  'hotel',
+  ...NEW_FACILITY_TYPES,
+];
 type Tile = { x: number; y: number };
 const isFacilityTool = (t: string): t is FacilityType => (FACILITY_TYPES as string[]).includes(t);
 
@@ -240,7 +261,7 @@ export class ToolController {
     const a = this.start ?? hover;
     const del = this.tool === 'subwaydel';
     const line = this.start && !del ? subwayLine(a, hover, this.subwayZ[0], this.subwayZ[1]) : null;
-    const tiles = this.start ? lineTiles(a.x, a.y, hover.x, hover.y) : [{ x: a.x, y: a.y }];
+    const tiles = this.start ? railLineTiles(a.x, a.y, hover.x, hover.y) : [{ x: a.x, y: a.y }];
     tiles.forEach((t, i) => {
       const lvl = this.map.inBounds(t.x, t.y) ? this.map.levelAt(t.x, t.y) : 0;
       const wx = (t.x - t.y) * 32;

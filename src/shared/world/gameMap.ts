@@ -29,7 +29,7 @@ export class GameMap {
   /** Building: 0 = none, bits 0-1 = level (1..3), bits 2-5 = look variant */
   readonly building: TileLayer;
   /** Subway tiles (see subway.ts): connections, depth, and a present flag. Separate from the surface layers, so it can lie under buildings and roads */
-  readonly subway: TileLayer;
+  readonly subway: TileLayer<Uint16Array>;
   /** Multiplayer: the company that owns each subway tile (0 = none) */
   readonly subwayOwner: TileLayer<Uint16Array>;
   /** Increases whenever any subway tile changes (so the underground view knows to redraw) */
@@ -44,7 +44,8 @@ export class GameMap {
     const r = this.rail.get(i);
     if (this.subwayVer === 0) return r;
     const s = this.subway.get(i);
-    return s & 0x80 ? r | (s & 15) : r;
+    // Orthogonal connections are bits 0-3 of both; the subway's diagonals (bits 8-11) are the rail's bits 4-7
+    return s & 0x80 ? r | (s & 15) | (((s >> 8) & 15) << 4) : r;
   }
   /** Building under construction: 1 = under construction (the building is placed but not yet usable). Saves are restored from SimState.sites */
   readonly construction: TileLayer;
@@ -99,7 +100,7 @@ export class GameMap {
     this.span = u8Layer(size);
     this.building = u8Layer(size);
     this.construction = u8Layer(size);
-    this.subway = u8Layer(size);
+    this.subway = u16Layer(size);
     this.subwayOwner = u16Layer(size);
     this.owner = u16Layer(size);
     this.infraOwner = u16Layer(size);

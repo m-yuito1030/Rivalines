@@ -412,6 +412,17 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 #airportOpts small { font-size: 11px; line-height: 1.35; }
 #airportOpts { width: 300px; }
 #airportOpts small { display: block; color: #9ab; margin-top: 4px; }
+
+#subwayOpts { width: 262px; }
+#subwayOpts ol.subhow { margin: 0; padding-left: 18px; display: grid; gap: 2px; color: #cfe; }
+.sublegend { display: flex; align-items: center; gap: 4px; }
+.sublegend i { display: inline-block; min-width: 18px; text-align: center; font-style: normal; color: #05101c; font-weight: 700; border-radius: 4px; }
+
+/* The underground view switch: a floating button above the minimap (so the toolbar stays as wide as before) */
+#ugBtn { position: absolute; right: 10px; bottom: 218px; z-index: 6; padding: 8px 12px; border-radius: 10px; font-size: 13px; pointer-events: auto; background: #26384f; color: #eee; border: 1px solid #456; cursor: pointer; }
+#ugBtn:hover { background: #34506f; }
+#ugBtn.on { background: #2f7dd1; border-color: #8cf; }
+@media (max-width: 700px) { #ugBtn { bottom: 186px; right: 6px; } }
 /* The close button of the full-screen windows: a small square ✕ (the same look as the other close buttons) */
 #fin-modal h2 .xbtn, #rank-modal h2 .xbtn, #list-modal h2 .xbtn, #dia-modal h2 .xbtn, #analysis-modal h2 .xbtn, #sale-modal h2 .xbtn, #consult-modal h2 .xbtn, #auction-modal h2 .xbtn, #stats-modal h2 .xbtn { width: 28px; height: 28px; padding: 0; line-height: 1; font-size: 14px; flex: none; background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; cursor: pointer; }
 @media (pointer: coarse), (max-width: 820px) { #fin-modal h2 .xbtn, #rank-modal h2 .xbtn, #list-modal h2 .xbtn, #dia-modal h2 .xbtn, #analysis-modal h2 .xbtn, #sale-modal h2 .xbtn, #consult-modal h2 .xbtn, #auction-modal h2 .xbtn, #stats-modal h2 .xbtn { width: 36px; height: 36px; } }

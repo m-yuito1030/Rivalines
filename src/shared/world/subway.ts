@@ -1,23 +1,27 @@
 import type { GameMap } from './gameMap';
-import { CONN, DX, DY, opposite } from './directions';
-import { lineTiles } from './roads';
+import { CONN, DX, DX8, DY, DY8, opposite, opposite8 } from './directions';
+import { railLineTiles } from './rails';
 import { yen } from '../sim/economy/economy';
 
 /**
  * Subway tracks. Below the ground there are 4 depth levels (1 = shallowest, 4 = deepest). A subway tile is stored in its own layer (`map.subway`),
  * so it can lie under buildings, roads, and surface rails without conflicting with them.
  *
- * Byte of a subway tile: bits 0-3 = connections (N,E,S,W), bits 4-5 = depth - 1, bit 7 = a subway tile is here (a tile with no connection yet still counts).
+ * Value of a subway tile (16 bits): bits 0-3 = connections N,E,S,W, bits 4-5 = depth - 1, bit 7 = a subway tile is here (a tile with no connection yet still counts),
+ * bits 8-11 = the diagonal connections NE,SE,SW,NW (directions 4-7, the same as the surface rail). Tracks may run diagonally, as the surface rail does.
  * Two connected tiles may differ by at most one depth level (that is the slope between depths).
  */
 export const SUB_DEPTH_MAX = 4;
 export const SUB_PRESENT = 0x80;
 
 export const hasSub = (v: number): boolean => (v & SUB_PRESENT) !== 0;
-export const subConn = (v: number): number => v & 15;
+/** The bit of direction d (0-7) in a subway value */
+export const subBit = (d: number): number => (d < 4 ? 1 << d : 1 << (8 + d - 4));
+/** The connections as an 8-bit mask in the surface rail's layout (bit d = direction d, so bits 4-7 are the diagonals) */
+export const subConn = (v: number): number => (v & 15) | (((v >> 8) & 15) << 4);
 /** Depth 1..4 (only meaningful when hasSub(v)) */
 export const subDepth = (v: number): number => ((v >> 4) & 3) + 1;
-export const makeSub = (conn: number, depth: number): number => SUB_PRESENT | (conn & 15) | (((depth - 1) & 3) << 4);
+export const makeSub = (conn: number, depth: number): number => SUB_PRESENT | (conn & 15) | (((conn >> 4) & 15) << 8) | (((depth - 1) & 3) << 4);
 
 /** Construction cost of one subway tile: deeper is dearer */
 export const SUBWAY_COST = { base: 12_000, perDepth: 4_000 } as const;
@@ -36,11 +40,11 @@ export interface SubwayIO {
 const clampDepth = (z: unknown): number => Math.max(1, Math.min(SUB_DEPTH_MAX, Math.round(Number(z)) || 1));
 
 /**
- * The tiles of a straight subway line from a to b (along the longer axis, like a road drag) with the depth of each tile: the depth goes evenly
+ * The tiles of a straight subway line from a to b (along the longer axis, or diagonally when the drag is near 45 degrees, like the rail tool) with the depth of each tile: the depth goes evenly
  * from z0 at the start to z1 at the end (a slope). Null if the line is too short for that change of depth (at most one level per tile).
  */
 export function subwayLine(a: Tile, b: Tile, z0: number, z1: number): { x: number; y: number; d: number; depth: number }[] | null {
-  const tiles = lineTiles(a.x, a.y, b.x, b.y);
+  const tiles = railLineTiles(a.x, a.y, b.x, b.y);
   const n = tiles.length - 1;
   const d0 = clampDepth(z0);
   const d1 = clampDepth(z1);
@@ -79,8 +83,8 @@ export function layNewSubway(map: GameMap, a: Tile, b: Tile, z0: number, z1: num
       // t.d is the direction of travel into this tile (see the surface preview, which steps back with it)
       const pd = t.d;
       const pi = map.idx(prev.x, prev.y);
-      map.subway.set(pi, map.subway.get(pi) | CONN(pd));
-      map.subway.set(i, map.subway.get(i) | CONN(opposite(pd)));
+      map.subway.set(pi, map.subway.get(pi) | subBit(pd));
+      map.subway.set(i, map.subway.get(i) | subBit(opposite8(pd)));
       map.touch(prev.x, prev.y);
       map.touch(t.x, t.y);
     }
@@ -115,7 +119,7 @@ export function layPortal(map: GameMap, p: Tile, io: SubwayIO): void {
     if (r === 0 || (r & 0xf0) !== 0 || (r & (r - 1)) !== 0 || map.span.get(ni)) continue;
     if (!io.afford(PORTAL_COST) || !io.pay(PORTAL_COST)) return void io.msg(`資金が足りません(出入口は ${yen(PORTAL_COST)})`);
     map.rail.set(ni, r | CONN(opposite(d)));
-    map.subway.set(i, v | CONN(d));
+    map.subway.set(i, v | subBit(d));
     if (!map.infraOwner.get(ni) && io.owner) map.infraOwner.set(ni, io.owner);
     map.touch(nx, ny);
     map.touch(p.x, p.y);
@@ -127,7 +131,7 @@ export function layPortal(map: GameMap, p: Tile, io: SubwayIO): void {
 
 /** Remove the subway tiles on a straight line (only the company's own, or unowned ones), and the connections to them */
 export function removeSubwayLine(map: GameMap, a: Tile, b: Tile, io: SubwayIO): void {
-  for (const t of lineTiles(a.x, a.y, b.x, b.y)) {
+  for (const t of railLineTiles(a.x, a.y, b.x, b.y)) {
     if (!map.inBounds(t.x, t.y)) continue;
     const i = map.idx(t.x, t.y);
     if (!hasSub(map.subway.get(i))) continue;
@@ -137,16 +141,16 @@ export function removeSubwayLine(map: GameMap, a: Tile, b: Tile, io: SubwayIO): 
     map.subway.set(i, 0);
     map.subwayOwner.set(i, 0);
     map.touch(t.x, t.y);
-    for (let d = 0; d < 4; d++) {
-      const nx = t.x + DX[d];
-      const ny = t.y + DY[d];
+    for (let d = 0; d < 8; d++) {
+      const nx = t.x + DX8[d];
+      const ny = t.y + DY8[d];
       if (!map.inBounds(nx, ny)) continue;
       const ni = map.idx(nx, ny);
       const nv = map.subway.get(ni);
       if (hasSub(nv)) {
-        map.subway.set(ni, nv & ~CONN(opposite(d)));
+        map.subway.set(ni, nv & ~subBit(opposite8(d)));
         map.touch(nx, ny);
-      } else if (had & CONN(d) && map.rail.get(ni) & CONN(opposite(d))) {
+      } else if (d < 4 && had & CONN(d) && map.rail.get(ni) & CONN(opposite(d))) {
         // The portal: take the link off the surface rail too
         map.rail.set(ni, map.rail.get(ni) & ~CONN(opposite(d)));
         map.touch(nx, ny);

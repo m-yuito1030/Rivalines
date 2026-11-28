@@ -105,6 +105,10 @@ export const EN_SERVER: Catalog = {
   'ja:停留所を置けません': 'Cannot place a stop here.',
   'ja:路線「{name}」を作りました。路線パネルの「＋車両」で車両を買うと走り出します':
     'Route "{name}" created. Buy a vehicle with "+ vehicle" in the Routes panel and it starts running.',
+  'ja:地下鉄の駅は、地下鉄の線路の上に置きます。先に「🚇 地下鉄」の「線路を引く」で線路を引いてください':
+    'A subway station goes on subway track. First lay track with "🚇 Subway" > "Lay track".',
+  'ja:駅は、まっすぐな線路の上に置きます(曲がり角・分かれ道・斜めの所には置けません)': 'A station goes on straight track (not on a curve, a junction, or a diagonal).',
+  'ja:地下鉄の{name}を置きました({cost})。2つ以上置いて、路線でつなぎます': 'Subway station {name} placed ({cost}). Place two or more, then link them with a route.',
   'ja:マップの外です': 'That is outside the map.',
   'ja:橋・トンネルの上には置けません': 'You cannot place it on a bridge or tunnel.',
   'ja:バス停は道路の上に置きます。先に道路を引くか、道路の上をクリックしてください': 'A bus stop goes on a road. Lay a road first, or click on a road.',

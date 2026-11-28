@@ -27,7 +27,8 @@ export interface BulldozeKinds {
 }
 
 /** Tools that place one tile at a time */
-export type PlaceTool = 'stop' | 'station' | 'depot' | 'waypoint' | 'signal' | 'airport' | 'stadium' | 'amusement' | 'mall' | 'park' | 'department' | 'hotel' | NewFacilityType;
+export type PlaceTool =
+  'stop' | 'substation' | 'station' | 'depot' | 'waypoint' | 'signal' | 'airport' | 'stadium' | 'amusement' | 'mall' | 'park' | 'department' | 'hotel' | NewFacilityType;
 
 /** Route, order, and vehicle operations that need only the owner's confirmation (method names on Transit) */
 export const TX_METHODS = [

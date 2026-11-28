@@ -51,3 +51,23 @@ describe('subway trains', () => {
     expect(msgs.length).toBe(1);
   });
 });
+
+describe('subway trains on diagonals and underground stations', () => {
+  it('a train runs along a track with a diagonal part', () => {
+    const m = flat();
+    // East, then a diagonal run, then east again
+    layNewSubway(m, { x: 5, y: 20 }, { x: 25, y: 20 }, 2, 2, io);
+    layNewSubway(m, { x: 25, y: 20 }, { x: 35, y: 30 }, 2, 2, io);
+    layNewSubway(m, { x: 35, y: 30 }, { x: 60, y: 30 }, 2, 2, io);
+    for (const x of [8, 9, 56, 57]) m.building.set(m.idx(x, 31), 3);
+    const tr = new Transit(m);
+    const a = tr.addStop(7, 20, 'rail')!;
+    const b = tr.addStop(58, 30, 'rail')!;
+    expect(a && b).toBeTruthy();
+    const r = tr.addRoute([a.id, b.id])!;
+    expect(r).toBeTruthy();
+    expect(tr.addVehicle(r.id, 0)).not.toBeNull();
+    for (let t = 1; t < 15000; t++) tr.step(t);
+    expect(tr.delivered).toBeGreaterThan(0);
+  });
+});
