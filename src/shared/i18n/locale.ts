@@ -1,5 +1,5 @@
 /**
- * 多言語対応の土台。言語ごとに Locale の子クラスを作る(Ja → En のように、足りない文は継承元で補う)。
+ * 多言語対応の土台。言語ごとに Locale の子クラスを作る(Ja → En → De / Fr のように、足りない文は継承元で補う)。
  *
  *   Locale  ── 文の取り出しと、{名前} の差し込み、数・金額・日付の書き方
  *     └ Ja  ── 日本語(すべての文を持つ基準)
@@ -10,7 +10,7 @@
  */
 import { formatCompactMoney, formatMoney, getCurrency } from './currency';
 
-export type LangCode = 'ja' | 'en';
+export type LangCode = 'ja' | 'en' | 'de' | 'fr';
 export type Params = Record<string, string | number>;
 /** 文の一覧(キー → 文) */
 export type Catalog = Readonly<Record<string, string>>;
