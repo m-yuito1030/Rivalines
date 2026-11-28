@@ -269,24 +269,64 @@ function tryExtendRoad(map: GameMap, town: Town, rng: () => number): boolean {
     if (road === 0) continue;
     const d = (rng() * 4) | 0;
     if (road & (1 << d)) continue;
-    let x = idx % map.size;
-    let y = Math.floor(idx / map.size);
     const len = 3 + ((rng() * 5) | 0);
-    // Stop if the end is not open ground (running into another road is allowed: connect and finish)
-    let built = 0;
-    for (let i = 0; i < len; i++) {
-      const nx = x + DX[d];
-      const ny = y + DY[d];
-      if (!canConnect(map, x, y, d)) break;
-      const hit = hasRoad(map, nx, ny);
-      connect(map, x, y, d, false);
-      x = nx;
-      y = ny;
-      built++;
-      if (!hit) addRoadTile(map, town, x, y);
-      else break;
+    if (laySegment(map, town, idx % map.size, Math.floor(idx / map.size), d, len) > 0) return true;
+  }
+  return false;
+}
+
+/**
+ * Lay up to len road tiles from (x,y) in direction d. Stops if the end is not open ground (running into another road is allowed: connect and finish),
+ * or if inside is given and the next tile lies outside it. Returns how many tiles were laid.
+ */
+function laySegment(map: GameMap, town: Town, x: number, y: number, d: number, len: number, inside?: (x: number, y: number) => boolean): number {
+  let built = 0;
+  for (let i = 0; i < len; i++) {
+    const nx = x + DX[d];
+    const ny = y + DY[d];
+    if (inside && !inside(nx, ny)) break;
+    if (!canConnect(map, x, y, d)) break;
+    const hit = hasRoad(map, nx, ny);
+    connect(map, x, y, d, false);
+    x = nx;
+    y = ny;
+    built++;
+    if (!hit) addRoadTile(map, town, x, y);
+    else break;
+  }
+  return built;
+}
+
+/**
+ * The roads of a district take the district's shape: the office district gets a grid (a street every 4 tiles, running across the whole district),
+ * a housing complex gets short dead-end lanes every 6 tiles, and a shopping street gets one long street through the middle. Returns whether a road was laid.
+ */
+export function extendDistrictRoad(map: GameMap, town: Town, d: District, rng: () => number): boolean {
+  if (town.roads.length >= TIERS[townTier(town)].roads) return false;
+  const inside = (x: number, y: number) => x >= d.x0 && x <= d.x1 && y >= d.y0 && y <= d.y1;
+  const cy = (d.y0 + d.y1) >> 1;
+  for (let tries = 0; tries < 40 && town.roads.length; tries++) {
+    const idx = town.roads[(rng() * town.roads.length) | 0];
+    const x = idx % map.size;
+    const y = Math.floor(idx / map.size);
+    if (!inside(x, y)) continue;
+    const road = map.road.get(idx);
+    if (road === 0) continue;
+    const dir = (rng() * 4) | 0;
+    if (road & (1 << dir)) continue;
+    const vertical = dir === 0 || dir === 2;
+    let len: number;
+    if (d.kind === 'office') {
+      if ((vertical ? x - d.x0 : y - d.y0) % 4 !== 0) continue;
+      len = 14;
+    } else if (d.kind === 'danchi') {
+      if ((vertical ? x - d.x0 : y - d.y0) % 6 !== 0) continue;
+      len = 3 + ((rng() * 3) | 0);
+    } else {
+      if (vertical || y !== cy) continue;
+      len = 10;
     }
-    if (built > 0) return true;
+    if (laySegment(map, town, x, y, dir, len, inside) > 0) return true;
   }
   return false;
 }
@@ -301,8 +341,11 @@ function developDistricts(map: GameMap, town: Town, rng: () => number, site: Pla
   const active = town.districts.find((d) => d.state !== 'done');
   // Rebuilding may push a town a little past its tier's population limit (a big block holds more people than the houses it replaces)
   if (active && town.pop < TIERS[townTier(town)].max * 1.05 && rng() < 0.6) {
-    demolishMisfit(map, town, active, rng);
-    tryPlaceHouse(map, town, rng, { district: active, site, news });
+    // Roads first (a district takes its shape from them), then the rebuilding
+    if (rng() < 0.3) extendDistrictRoad(map, town, active, rng);
+    // Build first, then pull down one old building that the new one makes up for (so rebuilding never shrinks the town)
+    const before = town.pop;
+    if (tryPlaceHouse(map, town, rng, { district: active, site, news })) demolishMisfit(map, town, active, rng, town.pop - before);
   }
   if (town.milestone === undefined) town.milestone = POP_MARKS.filter((m) => town.pop >= m).length; // the marks it was born past are not news
   while (town.milestone < POP_MARKS.length && town.pop >= POP_MARKS[town.milestone]) news?.({ kind: 'pop', town: town.name, n: POP_MARKS[town.milestone++] });
