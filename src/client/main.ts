@@ -31,6 +31,7 @@ import { StatsPanel } from './ui/statsPanel';
 import { AnalysisPanel } from './ui/analysisPanel';
 import { AuctionPanel } from './ui/auctionPanel';
 import { ForSalePanel } from './ui/forSalePanel';
+import { ConsultPanel } from './ui/consultPanel';
 import { ForSaleLabels } from './app/forSaleLabels';
 import { FinancePanel } from './ui/financePanel';
 import { RankingPanel } from './ui/rankingPanel';
@@ -458,6 +459,19 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     (m) => tools.onMessage?.(m),
   );
   $('saleBtn').addEventListener('click', () => salePanel.toggle());
+  const consultPanel = new ConsultPanel(
+    $('consult-modal'),
+    $('consultBody'),
+    () => sim.company,
+    () => map.facilities,
+    () => map.towns,
+    transit,
+    () => sim.rivals,
+    () => sim.day,
+    (x, y) => camera.centerOnTile(x, y),
+    (m) => tools.onMessage?.(m),
+  );
+  $('consultBtn').addEventListener('click', () => consultPanel.toggle());
   const aucPanel = new AuctionPanel(
     $('auction-modal'),
     $('aucBody'),

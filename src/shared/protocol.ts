@@ -102,7 +102,7 @@ export type Cmd =
   | { t: 'orderShift'; routeId: number; from: number; delta: number }
   | {
       t: 'fin';
-      op: 'borrow' | 'repay' | 'payout' | 'train' | 'budget-hire' | 'budget-ad' | 'budget-edu' | 'rival-buy' | 'rival-sell' | 'acquire' | 'sell';
+      op: 'borrow' | 'repay' | 'payout' | 'train' | 'budget-hire' | 'budget-ad' | 'budget-edu' | 'consult-on' | 'consult-off' | 'rival-buy' | 'rival-sell' | 'acquire' | 'sell';
       amount?: number;
       id?: number;
     };
