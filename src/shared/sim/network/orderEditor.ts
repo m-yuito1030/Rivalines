@@ -1,3 +1,4 @@
+import { modelOf } from '../../data/models';
 import { DEFAULT_DWELL, ROUTE_COLORS, Route } from './types';
 import type { Transit } from './transit';
 
@@ -29,6 +30,15 @@ export class OrderEditor {
     if (!r || !s) return { ok: false, reason: '路線または停留所がありません' };
     if (s.kind !== r.mode) return { ok: false, reason: '種別の違う停留所は追加できません' };
     if (this.t.actor && !this.t.mayUse(s, this.t.actor)) return { ok: false, reason: '他社の停留所は、持ち主の許可がないと使えません' };
+    // Aircraft already on the route must be able to use the new airport
+    if (r.mode === 'air') {
+      for (const g of this.groupOf(r))
+        for (const v of this.t.vehicles) {
+          if (v.routeId !== g.id) continue;
+          const why = this.t.aircraftFits(modelOf(v.modelId), [stopId]);
+          if (why) return { ok: false, reason: why };
+        }
+    }
     index = Math.max(0, Math.min(r.orders.length, index));
     for (const g of this.groupOf(r)) {
       g.orders.splice(index, 0, { stopId, kind: 'dwell', dwell: DEFAULT_DWELL[g.mode], maxWait: 300, departTod: 0 });

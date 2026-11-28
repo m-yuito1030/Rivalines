@@ -61,6 +61,8 @@ export class GameMap {
   readonly facilities: Facility[] = [];
   /** Increase whenever facilities are added or removed (to decide when to rebuild the drawing index) */
   facilityVer = 0;
+  /** Increase whenever airport tiles change (to decide when to rebuild what an airport is: runways, stands, hangars) */
+  airVer = 0;
   /** Notification when a tile changes (to regenerate drawing) */
   onTouch: ((x: number, y: number) => void) | null = null;
   /** Tiles edited by terraforming (index -> height). Terrain is regenerated from the seed, so only the differences are saved */

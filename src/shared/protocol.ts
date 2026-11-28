@@ -57,6 +57,7 @@ export type Cmd =
       opts?: StationOptions;
       /** For depots: which kind when the tile could be either (a street above a subway) */ kind?: Mode;
       fac?: { design: number; size: 'S' | 'M' | 'L' };
+      air?: { size: 'S' | 'M' | 'L' | 'H'; axis: 'x' | 'y' };
     }
   | { t: 'ensureStop'; x: number; y: number; kind: Mode }
   | { t: 'routeCreate'; stops: number[] }
@@ -119,6 +120,14 @@ export type ClientMsg =
   | { type: 'view'; x0: number; y0: number; x1: number; y1: number };
 
 /** Lightweight vehicle data needed for drawing (the path is sent separately, only when it changes) */
+export interface FlightMsg {
+  id: number;
+  done: number;
+  dist?: number;
+  pts?: number[];
+  sp?: number[];
+}
+
 export interface VehMsg {
   id: number;
   routeId: number;
@@ -133,7 +142,8 @@ export interface VehMsg {
   speed: number;
   trail: number[];
   len: number;
-  flight: unknown;
+  /** An aircraft's path: the whole path (pts, sp, dist) is sent once when it changes, afterwards only { id, done } */
+  flight: FlightMsg | null;
   hx: number;
   hy: number;
   dir: number;

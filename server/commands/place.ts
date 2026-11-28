@@ -3,10 +3,11 @@ import type { CommandContext } from './context';
 import { fail } from './util';
 import { blockingRight } from '../../src/shared/sim/economy/auctions';
 import { placeAirport } from '../../src/shared/world/airports';
+import { AIRPORT_NAMES, AIRPORT_SIZES, type AirportSize, airportFootprint } from '../../src/shared/world/airportLayout';
 import { STATIONMALL_RANGE, nearRailStop } from '../../src/shared/world/facilities';
 import { DESIGN_COUNT, FACILITY_SPECS, FACILITY_TYPES, SPRITE_TYPES, facilityCost, facilityDims, placeFacility, planFacility } from '../../src/shared/world/facilities';
 import type { FacilitySize, FacilityType } from '../../src/shared/world/facilities';
-import { PRICES, yen } from '../economyApi';
+import { AIRPORT_PRICES, PRICES, yen } from '../economyApi';
 
 /** ensureStop */
 export function ensureStop(cmd: Extract<Cmd, { t: 'ensureStop' }>, ctx: CommandContext): CmdResult {
@@ -108,12 +109,18 @@ export function place(cmd: Extract<Cmd, { t: 'place' }>, ctx: CommandContext): C
     return { ok: true, msg: mk === 0 ? tr('信号を撤去しました') : tr('信号: {d}の列車用(一方向)', { d: names.filter((_, d) => mk & (1 << d)).join(tr('・')) }) };
   }
   if (tool === 'airport') {
-    if (!co.afford(PRICES.airport)) return fail(tr('資金が足りません(空港 {PRICES})', { PRICES: yen(PRICES.airport) }));
-    const a = placeAirport(map, x, y);
-    if (!a) return fail(tr('空港を置けません(3×3の平らな空き地が必要です)'));
-    co.spend('build', PRICES.airport);
+    const size = AIRPORT_SIZES.includes(cmd.air?.size as AirportSize) ? (cmd.air!.size as AirportSize) : 'S';
+    const axis = cmd.air?.axis === 'y' ? 'y' : 'x';
+    const price = AIRPORT_PRICES[size];
+    if (!co.afford(price)) return fail(tr('資金が足りません(空港 {PRICES})', { PRICES: yen(price) }));
+    const a = placeAirport(map, x, y, size, axis);
+    if (!a) {
+      const { w, h } = airportFootprint(size, axis);
+      return fail(tr('空港を置けません({w}×{h}の平らな空き地が必要です)', { w, h }));
+    }
+    co.spend('build', price);
     const st = t.addStop(a.x, a.y, 'air');
-    return { ok: true, id: st?.id, msg: tr('空港を建設しました({PRICES})', { PRICES: yen(PRICES.airport) }) };
+    return { ok: true, id: st?.id, msg: tr('空港({size})を建設しました({PRICES})', { size: tr(AIRPORT_NAMES[size].ja), PRICES: yen(price) }) };
   }
   return fail(tr('不正な操作です'));
 }

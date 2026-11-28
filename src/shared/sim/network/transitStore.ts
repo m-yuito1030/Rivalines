@@ -47,6 +47,7 @@ export class TransitStore {
       for (const t of v.trail) this.t.reserved.set(t, v.id);
       if (v.state === 'move') for (let i = v.pi + 1; i <= Math.min(v.resTo, v.path.length - 1); i++) this.t.reserved.set(v.path[i], v.id);
     }
+    this.t.air.afterRestore();
     this.t.version++;
   }
 }

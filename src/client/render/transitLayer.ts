@@ -516,6 +516,11 @@ export class TransitLayer {
       const lvl = m.surfaceLevel(d.x, d.y);
       const sel = highlight.has(-d.id);
       const roof = sel ? 0xff9a2f : d.kind === 'rail' ? 0x5d7a99 : d.kind === 'air' ? 0x8896a6 : 0x6a8a6a;
+      // A depot on an airport's hangar tile: the hangar is already a building on the ground; only mark it when selected
+      if (d.kind === 'air' && m.air.get(d.idx) === 6) {
+        if (sel) this.box(d.x + 0.5, d.y + 0.5, lvl, 1, 0, 0.9, 0.9, 16, roof, 15);
+        continue;
+      }
       // Long axis: the direction of the road/rail (the u direction for east-west, the v direction for north-south)
       const bits = d.kind === 'road' ? m.road.get(d.idx) : m.railAt(d.idx);
       const alongX = d.kind === 'air' ? true : !!(bits & (CONN(1) | CONN(3))) && !(bits & (CONN(0) | CONN(2)));

@@ -515,4 +515,10 @@ export const EN_PANELS: Catalog = {
   'ja:、': ', ',
   'ja:表示だけを換算します(ゲームの中は円で、為替の変動はありません)。レート: {date} 時点 / {source}':
     'Display only: amounts are converted for viewing (the game itself runs in yen, so exchange rates never move your money). Rates as of {date} / {source}',
+  'ja:空港を置けません({w}×{h}の平らな空き地が必要です)': 'Cannot place an airport (it needs a flat, empty {w}×{h} area).',
+  'ja:空港({size})を建設しました({PRICES})': 'Built an airport ({size}) ({PRICES}).',
+  'ja:ハブ': 'Hub',
+  'ja:{w}×{h} タイル ・ 建設費 {cost} ・ 滑走路 {runways}本 ・ 駐機場 {stands}か所 ・ 小型機{small}/中型機{medium}/大型機{large}':
+    '{w}×{h} tiles · cost {cost} · {runways} runway(s) · {stands} stands · small {small} / medium {medium} / large {large} aircraft',
+  'ja:🛫 空港({size})を建てる': '🛫 Build an airport ({size})',
 };

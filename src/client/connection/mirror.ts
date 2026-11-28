@@ -40,6 +40,7 @@ export class Mirror {
     m.road.set(i, road);
     m.rail.set(i, rail);
     m.span.set(i, span);
+    if (m.air.get(i) !== air) m.airVer++;
     m.air.set(i, air);
     m.building.set(i, building);
     m.owner.set(i, owner);

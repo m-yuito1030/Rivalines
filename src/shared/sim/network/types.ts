@@ -96,11 +96,20 @@ export interface Route {
   legs?: number[];
 }
 
+/**
+ * An aircraft's planned path: a polyline in tile coordinates with an altitude on every point (see flightPath.ts).
+ * It covers taxiing, the takeoff roll, the climb, the cruise, circling and the landing as one path.
+ */
 export interface Flight {
-  x0: number;
-  y0: number;
-  x1: number;
-  y1: number;
+  /** A new number for every new path (the screen uses it to know the path changed) */
+  id: number;
+  /** x, y, z triples: tile coordinates and altitude (0 on the ground, 1 at cruising height) */
+  pts: number[];
+  /** Speed multiplier for each segment (pts.length / 3 - 1 values) */
+  sp: number[];
+  /** Cumulative length at each point (cum[0] = 0) */
+  cum: number[];
+  /** Total length, and how far the aircraft has gone along it */
   dist: number;
   done: number;
 }
@@ -211,6 +220,8 @@ export interface MirrorState {
   t: number;
   trail: number[];
   done: number;
+  /** Which aircraft path (Flight.id) this state is on (so we do not interpolate across two paths) */
+  fid?: number;
 }
 export interface MirrorSnap {
   path: Uint32Array;

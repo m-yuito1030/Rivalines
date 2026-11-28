@@ -86,18 +86,7 @@ export class Dispatcher {
   }
 
   departAir(v: Vehicle, dest: Stop, route: Route, tick: number): void {
-    const s = this.t.map.size;
-    const from = v.path[0];
-    const x0 = (from % s) + 0.5;
-    const y0 = Math.floor(from / s) + 0.5;
-    const x1 = dest.x + 0.5;
-    const y1 = dest.y + 0.5;
-    const dist = Math.hypot(x1 - x0, y1 - y0);
-    if (dist < 1) return this.t.motion.arrive(v, route, tick);
-    v.flight = { x0, y0, x1, y1, dist, done: 0 };
-    v.hx = (x1 - x0) / dist;
-    v.hy = (y1 - y0) / dist;
-    v.state = 'move';
+    this.t.air.depart(v, dest, route, tick);
   }
 
   blocked(v: Vehicle, tick: number, wait: number): void {
