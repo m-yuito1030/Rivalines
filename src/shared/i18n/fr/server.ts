@@ -25,6 +25,7 @@ export const FR_SERVER: Catalog = {
   'ja:経由点': 'Points de passage',
   'ja:橋・トンネル': 'Ponts/Tunnels',
   'ja:建物': 'Bâtiments',
+  'ja:地下鉄の線路': 'Voies de métro',
   'ja:空港': 'Aéroports',
   'ja:撤去しました: {parts}': 'Supprimé : {parts}',
   'ja:・': ', ',

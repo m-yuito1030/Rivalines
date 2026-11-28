@@ -49,7 +49,7 @@ export type Tool =
   | 'department'
   | 'hotel'
   | NewFacilityType;
-const RECT: Tool[] = ['raise', 'lower', 'level', 'bulldoze'];
+const RECT: Tool[] = ['raise', 'lower', 'level', 'bulldoze', 'subwaydel'];
 /** Tools that involve new development (construction). Unavailable when the company's rating is the worst (demolition, move, and route creation are allowed) */
 const BUILD: Tool[] = [
   'road',
@@ -199,7 +199,7 @@ export class ToolController {
     const w = 2.5 / this.camera.zoom;
     if (RECT.includes(this.tool)) {
       const tl = this.start ? this.rect(this.start, this.hover) : [this.hover];
-      const col = this.tool === 'raise' ? 0xffd24a : this.tool === 'lower' ? 0x9a7cff : this.tool === 'bulldoze' ? 0xff8844 : 0x66ddff;
+      const col = this.tool === 'raise' ? 0xffd24a : this.tool === 'lower' ? 0x9a7cff : this.tool === 'bulldoze' || this.tool === 'subwaydel' ? 0xff8844 : 0x66ddff;
       const draw = tl.length <= 1500;
       for (const t of tl) {
         const lvl = this.map.inBounds(t.x, t.y) ? this.map.levelAt(t.x, t.y) : 0;

@@ -79,7 +79,7 @@
               <button data-tool="substation" title="地下鉄の駅 まっすぐな地下鉄の線路の上をクリックして、駅を置きます。駅を2つ以上置いて、路線パネルでつなぎます。" data-i18n="ui.tool.substation" data-i18n-title="ui.tool.substation.title">🚇 駅</button>
               <button data-tool="subdepot" title="地下鉄の車両基地 地下鉄の線路の上をクリックして置きます。置いたあと、路線パネルの「＋車両」で電車を買います。" data-i18n="ui.tool.subdepot" data-i18n-title="ui.tool.subdepot.title">🚇 車両基地</button>
               <button data-tool="portal" title="出入口 深さ1の地下鉄のはしを、となりの地上の線路のはし(行き止まり)につなぎます。地上の線路とつなぎたいときだけ使います。" data-i18n="ui.tool.portal" data-i18n-title="ui.tool.portal.title">🚇 出入口</button>
-              <button data-tool="subwaydel" title="地下鉄の撤去 ドラッグした範囲の地下の線路を撤去します。" data-i18n="ui.tool.subwaydel" data-i18n-title="ui.tool.subwaydel.title">🚇 撤去</button>
+              <button data-tool="subwaydel" title="地下鉄の撤去 ドラッグした範囲の、自社の地下の線路・駅・車両基地を撤去します。地上のものには触りません。" data-i18n="ui.tool.subwaydel" data-i18n-title="ui.tool.subwaydel.title">🚇 撤去</button>
             </div>
           </div>
           <button data-tool="airport" title="空港 (P) 大きさ(小・中・大・ハブ)と向きを選んで、平らな空き地に設置します。" data-i18n="ui.tool.airport" data-i18n-title="ui.tool.airport.title">🛫 空港</button>
@@ -150,7 +150,8 @@
         <label><input type="checkbox" data-bk="span" checked> <span data-i18n="ui.bulldozeOpts.t9">橋・トンネル</span></label>
         <label><input type="checkbox" data-bk="building"> <span data-i18n="ui.bulldozeOpts.t10">街の建物</span></label>
         <label><input type="checkbox" data-bk="airport"> <span data-i18n="ui.bulldozeOpts.t11">空港</span></label>
-        <span class="row"><button type="button" data-bkset="all" data-i18n="ui.bulldoze.set.all">すべての交通施設</button><button type="button" data-bkset="road" data-i18n="ui.bulldoze.set.road">道路のみ</button><button type="button" data-bkset="rail" data-i18n="ui.bulldoze.set.rail">線路のみ</button><button type="button" data-bkset="signal" data-i18n="ui.bulldoze.set.signal">信号のみ</button><button type="button" data-bkset="none" data-i18n="ui.bulldoze.set.none">解除</button></span>
+        <label><input type="checkbox" data-bk="subway"> <span data-i18n="ui.bulldozeOpts.sub">地下鉄の線路</span></label>
+        <span class="row"><button type="button" data-bkset="all" data-i18n="ui.bulldoze.set.all">すべての交通施設</button><button type="button" data-bkset="road" data-i18n="ui.bulldoze.set.road">道路のみ</button><button type="button" data-bkset="rail" data-i18n="ui.bulldoze.set.rail">線路のみ</button><button type="button" data-bkset="signal" data-i18n="ui.bulldoze.set.signal">信号のみ</button><button type="button" data-bkset="subway" data-i18n="ui.bulldoze.set.subway">地下鉄のみ</button><button type="button" data-bkset="none" data-i18n="ui.bulldoze.set.none">解除</button></span>
       </div>
       <div id="signalOpts" hidden><button type="button" class="optx" title="閉じる (Esc)" data-i18n-title="ui.signalOpts.t1.title">✕</button><span data-i18n="ui.signalOpts">🚦 信号の間隔</span> <input id="optSigInt" type="number" min="1" max="20" value="3" style="width:3.5em"> <span data-i18n="ui.signalOpts_2">タイル間隔(ドラッグした方向に一方向ずつ設置)</span></div>
       <div id="subwayOpts" hidden><button type="button" class="optx" title="閉じる (Esc)" data-i18n-title="ui.subwayOpts.t1.title">✕</button><span data-i18n="ui.subwayOpts">🚇 地下鉄の深さ</span>

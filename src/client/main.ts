@@ -191,10 +191,14 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       });
   });
   tools.remoteBuild = (tool, a, b) => {
-    if ((tool as string) === 'bulldoze') {
-      const kinds = bulldozeOptions.kinds();
-      const what = bulldozeTargets(map, transit, a, b, kinds, net.id);
-      const go = () => void run({ t: 'bulldoze', a, b, kinds });
+    if ((tool as string) === 'bulldoze' || (tool as string) === 'subwaydel') {
+      // In the underground view (and with the subway's own "Remove" tool) only the underground is demolished: the track, and the stations and depots on it
+      const underOnly = (tool as string) === 'subwaydel' || underground.active;
+      const kinds = underOnly
+        ? { road: false, rail: false, signal: false, stop: true, depot: true, waypoint: false, span: false, building: false, airport: false, subway: true }
+        : bulldozeOptions.kinds();
+      const what = bulldozeTargets(map, transit, a, b, kinds, net.id, underOnly);
+      const go = () => void run({ t: 'bulldoze', a, b, kinds, ...(underOnly ? { under: true } : {}) });
       // If it includes things that involve money or routes (stations, stops, depots, facilities, airports, ...), confirm before running it
       if (what.length === 0) go();
       else void confirmDialog(tr('次のものを撤去します: {parts}', { parts: what.join(tr('、')) }) + '\n' + tr('元に戻せません。よろしいですか?')).then((ok) => ok && go());

@@ -129,6 +129,8 @@ export const EN_UI: Catalog = {
   'ui.bulldoze.set.all': 'All transport',
   'ui.bulldoze.set.road': 'Roads only',
   'ui.bulldoze.set.rail': 'Tracks only',
+  'ui.bulldozeOpts.sub': 'Subway track',
+  'ui.bulldoze.set.subway': 'Subway only',
   'ui.bulldoze.set.signal': 'Signals only',
   'ui.bulldoze.set.none': 'Clear',
   'ui.dd.subway': '🚇 Subway ▾',
@@ -142,7 +144,7 @@ export const EN_UI: Catalog = {
   'ui.tool.portal': '🚇 Portal',
   'ui.tool.portal.title': 'Portal Joins the end of a depth-1 subway line to the dead end of a surface rail next to it. Only needed when you want to link to a surface rail.',
   'ui.tool.subwaydel': '🚇 Remove',
-  'ui.tool.subwaydel.title': 'Remove subway Drag to remove the underground track in the area.',
+  'ui.tool.subwaydel.title': 'Remove subway Drag to remove your own underground track, stations, and depots in the area. The surface is left alone.',
   'ui.ugBtn': '👁 Underground',
   'ui.ugBtn.title':
     'Switch between the surface and the underground (PageDown: underground / PageUp: surface). In the underground view the surface turns into a see-through grey ghost and the subway is shown clearly in colour.',

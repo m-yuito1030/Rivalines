@@ -129,6 +129,40 @@ export function layPortal(map: GameMap, p: Tile, io: SubwayIO): void {
   io.msg('となりに、そこで終わっている地上の線路がありません(線路のはしにつなぎます)');
 }
 
+/** Whether the tile holds subway track and no surface rail (a tile whose rail is underground) */
+export const isUnderTile = (map: GameMap, i: number): boolean => hasSub(map.subway.get(i)) && map.rail.get(i) === 0;
+
+/**
+ * Remove the subway track of one tile (the links to the neighbours, and the portal link to a surface rail, go too). The caller checks who owns it.
+ * Returns whether there was any.
+ */
+export function removeSubwayTile(map: GameMap, x: number, y: number): boolean {
+  if (!map.inBounds(x, y)) return false;
+  const i = map.idx(x, y);
+  if (!hasSub(map.subway.get(i))) return false;
+  const had = subConn(map.subway.get(i));
+  map.subway.set(i, 0);
+  map.subwayOwner.set(i, 0);
+  map.touch(x, y);
+  for (let d = 0; d < 8; d++) {
+    const nx = x + DX8[d];
+    const ny = y + DY8[d];
+    if (!map.inBounds(nx, ny)) continue;
+    const ni = map.idx(nx, ny);
+    const nv = map.subway.get(ni);
+    if (hasSub(nv)) {
+      map.subway.set(ni, nv & ~subBit(opposite8(d)));
+      map.touch(nx, ny);
+    } else if (d < 4 && had & CONN(d) && map.rail.get(ni) & CONN(opposite(d))) {
+      // The portal: take the link off the surface rail too
+      map.rail.set(ni, map.rail.get(ni) & ~CONN(opposite(d)));
+      map.touch(nx, ny);
+    }
+  }
+  map.subwayVer++;
+  return true;
+}
+
 /** Remove the subway tiles on a straight line (only the company's own, or unowned ones), and the connections to them */
 export function removeSubwayLine(map: GameMap, a: Tile, b: Tile, io: SubwayIO): void {
   for (const t of railLineTiles(a.x, a.y, b.x, b.y)) {
@@ -137,25 +171,6 @@ export function removeSubwayLine(map: GameMap, a: Tile, b: Tile, io: SubwayIO): 
     if (!hasSub(map.subway.get(i))) continue;
     const own = map.subwayOwner.get(i);
     if (io.owner && own && own !== io.owner) continue;
-    const had = subConn(map.subway.get(i));
-    map.subway.set(i, 0);
-    map.subwayOwner.set(i, 0);
-    map.touch(t.x, t.y);
-    for (let d = 0; d < 8; d++) {
-      const nx = t.x + DX8[d];
-      const ny = t.y + DY8[d];
-      if (!map.inBounds(nx, ny)) continue;
-      const ni = map.idx(nx, ny);
-      const nv = map.subway.get(ni);
-      if (hasSub(nv)) {
-        map.subway.set(ni, nv & ~subBit(opposite8(d)));
-        map.touch(nx, ny);
-      } else if (d < 4 && had & CONN(d) && map.rail.get(ni) & CONN(opposite(d))) {
-        // The portal: take the link off the surface rail too
-        map.rail.set(ni, map.rail.get(ni) & ~CONN(opposite(d)));
-        map.touch(nx, ny);
-      }
-    }
+    removeSubwayTile(map, t.x, t.y);
   }
-  map.subwayVer++;
 }

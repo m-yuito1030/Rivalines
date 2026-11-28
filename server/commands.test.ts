@@ -1178,3 +1178,39 @@ describe('地下鉄の駅と車両基地', () => {
     expect(v.msg ?? '').not.toContain('購入できません');
   });
 });
+
+describe('地下鉄の撤去', () => {
+  it('地下専用の撤去は、地下の線路・駅・基地だけを消し、地上の道路やバス停には触らない', () => {
+    const sim = world();
+    sim.setOnline([1]);
+    execute(sim, 1, { t: 'build', tool: 'road', a: { x: 90, y: 100 }, b: { x: 120, y: 100 } });
+    const busStop = execute(sim, 1, { t: 'place', tool: 'stop', x: 100, y: 100 });
+    execute(sim, 1, { t: 'build', tool: 'subway', a: { x: 90, y: 100 }, b: { x: 120, y: 100 }, z: [2, 2] });
+    execute(sim, 1, { t: 'place', tool: 'substation', x: 100, y: 100 });
+    execute(sim, 1, { t: 'place', tool: 'depot', x: 105, y: 100, kind: 'rail' });
+    const none = { road: false, rail: false, signal: false, stop: true, depot: true, waypoint: false, span: false, building: false, airport: false, subway: true };
+    const r = execute(sim, 1, { t: 'bulldoze', a: { x: 95, y: 99 }, b: { x: 110, y: 101 }, kinds: none, under: true });
+    expect(r.ok).toBe(true);
+    expect(r.msg).toContain('地下鉄の線路');
+    expect(sim.map.subway.get(sim.map.idx(100, 100))).toBe(0);
+    expect(sim.map.subway.get(sim.map.idx(92, 100))).not.toBe(0); // outside the area
+    expect(sim.transit.stopAtTile(100, 100, 'rail')).toBeUndefined();
+    expect(sim.transit.depotAtTile(105, 100)).toBeUndefined();
+    // The street and the bus stop above are untouched
+    expect(sim.map.road.get(sim.map.idx(100, 100))).not.toBe(0);
+    expect(sim.transit.stops.get(busStop.id!)).toBeTruthy();
+    // The neighbours of the removed tiles no longer point at them
+    expect(sim.map.subway.get(sim.map.idx(94, 100)) & 2).toBe(0);
+  });
+
+  it('ふつうの撤去でも、「地下鉄の線路」を選べば消える。他社の地下鉄は消えない', () => {
+    const sim = world();
+    sim.setOnline([1, 2]);
+    execute(sim, 1, { t: 'build', tool: 'subway', a: { x: 90, y: 100 }, b: { x: 100, y: 100 }, z: [1, 1] });
+    execute(sim, 2, { t: 'build', tool: 'subway', a: { x: 90, y: 110 }, b: { x: 100, y: 110 }, z: [1, 1] });
+    const kinds = { road: false, rail: false, signal: false, stop: false, depot: false, waypoint: false, span: false, building: false, airport: false, subway: true };
+    execute(sim, 1, { t: 'bulldoze', a: { x: 85, y: 95 }, b: { x: 105, y: 115 }, kinds });
+    expect(sim.map.subway.get(sim.map.idx(95, 100))).toBe(0);
+    expect(sim.map.subway.get(sim.map.idx(95, 110))).not.toBe(0);
+  });
+});

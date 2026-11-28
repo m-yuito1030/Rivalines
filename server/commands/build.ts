@@ -7,6 +7,7 @@ import { disconnectRail, railLineTiles } from '../../src/shared/world/rails';
 import { disconnect, removeBuilding } from '../../src/shared/world/roads';
 import { FACILITY_TILE, facilityAt } from '../../src/shared/world/facilities';
 import { removeSpansAround } from '../../src/shared/world/spans';
+import { isUnderTile, removeSubwayTile } from '../../src/shared/world/subway';
 import { PRICES, yen } from '../economyApi';
 
 /** build */
@@ -41,7 +42,9 @@ export function bulldoze(cmd: Extract<Cmd, { t: 'bulldoze' }>, ctx: CommandConte
   const y0 = Math.max(0, Math.min(cmd.a.y, cmd.b.y));
   const y1 = Math.min(map.size - 1, Math.max(cmd.a.y, cmd.b.y));
   if ((x1 - x0 + 1) * (y1 - y0 + 1) > 16384) return fail(tr('範囲が広すぎます(128×128タイルまで)'));
-  const count = { road: 0, rail: 0, signal: 0, stop: 0, depot: 0, waypoint: 0, span: 0, building: 0, airport: 0 };
+  // under: the underground view's demolition, which touches only the subway track and the stations and depots on it
+  const under = cmd.under === true;
+  const count = { road: 0, rail: 0, signal: 0, stop: 0, depot: 0, waypoint: 0, span: 0, building: 0, airport: 0, subway: 0 };
   const changed: [number, number][] = [];
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
@@ -49,40 +52,50 @@ export function bulldoze(cmd: Extract<Cmd, { t: 'bulldoze' }>, ctx: CommandConte
       const own = map.infraOwner.get(i);
       const mineInfra = !own || own === who; // other companies' rails and roads cannot be removed
       let hit = false;
-      if (k.span && mineInfra && map.span.get(i) && removeSpansAround(map, x, y)) (count.span++, (hit = true));
-      if (k.road && mineInfra && map.road.get(i)) {
+      let hitInfra = false; // a surface road / rail / span was removed (then the tile's infrastructure owner may need clearing)
+      if (!under && k.span && mineInfra && map.span.get(i) && removeSpansAround(map, x, y)) (count.span++, (hit = true), (hitInfra = true));
+      if (!under && k.road && mineInfra && map.road.get(i)) {
         for (let d = 0; d < 4; d++) disconnect(map, x, y, d);
         count.road++;
         hit = true;
+        hitInfra = true;
       }
-      if (k.rail && mineInfra && map.rail.get(i)) {
+      if (!under && k.rail && mineInfra && map.rail.get(i)) {
         for (let d = 0; d < 8; d++) disconnectRail(map, x, y, d);
         count.rail++;
         hit = true;
+        hitInfra = true;
       }
-      if (k.signal && mineInfra && t.signals.has(i)) (t.signals.delete(i), t.version++, count.signal++, (hit = true));
+      if (!under && k.signal && mineInfra && t.signals.has(i)) (t.signals.delete(i), t.version++, count.signal++, (hit = true));
+      const underHere = isUnderTile(map, i); // taken before the track below is removed
       if (k.stop) {
         for (const kind of ['road', 'rail', 'air'] as const) {
+          if (under && kind !== 'rail') continue; // underground: only the (rail) stations, never the bus stop on the street above
           const s = t.stopAtTile(x, y, kind);
-          if (s && !s.waypoint && (!s.owner || s.owner === who)) (t.removeStop(s.id), count.stop++, (hit = true));
+          if (s && !s.waypoint && (!s.owner || s.owner === who) && (!under || underHere)) (t.removeStop(s.id), count.stop++, (hit = true));
         }
       }
-      if (k.waypoint) {
+      if (!under && k.waypoint) {
         const w = t.stopAtTile(x, y, 'rail');
         if (w?.waypoint && (!w.owner || w.owner === who)) (t.removeStop(w.id), count.waypoint++, (hit = true));
       }
       if (k.depot) {
         const d = t.depotAtTile(x, y);
-        if (d && (!d.owner || d.owner === who)) (t.removeDepot(d.id), count.depot++, (hit = true));
+        if (d && (!d.owner || d.owner === who) && (!under || underHere)) (t.removeDepot(d.id), count.depot++, (hit = true));
+      }
+      // Subway track: only the company's own (or unowned)
+      if (k.subway && map.subway.get(i) & 0x80) {
+        const sown = map.subwayOwner.get(i);
+        if ((!sown || sown === who) && removeSubwayTile(map, x, y)) (count.subway++, (hit = true));
       }
       // Other players' facilities cannot be removed (only towns', your own, and town buildings)
       const fac = map.building.get(i) === FACILITY_TILE ? facilityAt(map, x, y) : undefined;
       const others = !!fac && (fac.owner ?? 'player') === 'player' && fac.playerId !== undefined && fac.playerId !== who;
-      if (k.building && map.building.get(i) && !others && removeBuilding(map, x, y)) (count.building++, (hit = true));
-      if (k.airport && map.air.get(i)) (removeAirport(map, x, y), count.airport++, (hit = true));
+      if (!under && k.building && map.building.get(i) && !others && removeBuilding(map, x, y)) (count.building++, (hit = true));
+      if (!under && k.airport && map.air.get(i)) (removeAirport(map, x, y), count.airport++, (hit = true));
       if (hit) {
         changed.push([x, y]);
-        if (!map.road.get(i) && !map.rail.get(i) && !map.span.get(i)) map.infraOwner.set(i, 0);
+        if (hitInfra && !map.road.get(i) && !map.rail.get(i) && !map.span.get(i)) map.infraOwner.set(i, 0);
         map.touch(x, y);
       }
     }
@@ -98,6 +111,7 @@ export function bulldoze(cmd: Extract<Cmd, { t: 'bulldoze' }>, ctx: CommandConte
     ['span', tr('橋・トンネル')],
     ['building', tr('建物')],
     ['airport', tr('空港')],
+    ['subway', tr('地下鉄の線路')],
   ];
   const parts = names.filter(([key]) => count[key] > 0).map(([key, label]) => `${label}${count[key]}`);
   return { ok: true, msg: parts.length ? tr('撤去しました: {parts}', { parts: parts.join(tr('・')) }) : tr('選んだ種類の要素はありませんでした') };
