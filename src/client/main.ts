@@ -26,6 +26,7 @@ import { type FacilityType, planFacility, placeFacility } from '../shared/world/
 import { RoutePanel } from './ui/routePanel';
 import { loadBuildingSprites } from './render/buildingSprites';
 import { loadStationSprites } from './render/stationSprites';
+import { loadAirportSprites } from './render/airportSprites';
 import { loadVehicleSprites } from './render/vehicleSprites';
 import { StatsPanel } from './ui/statsPanel';
 import { AnalysisPanel } from './ui/analysisPanel';
@@ -94,6 +95,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
   await loadBuildingSprites();
   await loadVehicleSprites();
   await loadStationSprites();
+  await loadAirportSprites();
   const app = new Application();
   await app.init({ resizeTo: window, background: '#0b1a2b', antialias: false, autoDensity: true, resolution: Math.min(window.devicePixelRatio || 1, isTouch ? 1.5 : 2) });
   $('game').append(app.canvas);

@@ -39,3 +39,6 @@ The screen receives the polyline once (when `flight.id` changes) and afterwards 
 - A small airport takes small aircraft only, a medium one up to medium, large and hub take all (`airportTakes`). Checked when buying an aircraft and when adding an airport to a route that has aircraft. Old 3x3 airports take everything.
 - A depot goes on a hangar (or the old terminal) tile.
 - Tests: `src/shared/sim/network/airTraffic.test.ts` (layouts, one aircraft per runway, stand limits, circling, reservations never overlap, small vs large throughput, class rules).
+
+## Look
+The tiles are drawn with sprites (`src/client/assets/airport.png`, made by `tools/airport-sprites/airportkit.py`; the piece for each tile is chosen from its four neighbours in `src/client/render/airportSprites.ts`). If the atlas does not load, the older drawing in `drawTile.ts` is used.
