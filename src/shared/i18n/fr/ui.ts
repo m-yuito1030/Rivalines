@@ -148,6 +148,7 @@ export const FR_UI: Catalog = {
     "Portail Relie le bout d'une ligne de métro de profondeur 1 au cul-de-sac d'une voie de surface voisine. Utile seulement pour raccorder une voie de surface.",
   'ui.tool.subwaydel': '🚇 Retirer',
   'ui.tool.subwaydel.title': 'Retirer le métro Faites glisser pour supprimer les voies souterraines de la zone.',
+  'ui.subwayLegend': 'Couleurs de profondeur (peu profond → profond)',
   'ui.subwayHow': '🚇 Comment construire un métro',
   'ui.subwayHow.t1': 'Avec « Poser la voie », choisissez la profondeur et faites glisser sur le sol (les diagonales marchent aussi)',
   'ui.subwayHow.t2': 'Placez deux « Stations » ou plus sur une voie droite',

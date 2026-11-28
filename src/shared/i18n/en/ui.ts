@@ -143,6 +143,7 @@ export const EN_UI: Catalog = {
   'ui.tool.portal.title': 'Portal Joins the end of a depth-1 subway line to the dead end of a surface rail next to it. Only needed when you want to link to a surface rail.',
   'ui.tool.subwaydel': '🚇 Remove',
   'ui.tool.subwaydel.title': 'Remove subway Drag to remove the underground track in the area.',
+  'ui.subwayLegend': 'Depth colours (shallow → deep)',
   'ui.subwayHow': '🚇 How to build a subway',
   'ui.subwayHow.t1': 'With "Lay track", pick the depth and drag on the ground (diagonals work too)',
   'ui.subwayHow.t2': 'Place two or more "Stations" on straight track',

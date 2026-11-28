@@ -44,36 +44,48 @@ export class UndergroundView {
 
   draw(view: View): void {
     if (!this.on) return;
+    // The surface is covered with a deep, slightly blue haze: it is still faintly there, but the underground is what the eye goes to
     this.shade
       .clear()
       .rect(view.left, view.top, view.right - view.left, view.bottom - view.top)
-      .fill({ color: 0x05070d, alpha: 0.72 });
+      .fill({ color: 0x030610, alpha: 0.86 });
     if (this.ver === this.map.subwayVer) return;
     this.ver = this.map.subwayVer;
     const m = this.map;
-    const g = this.tracks.clear();
-    let n = 0;
+    const tiles: { cx: number; cy: number; v: number }[] = [];
     m.subway.forEachNonZero((i, v) => {
-      if (!hasSub(v) || n++ >= MAX_TILES) return;
+      if (!hasSub(v) || tiles.length >= MAX_TILES) return;
       const x = i % m.size;
       const y = (i - x) / m.size;
-      const depth = subDepth(v);
-      const color = DEPTH_COLORS[depth - 1];
-      const cx = (x - y) * 32;
-      const cy = (x + y) * 16 - m.levelAt(x, y) * LEVEL_PX + 16;
+      tiles.push({ cx: (x - y) * 32, cy: (x + y) * 16 - m.levelAt(x, y) * LEVEL_PX + 16, v });
+    });
+    const g = this.tracks.clear();
+    // Pass 1: the tile outlines and a soft glow under every track (so neighbours never paint over a finished rail)
+    for (const { cx, cy, v } of tiles) {
+      const color = DEPTH_COLORS[subDepth(v) - 1];
       g.poly([cx, cy - 16, cx + 32, cy, cx, cy + 16, cx - 32, cy])
-        .fill({ color, alpha: 0.28 })
-        .stroke({ width: 1, color, alpha: 0.6 });
-      // Rails from the centre to the middle of each connected edge
+        .fill({ color, alpha: 0.34 })
+        .stroke({ width: 1.5, color, alpha: 0.85 });
       const conn = subConn(v);
-      // 8 directions: the four sides and the four diagonals
       for (let d = 0; d < 8; d++) {
         if (!(conn & (1 << d))) continue;
         const ex = cx + ((DX8[d] - DY8[d]) * 32) / 2;
         const ey = cy + ((DX8[d] + DY8[d]) * 16) / 2;
-        g.moveTo(cx, cy).lineTo(ex, ey).stroke({ width: 5, color, alpha: 0.95 });
+        g.moveTo(cx, cy).lineTo(ex, ey).stroke({ width: 13, color, alpha: 0.22 });
+        g.moveTo(cx, cy).lineTo(ex, ey).stroke({ width: 8, color: 0x000000, alpha: 0.7 });
       }
-      g.circle(cx, cy, 4).fill({ color: 0xffffff, alpha: 0.9 });
-    });
+    }
+    // Pass 2: the rails themselves, bright, and a white dot at every tile
+    for (const { cx, cy, v } of tiles) {
+      const color = DEPTH_COLORS[subDepth(v) - 1];
+      const conn = subConn(v);
+      for (let d = 0; d < 8; d++) {
+        if (!(conn & (1 << d))) continue;
+        const ex = cx + ((DX8[d] - DY8[d]) * 32) / 2;
+        const ey = cy + ((DX8[d] + DY8[d]) * 16) / 2;
+        g.moveTo(cx, cy).lineTo(ex, ey).stroke({ width: 5, color, alpha: 1 });
+      }
+      g.circle(cx, cy, 4).fill({ color: 0xffffff, alpha: 0.95 });
+    }
   }
 }

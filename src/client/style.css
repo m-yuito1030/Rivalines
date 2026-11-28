@@ -411,3 +411,5 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 
 #subwayOpts { width: 262px; }
 #subwayOpts ol.subhow { margin: 0; padding-left: 18px; display: grid; gap: 2px; color: #cfe; }
+.sublegend { display: flex; align-items: center; gap: 4px; }
+.sublegend i { display: inline-block; min-width: 18px; text-align: center; font-style: normal; color: #05101c; font-weight: 700; border-radius: 4px; }

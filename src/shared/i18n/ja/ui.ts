@@ -137,6 +137,7 @@ export const JA_UI: Catalog = {
   'ui.tool.portal.title': '出入口 深さ1の地下鉄のはしを、となりの地上の線路のはし(行き止まり)につなぎます。地上の線路とつなぎたいときだけ使います。',
   'ui.tool.subwaydel': '🚇 撤去',
   'ui.tool.subwaydel.title': '地下鉄の撤去 ドラッグした範囲の地下の線路を撤去します。',
+  'ui.subwayLegend': '深さの色(浅い → 深い)',
   'ui.subwayHow': '🚇 地下鉄のつくりかた',
   'ui.subwayHow.t1': '「線路を引く」で、深さを選んで、地面をドラッグ(斜めもOK)',
   'ui.subwayHow.t2': '「駅」を、まっすぐな線路の上に2つ以上置く',

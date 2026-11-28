@@ -685,7 +685,8 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     tools.draw();
     {
       const d0 = sim.date;
-      const color = tintOf(d0.hour + d0.minute / 60); // always follows the server's in-game time
+      // It always follows the server's in-game time, except underground: there it is the same day and night (otherwise the subway view goes dark at night)
+      const color = underground.active ? 0xffffff : tintOf(d0.hour + d0.minute / 60);
       const w0 = app.screen.width;
       const h0 = app.screen.height;
       if (color !== lastTint || w0 !== lastW || h0 !== lastH) {
