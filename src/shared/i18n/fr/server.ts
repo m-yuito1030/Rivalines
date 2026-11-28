@@ -104,9 +104,10 @@ export const FR_SERVER: Catalog = {
   'ja:車両が見つかりません': 'Véhicule introuvable.',
   'ja:自社の車両ではありません': "Ce véhicule n'est pas à vous.",
   'ja:「{name}」は他社の停留所です。持ち主の許可がないと使えません': "« {name} » appartient à une autre entreprise. Il faut l'autorisation du propriétaire pour l'utiliser.",
-  'ja:路線「{name}」を作りました。路線パネルの「＋車両」で車両を買うと走り出します': "Ligne « {name} » créée. Achetez un véhicule avec « + véhicule » dans le panneau des lignes et elle se met à circuler.",
+  'ja:路線「{name}」を作りました。路線パネルの「＋車両」で車両を買うと走り出します':
+    'Ligne « {name} » créée. Achetez un véhicule avec « + véhicule » dans le panneau des lignes et elle se met à circuler.',
   'ja:マップの外です': 'Ceci est hors de la carte.',
-  'ja:橋・トンネルの上には置けません': "Impossible de le placer sur un pont ou un tunnel.",
+  'ja:橋・トンネルの上には置けません': 'Impossible de le placer sur un pont ou un tunnel.',
   'ja:バス停は道路の上に置きます。先に道路を引くか、道路の上をクリックしてください': "Un arrêt de bus se place sur une route. Posez d'abord une route, ou cliquez sur une route.",
   'ja:駅は直線の線路の上に置きます': 'Une gare se place sur une voie droite.',
   'ja:空港のターミナルの上に置いてください': "Placez-le sur un terminal d'aéroport.",
