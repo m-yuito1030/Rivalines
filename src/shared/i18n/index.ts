@@ -1,13 +1,17 @@
 import { type LangCode, Locale } from './locale';
 import { Ja } from './ja';
 import { En } from './en';
+import { De } from './de';
+import { Fr } from './fr';
 
 export { type LangCode, Locale, type Params, format } from './locale';
 export { Ja } from './ja';
 export { En } from './en';
+export { De } from './de';
+export { Fr } from './fr';
 
 /** 使える言語(言語の選択の並び順) */
-export const LOCALES: Readonly<Record<LangCode, Locale>> = { ja: new Ja(), en: new En() };
+export const LOCALES: Readonly<Record<LangCode, Locale>> = { ja: new Ja(), en: new En(), de: new De(), fr: new Fr() };
 export const LANG_CODES = Object.keys(LOCALES) as LangCode[];
 /** どれにも当てはまらないときの言語(世界向けなので英語) */
 export const DEFAULT_LANG: LangCode = 'en';

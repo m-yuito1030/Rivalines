@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_LANG, En, Ja, LOCALES, detectLang, format } from '../src/shared/i18n/index';
 import { JA } from '../src/shared/i18n/ja';
 import { EN } from '../src/shared/i18n/en';
+import { DE } from '../src/shared/i18n/de';
+import { FR } from '../src/shared/i18n/fr';
 
 const ROOT = join(__dirname, '..');
 const walk = (dir: string): string[] =>
@@ -16,9 +18,12 @@ describe('言語の決め方', () => {
   it('本人が選んだ言語が最優先。なければブラウザの言語の順。どれにも当てはまらなければ英語', () => {
     expect(detectLang('en', ['ja-JP'])).toBe('en');
     expect(detectLang(null, ['ja-JP', 'en-US'])).toBe('ja');
-    expect(detectLang(null, ['fr-FR', 'en-GB', 'ja'])).toBe('en'); // 対応していない言語は飛ばして、次の言語を見る
+    expect(detectLang(null, ['es-ES', 'en-GB', 'ja'])).toBe('en'); // 対応していない言語は飛ばして、次の言語を見る
+    expect(detectLang(null, ['de-DE', 'en'])).toBe('de');
+    expect(detectLang(null, ['fr-CA'])).toBe('fr');
+    expect(detectLang(null, ['it', 'es'])).toBe(DEFAULT_LANG);
     expect(detectLang(undefined, ['ja_JP'])).toBe('ja');
-    expect(detectLang(null, ['fr-FR', 'de'])).toBe(DEFAULT_LANG);
+    expect(detectLang(null, ['es-ES', 'it'])).toBe(DEFAULT_LANG);
     expect(detectLang('xx', [])).toBe(DEFAULT_LANG);
     expect(detectLang('', [])).toBe(DEFAULT_LANG);
   });
@@ -110,4 +115,44 @@ describe('サーバーの返事は、接続した言語で返る', () => {
     expect(execute(sim, 1, bad, 'en').msg).toBe('Invalid action.');
     expect(execute(sim, 1, bad, 'ja').msg).toBe('不正な操作です');
   });
+});
+
+describe('ドイツ語・フランス語', () => {
+  const names = (s: string) => (s.match(/\{(\w+)\}/g) ?? []).sort().join(',');
+  for (const [label, cat, code] of [
+    ['ドイツ語', DE, 'de'],
+    ['フランス語', FR, 'fr'],
+  ] as const) {
+    it(`${label}: 英語を継承し、訳がない文は英語→日本語で補う。日付の書き方が違う`, () => {
+      const l = LOCALES[code];
+      expect(l).toBeInstanceOf(En);
+      expect(l.code).toBe(code);
+      expect(l.t('ui.go')).not.toBe(EN['ui.go']);
+      expect(l.tr('ビジネスホテル(細長)')).toBe(EN['ja:ビジネスホテル(細長)']); // 施設のデザイン名は英語で補う
+      expect(l.tr('訳のない文')).toBe('訳のない文');
+      expect(l.date(2026, 4, 1, 3)).toMatch(/2026/);
+      expect(l.date(2026, 4, 1, 3)).not.toBe(LOCALES.en.date(2026, 4, 1, 3));
+    });
+    it(`${label}: 差し込み {名前} が日本語の文と同じで、キーに typo がなく、空の訳がない`, () => {
+      for (const [k, v] of Object.entries(cat)) {
+        if (k.startsWith('ja:')) {
+          expect(names(v), k).toBe(names(k.slice(3)));
+          // 英語に同じ文のキーがあること(日本語の文を直したのに、こちらを直し忘れたときに気づく)
+          expect(k in EN, `英語にないキー: ${k}`).toBe(true);
+        } else expect(JA[k], `日本語にないキー: ${k}`).toBeDefined();
+        if (!['ja:本', 'ja:人', 'ja:台'].includes(k)) expect(v.trim().length, k).toBeGreaterThan(0);
+      }
+    });
+    it(`${label}: 画面(index.html)の固定の文は、すべて訳してある`, () => {
+      const html = readFileSync(join(ROOT, 'index.html'), 'utf8');
+      const keys = new Set([...html.matchAll(/data-i18n(?:-title|-placeholder)?="([^"]+)"/g)].map((m) => m[1]));
+      const missing = [...keys].filter((k) => !(k in cat));
+      expect(missing, `訳がない(英語で出ます): ${missing.join(', ')}`).toEqual([]);
+    });
+    it(`${label}: 英語に訳してある文は、施設・駅のデザイン名を除いて、すべて${label}にも訳してある(新しい文を足したときの訳し忘れの検出)`, async () => {
+      const { EN_NAMES } = await import('../src/shared/i18n/en/names');
+      const missing = Object.keys(EN).filter((k) => !(k in cat) && !(k in EN_NAMES));
+      expect(missing).toEqual([]);
+    });
+  }
 });
