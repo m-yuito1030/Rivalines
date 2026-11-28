@@ -91,7 +91,7 @@ export class ToolController {
   /** Checking the placement area of the station tool (set by main) */
   stationPlanner: ((x: number, y: number) => StationPlan) | null = null;
   /** The chosen airport size and direction, and where its top-left tile is for a click at (x,y) (the airport is centred on the click) */
-  airportSel: { sel: { size: AirportSize; axis: AirportAxis }; origin: (x: number, y: number) => { x: number; y: number } } | null = null;
+  airportSel: { sel: { size: AirportSize; axis: AirportAxis; design: number }; origin: (x: number, y: number) => { x: number; y: number } } | null = null;
   /** Checking the placement area of large facilities (set by main) */
   facilityPlanner: ((x: number, y: number, type: FacilityType) => FacilityPlan) | null = null;
   private start: Tile | null = null;
@@ -273,10 +273,10 @@ export class ToolController {
 
   private drawAirportPreview(g: Graphics): void {
     if (!this.hover) return;
-    const sel = this.airportSel?.sel ?? { size: 'S' as AirportSize, axis: 'x' as AirportAxis };
+    const sel = this.airportSel?.sel ?? { size: 'S' as AirportSize, axis: 'x' as AirportAxis, design: 0 };
     const o = this.airportSel ? this.airportSel.origin(this.hover.x, this.hover.y) : { x: this.hover.x - 1, y: this.hover.y - 1 };
-    const { w: fw, h: fh } = airportFootprint(sel.size, sel.axis);
-    const ok = canPlaceAirport(this.map, o.x, o.y, sel.size, sel.axis);
+    const { w: fw, h: fh } = airportFootprint(sel.size, sel.axis, sel.design);
+    const ok = canPlaceAirport(this.map, o.x, o.y, sel.size, sel.axis, sel.design);
     const color = ok ? 0x66ff99 : 0xff4455;
     const w = 2.5 / this.camera.zoom;
     for (let j = 0; j < fh; j++) {

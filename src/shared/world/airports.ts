@@ -1,13 +1,13 @@
 import type { GameMap } from './gameMap';
-import { AIR, type AirportAxis, type AirportSize, airportFootprint, buildLayout, isTaxiable } from './airportLayout';
+import { AIR, type AirportAxis, type AirportSize, airportFootprint, buildLayout, isTaxiable, sizeByStands } from './airportLayout';
 
 /** The footprint of the old airport (a single 3x3 size), which still exists in old saves */
 export const LEGACY_AIRPORT_W = 3;
 export const LEGACY_AIRPORT_H = 3;
 
 /** Whether an airport can be placed with (x,y) at the top left: the whole footprint must be flat, dry and empty */
-export function canPlaceAirport(map: GameMap, x: number, y: number, size: AirportSize = 'S', axis: AirportAxis = 'x'): boolean {
-  const { w, h } = airportFootprint(size, axis);
+export function canPlaceAirport(map: GameMap, x: number, y: number, size: AirportSize = 'S', axis: AirportAxis = 'x', design = 0): boolean {
+  const { w, h } = airportFootprint(size, axis, design);
   if (!map.inBounds(x, y) || !map.inBounds(x + w - 1, y + h - 1)) return false;
   const lv = map.levelAt(x, y);
   if (lv === 0) return false;
@@ -21,9 +21,9 @@ export function canPlaceAirport(map: GameMap, x: number, y: number, size: Airpor
 }
 
 /** Place it. Returns the coordinates of the terminal tile (the stop), or null if it cannot be placed */
-export function placeAirport(map: GameMap, x: number, y: number, size: AirportSize = 'S', axis: AirportAxis = 'x'): { x: number; y: number } | null {
-  if (!canPlaceAirport(map, x, y, size, axis)) return null;
-  const { w, h, codes } = buildLayout(size, axis);
+export function placeAirport(map: GameMap, x: number, y: number, size: AirportSize = 'S', axis: AirportAxis = 'x', design = 0): { x: number; y: number } | null {
+  if (!canPlaceAirport(map, x, y, size, axis, design)) return null;
+  const { w, h, codes } = buildLayout(size, axis, design);
   let terminal: { x: number; y: number } | null = null;
   for (let j = 0; j < h; j++) {
     for (let i = 0; i < w; i++) {
@@ -85,8 +85,6 @@ export interface Airport {
   /** 'S' / 'M' / 'L' / 'H' for the new airports, or 'legacy' for the old 3x3 airports (no stands: aircraft fly straight from the terminal) */
   size: AirportSize | 'legacy';
 }
-
-const STANDS_TO_SIZE: Record<number, AirportSize> = { 2: 'S', 8: 'M', 24: 'L', 60: 'H' };
 
 interface Cache {
   ver: number;
@@ -182,6 +180,6 @@ function analyse(map: GameMap, start: number): Airport {
     }
     runways.push({ tiles: line, axis: alongX ? 'x' : 'y', access });
   }
-  const size: Airport['size'] = stands.length === 0 ? 'legacy' : (STANDS_TO_SIZE[stands.length] ?? 'S');
+  const size: Airport['size'] = stands.length === 0 ? 'legacy' : sizeByStands(stands.length);
   return { id: tiles[0], tiles, terminal, hangars, stands, runways, size };
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SEA_LEVEL } from '../../world/constants';
-import { AIR, AIRPORT_SIZES, type AirportAxis, type AirportSize, airportFootprint, airportTakes, buildLayout, isTaxiable } from '../../world/airportLayout';
+import { AIR, AIRPORT_DESIGNS, AIRPORT_SIZES, type AirportAxis, type AirportSize, airportFootprint, airportTakes, buildLayout, isTaxiable } from '../../world/airportLayout';
 import { airportAt, canPlaceAirport, findTerminal, placeAirport, removeAirport } from '../../world/airports';
 import { GameMap } from '../../world/gameMap';
 import { flightAt, straightFlight } from './flightPath';
@@ -103,6 +103,42 @@ describe('空港の形(大きさ 4 種類)', () => {
   });
 });
 
+describe('空港のデザイン(大きさごとに 10 種類)', () => {
+  it('どのデザインも、置いたあとの読み取り(大きさ・滑走路・駐機場・格納庫)が、作った形と合う', () => {
+    for (const s of AIRPORT_SIZES) {
+      for (let d = 0; d < AIRPORT_DESIGNS; d++) {
+        const m = flat(120);
+        const term = placeAirport(m, 10, 10, s, 'x', d)!;
+        expect(term, `${s}${d}`).not.toBeNull();
+        const a = airportAt(m, m.idx(term.x, term.y))!;
+        const L = buildLayout(s, 'x', d);
+        expect([a.size, a.runways.length, a.stands.length], `${s}${d}`).toEqual([s, L.runways, L.stands]);
+        expect(a.hangars.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it.each([3, 6, 9])('デザイン %i: どの大きさでも、飛行機が最後まで運航でき、同じ滑走路に同時に 2 機はいない', (d) => {
+    for (const s of AIRPORT_SIZES) {
+      const w = world(s, s, 4, 0, d);
+      let maxOn = 0;
+      for (let tick = 1; tick < 3500; tick++) {
+        feed(w.t, w.a, w.b, tick);
+        w.t.step(tick);
+        for (const air of [w.aa, w.ab]) {
+          for (let ri = 0; ri < air.runways.length; ri++) {
+            let n = 0;
+            for (const v of w.t.vehicles) if (onRunway(w, v as never, air) === ri) n++;
+            maxOn = Math.max(maxOn, n);
+          }
+        }
+      }
+      expect(maxOn, `${s}${d}`).toBeLessThanOrEqual(1);
+      expect(w.t.delivered, `${s}${d}`).toBeGreaterThan(5);
+    }
+  });
+});
+
 describe('飛行の経路(折れ線)', () => {
   it('距離から位置・高さ・向きが決まる。両端は地上(高さ 0)、途中は高い', () => {
     const f = straightFlight(10, 10, 110, 10);
@@ -121,10 +157,10 @@ describe('飛行の経路(折れ線)', () => {
 });
 
 /** Two airports 100 tiles apart, a route between them, and n aircraft */
-function world(sizeA: AirportSize, sizeB: AirportSize, n: number, staggerTicks = 0) {
+function world(sizeA: AirportSize, sizeB: AirportSize, n: number, staggerTicks = 0, design = 0) {
   const m = flat();
-  const ta = placeAirport(m, 20, 100, sizeA, 'x')!;
-  const tb = placeAirport(m, 150, 100, sizeB, 'x')!;
+  const ta = placeAirport(m, 20, 100, sizeA, 'x', design)!;
+  const tb = placeAirport(m, 150, 100, sizeB, 'x', design)!;
   const t = new Transit(m);
   const a = t.addStop(ta.x, ta.y, 'air')!;
   const b = t.addStop(tb.x, tb.y, 'air')!;

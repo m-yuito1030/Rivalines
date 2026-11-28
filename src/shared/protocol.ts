@@ -57,7 +57,7 @@ export type Cmd =
       opts?: StationOptions;
       /** For depots: which kind when the tile could be either (a street above a subway) */ kind?: Mode;
       fac?: { design: number; size: 'S' | 'M' | 'L' };
-      air?: { size: 'S' | 'M' | 'L' | 'H'; axis: 'x' | 'y' };
+      air?: { size: 'S' | 'M' | 'L' | 'H'; axis: 'x' | 'y'; design?: number };
     }
   | { t: 'ensureStop'; x: number; y: number; kind: Mode }
   | { t: 'routeCreate'; stops: number[] }

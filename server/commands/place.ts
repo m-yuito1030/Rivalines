@@ -3,7 +3,7 @@ import type { CommandContext } from './context';
 import { fail } from './util';
 import { blockingRight } from '../../src/shared/sim/economy/auctions';
 import { placeAirport } from '../../src/shared/world/airports';
-import { AIRPORT_NAMES, AIRPORT_SIZES, type AirportSize, airportFootprint } from '../../src/shared/world/airportLayout';
+import { AIRPORT_DESIGNS, AIRPORT_NAMES, AIRPORT_SIZES, type AirportSize, airportFootprint } from '../../src/shared/world/airportLayout';
 import { STATIONMALL_RANGE, nearRailStop } from '../../src/shared/world/facilities';
 import { DESIGN_COUNT, FACILITY_SPECS, FACILITY_TYPES, SPRITE_TYPES, facilityCost, facilityDims, placeFacility, planFacility } from '../../src/shared/world/facilities';
 import type { FacilitySize, FacilityType } from '../../src/shared/world/facilities';
@@ -111,11 +111,12 @@ export function place(cmd: Extract<Cmd, { t: 'place' }>, ctx: CommandContext): C
   if (tool === 'airport') {
     const size = AIRPORT_SIZES.includes(cmd.air?.size as AirportSize) ? (cmd.air!.size as AirportSize) : 'S';
     const axis = cmd.air?.axis === 'y' ? 'y' : 'x';
+    const design = Number.isInteger(cmd.air?.design) && cmd.air!.design! >= 0 && cmd.air!.design! < AIRPORT_DESIGNS ? cmd.air!.design! : 0;
     const price = AIRPORT_PRICES[size];
     if (!co.afford(price)) return fail(tr('資金が足りません(空港 {PRICES})', { PRICES: yen(price) }));
-    const a = placeAirport(map, x, y, size, axis);
+    const a = placeAirport(map, x, y, size, axis, design);
     if (!a) {
-      const { w, h } = airportFootprint(size, axis);
+      const { w, h } = airportFootprint(size, axis, design);
       return fail(tr('空港を置けません({w}×{h}の平らな空き地が必要です)', { w, h }));
     }
     co.spend('build', price);
