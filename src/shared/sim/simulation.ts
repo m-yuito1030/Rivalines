@@ -184,6 +184,7 @@ export class Simulation {
       if (r) r.dayRevenue = (r.dayRevenue ?? 0) + amount;
     };
     this.transit.serviceMul = (owner) => (this.multi && owner ? this.playerCompany(owner) : this.company).serviceMul;
+    this.transit.speedMul = (owner) => (this.multi && owner ? this.playerCompany(owner) : this.company).staffMul;
     this.transit.onVisit = (stop, n, tick) => this.company.visits(this.map, stop, n, tick, this.multi ? (f) => (f.playerId ? this.playerCompany(f.playerId) : null) : undefined);
     // Running over another company's infrastructure costs a toll (sharing tracks and roads)
     this.transit.onTile = (_v, route, tile) => {
@@ -332,8 +333,9 @@ export class Simulation {
         (f, amount) => {
           const c = this.multi ? (f.playerId ? this.playerCompany(f.playerId) : null) : this.company;
           if (c && (!this.multi || this.online.has(f.playerId!))) {
-            c.earn('facility', amount);
-            if (this.multi) this.facilityEarn.set(f.id, (this.facilityEarn.get(f.id) ?? 0) + amount);
+            const sold = amount * c.staffMul; // short of staff, a facility sells less
+            c.earn('facility', sold);
+            if (this.multi) this.facilityEarn.set(f.id, (this.facilityEarn.get(f.id) ?? 0) + sold);
           }
         },
         this.multi ? POLICIES[policyOfDay(this.map.seed, ended)].visitorMul : 1,

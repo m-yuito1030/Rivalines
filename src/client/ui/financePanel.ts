@@ -16,6 +16,7 @@ import {
   gradeOf,
   yen,
 } from '../../shared/sim/economy/economy';
+import { STAFF, staffRatio } from '../../shared/sim/economy/staff';
 import { type Rival, acquirePrice, divestPrice } from '../../shared/sim/economy/rivals';
 import { net } from '../connection/net';
 import { PACT_DISCOUNTS, type PactState } from '../../shared/sim/economy/pacts';
@@ -73,7 +74,7 @@ export class FinancePanel extends ModalPanel {
   }
 
   private act(b: HTMLElement): void {
-    const a = b.dataset.fa as 'payout' | 'borrow' | 'repay' | 'rival-buy' | 'rival-sell' | 'acquire' | 'sell' | 'train';
+    const a = b.dataset.fa as 'payout' | 'borrow' | 'repay' | 'rival-buy' | 'rival-sell' | 'acquire' | 'sell' | 'train' | 'budget-hire' | 'budget-ad' | 'budget-edu';
     void net
       .cmd({ t: 'fin', op: a, amount: Number(b.dataset.amount), id: Number(b.dataset.id) })
       .then((r) => this.onMessage(r.msg ?? (r.ok ? tr('完了しました') : tr('失敗しました'))));
@@ -151,6 +152,18 @@ export class FinancePanel extends ModalPanel {
       : lv >= TRAINING.max
         ? `<div class="muted">${tr('最高レベルです')}</div>`
         : `<div class="frow"><button data-fa="train" ${c.cash < trainingCost(lv) ? 'disabled' : ''}>${tr('研修してレベル{lv}へ({trainingCost}・{days}日)', { lv: lv + 1, trainingCost: yen(trainingCost(lv)), days: TRAINING.days })}</button><span class="muted"> ${tr('レベルが上がるほど、研修費が毎日かかります')}</span></div>`;
+    {
+      const ratio = staffRatio(c.staff, c.skill, c.staffReq);
+      const applicants = STAFF.baseApplicants + c.staffBudget.ad / STAFF.adPerApplicant;
+      const hires = Math.min(applicants, c.staffBudget.hire / STAFF.hireFee);
+      const row = (op: 'hire' | 'ad' | 'edu', label: string, note: string) =>
+        `<div class="frow">${label} ${STAFF.budgets.map((m) => `<button data-fa="budget-${op}" data-amount="${m}" class="${c.staffBudget[op] === m ? 'on' : ''}">${m === 0 ? tr('なし') : yen(m)}</button>`).join('')}<span class="muted"> ${note}</span></div>`;
+      h += `<h3>${tr('従業員(採用・広告・教育)')}</h3><div class="muted">${tr('車両・駅・空港・車両基地・自社の施設には、それぞれ必要な従業員数があります。足りないと、車両が遅くなり、乗客と施設の売上が減ります。')}</div>`;
+      h += `<div class="fgrid"><div>${tr('従業員 / 必要数')}</div><div class="n ${ratio < 1 ? 'neg' : ''}"><b>${Math.floor(c.staff)}</b> / ${c.staffReq}</div><div>${tr('熟練度')}</div><div class="n">${Math.round(c.skill)} / 100</div><div>${tr('充足率(熟練度込み)')}</div><div class="n ${ratio < 1 ? 'neg' : ''}">${Math.round(ratio * 100)}%</div><div>${tr('今の動き(速度・乗客・施設売上)')}</div><div class="n">${Math.round(c.staffMul * 100)}%</div><div>${tr('給料(毎日)')}</div><div class="n">${yen(Math.round(c.staff * STAFF.wage))}</div><div>${tr('採用の見込み(1日)')}</div><div class="n">${tr('応募 {a}人 / 採用 {h}人', { a: Math.floor(applicants), h: Math.floor(hires) })}</div></div>`;
+      h += row('hire', tr('採用費(1日の上限):'), tr('1人採用するごとに {fee} かかります', { fee: yen(STAFF.hireFee) }));
+      h += row('ad', tr('広告費(1日):'), tr('多いほど応募が増えます。必要数に届くと採用は止まります'));
+      h += row('edu', tr('教育費(1日):'), tr('熟練度が上がります。新しく入った人は熟練度が低く、時間がたつと下がります'));
+    }
     const ps = this.players();
     const nameOf = (id: number) => esc(ps.find((p) => p.id === id)?.name ?? tr('会社{id}', { id }));
     const pc = this.pacts();

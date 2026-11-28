@@ -91,6 +91,8 @@ export class Transit {
   onFare?: (mode: Mode, amount: number, routeId: number, vehicleId?: number) => void;
   /** Service quality of a stop's owner (multiplier on passenger generation). 1 if not set */
   serviceMul?: (owner: number | undefined) => number;
+  /** Multiplier on vehicle speed of a company (short of staff, vehicles run slower) */
+  speedMul?: (owner: number | undefined) => number;
   /** n people arrived and got off at `stop` (for counting facility visitors) */
   onVisit?: (stop: Stop, n: number, tick: number) => void;
   router = new Router(

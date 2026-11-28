@@ -9,6 +9,7 @@ import { DAY_TICKS, type Stop, type Transit, todOf } from '../network/transit';
 import type { Rival } from './rivals';
 import { fiscalRange } from '../world/calendar';
 import { devIncome } from './development';
+import { DEFAULT_BUDGET, STAFF, type StaffBudget, requiredStaff, staffMulOf, staffRatio } from './staff';
 
 /** A company's management (funds, sales, costs, loans, acquisitions). Amounts in yen. */
 export const START_CASH = 30_000_000;
@@ -72,7 +73,23 @@ export const trainingCost = (level: number): number => Math.round((2_000_000 * M
 
 /** Management categories (labels for sales and costs) */
 export const REVENUE_CATS = ['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'sale', 'toll-in', 'gift-in', 'realestate', 'subsidy'] as const;
-export const COST_CATS = ['build', 'vehicle', 'running', 'upkeep', 'interest', 'acquire', 'tax', 'dividend', 'toll-out', 'gift-out', 'ad', 'training', 'levy'] as const;
+export const COST_CATS = [
+  'build',
+  'vehicle',
+  'running',
+  'upkeep',
+  'interest',
+  'acquire',
+  'tax',
+  'dividend',
+  'toll-out',
+  'gift-out',
+  'ad',
+  'training',
+  'levy',
+  'wage',
+  'recruit',
+] as const;
 export const CAT_LABEL: Record<string, string> = {
   'fare-road': '運賃(バス)',
   'fare-rail': '運賃(鉄道)',
@@ -97,6 +114,8 @@ export const CAT_LABEL: Record<string, string> = {
   training: '従業員の研修費',
   subsidy: '政府の補助金',
   levy: '大企業への課税',
+  wage: '従業員の給料',
+  recruit: '採用費',
 };
 
 export interface DayRecord {
@@ -153,6 +172,12 @@ export interface CompanyState {
   reports?: FiscalReport[];
   training?: number;
   trainingPending?: { to: number; left: number };
+  staff?: number;
+  skill?: number;
+  staffBudget?: StaffBudget;
+  staffReady?: boolean;
+  staffReq?: number;
+  staffMul?: number;
 }
 
 /** Multiplayer: so facilities' daily earnings update only once, the Simulation sets the ID of the first company that does the close */
@@ -188,6 +213,14 @@ export class Company {
   /** Staff training level (0..TRAINING.max), and training in progress (days left until it finishes) */
   training = 0;
   trainingPending?: { to: number; left: number };
+  /** Employees (hired people; a fraction is fine), their skill 0..100, the daily budgets, and whether the first-day free staff has been given */
+  staff = 0;
+  skill = 100;
+  staffBudget: StaffBudget = { ...DEFAULT_BUDGET };
+  staffReady = false;
+  /** Worked out every day (not by the screen): the staff needed, and the multiplier on speed / passengers / facility sales that follows from the shortage */
+  staffReq = 0;
+  staffMul = 1;
   /** Set by the government each day (not saved; it is derived from the date): construction cost multiplier, running cost multiplier, and the corporate tax rate for the next fiscal close */
   buildMul = 1;
   govRunMul = 1;
@@ -200,7 +233,7 @@ export class Company {
 
   /** Multiplier on passenger generation at stops (service quality; raised by training) */
   get serviceMul(): number {
-    return 1 + TRAINING.demandUp * this.training;
+    return (1 + TRAINING.demandUp * this.training) * this.staffMul;
   }
 
   /** Start training. Returns the reason if it cannot be started (the cost is paid up front; the current level stays until it finishes) */
@@ -297,6 +330,7 @@ export class Company {
       this.training = this.trainingPending.to;
       this.trainingPending = undefined;
     }
+    this.staffDay(map, transit, ownerId);
     // Interest (prorated daily)
     this.pay('interest', Math.round((this.loan * this.interestRate(this.credit)) / 360));
     // Profit of subsidiaries (acquired rivals)
@@ -318,6 +352,36 @@ export class Company {
     this.today = {};
     this.lastDay = day;
     this.updateCreditAndStock(rating, assetValue(map, transit, rivals, ownerId));
+  }
+
+  /** Staff for one day: wages, quits, hiring (advertising brings applicants, the hiring fee is paid per hire), education, and the effect of any shortage */
+  private staffDay(map: GameMap, transit: Transit, ownerId?: number): void {
+    const req = requiredStaff(map, transit, ownerId);
+    this.staff -= this.staff * STAFF.quit;
+    if (!this.staffReady) {
+      // The first day: everything the company already has comes with exactly the staff it needs (free), so nothing suddenly stops
+      this.staff = Math.max(this.staff, req, STAFF.minStart);
+      this.skill = 100;
+      this.staffReady = true;
+    }
+    this.pay('wage', Math.round(this.staff * STAFF.wage));
+    const b = this.staffBudget;
+    const want = this.staff < req * STAFF.hireUntil + 5;
+    if (want && b.hire > 0 && this.afford(b.hire + b.ad)) {
+      const ad = b.ad;
+      const hires = Math.min(STAFF.baseApplicants + ad / STAFF.adPerApplicant, b.hire / STAFF.hireFee);
+      this.pay('ad', ad);
+      this.pay('recruit', Math.round(hires * STAFF.hireFee));
+      this.skill = (this.skill * this.staff + STAFF.newSkill * hires) / Math.max(1, this.staff + hires);
+      this.staff += hires;
+    }
+    if (b.edu > 0 && this.skill < 100 && this.afford(b.edu)) {
+      this.pay('training', b.edu);
+      this.skill += b.edu / Math.max(1, this.staff) / STAFF.eduPerPoint;
+    }
+    this.skill = Math.max(0, Math.min(100, this.skill - STAFF.skillDecay));
+    this.staffReq = req;
+    this.staffMul = staffMulOf(staffRatio(this.staff, this.skill, req));
   }
 
   /** Average profit per day recently, and the profit margin on sales (-1 to 1) */
@@ -357,7 +421,7 @@ export class Company {
     const sum = (cats: readonly string[]) => cats.reduce((a, k) => a + (f[k] ?? 0), 0);
     const revenue = sum(['fare-road', 'fare-rail', 'fare-air', 'facility', 'subsidiary', 'toll-in', 'realestate', 'subsidy']);
     const running = f.running ?? 0;
-    const upkeep = (f.upkeep ?? 0) + (f['toll-out'] ?? 0) + (f.ad ?? 0) + (f.training ?? 0) + (f.levy ?? 0);
+    const upkeep = (f.upkeep ?? 0) + (f['toll-out'] ?? 0) + (f.ad ?? 0) + (f.training ?? 0) + (f.levy ?? 0) + (f.wage ?? 0) + (f.recruit ?? 0);
     const depreciation = Math.round(this.infra * DEPRECIATION_RATE);
     this.infra -= depreciation;
     const opProfit = revenue - running - upkeep - depreciation;
@@ -432,9 +496,10 @@ export class Company {
       // Visitors from the station also buy more or less depending on price (price sensitivity is the value computed at the day close)
       const amount =
         share * spec.conversion * spec.spend * priceMul(f) * demandMul(priceMul(f), f.elast ?? elasticity(f.type, 0, true)) * gradeSpendMul(facilityGrade(f)) * repMul(repOf(f));
-      if (amount > 0) {
-        to.earn('facility', amount);
-        f.dayIncome = (f.dayIncome ?? 0) + amount;
+      const sold = amount * to.staffMul;
+      if (sold > 0) {
+        to.earn('facility', sold);
+        f.dayIncome = (f.dayIncome ?? 0) + sold;
       }
     });
   }
@@ -458,6 +523,12 @@ export class Company {
       reports: this.reports,
       training: this.training,
       trainingPending: this.trainingPending,
+      staff: this.staff,
+      skill: this.skill,
+      staffBudget: this.staffBudget,
+      staffReady: this.staffReady,
+      staffReq: this.staffReq,
+      staffMul: this.staffMul,
     };
   }
 
@@ -480,6 +551,12 @@ export class Company {
     c.reports = s.reports ?? [];
     c.training = s.training ?? 0;
     c.trainingPending = s.trainingPending;
+    c.staff = s.staff ?? 0;
+    c.skill = s.skill ?? 100;
+    c.staffBudget = { ...DEFAULT_BUDGET, ...s.staffBudget };
+    c.staffReady = s.staffReady ?? false;
+    c.staffReq = s.staffReq ?? 0;
+    c.staffMul = s.staffMul ?? 1;
     return c;
   }
 }

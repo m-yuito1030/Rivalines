@@ -100,7 +100,12 @@ export type Cmd =
   /** Service class: auto-set the skipped stations (copy = do not change the original route, but create a duplicate as that class, shifted by startShiftMin minutes) */
   | { t: 'routeRank'; routeId: number; rank: number; copy: boolean; shiftMin?: number }
   | { t: 'orderShift'; routeId: number; from: number; delta: number }
-  | { t: 'fin'; op: 'borrow' | 'repay' | 'payout' | 'train' | 'rival-buy' | 'rival-sell' | 'acquire' | 'sell'; amount?: number; id?: number };
+  | {
+      t: 'fin';
+      op: 'borrow' | 'repay' | 'payout' | 'train' | 'budget-hire' | 'budget-ad' | 'budget-edu' | 'rival-buy' | 'rival-sell' | 'acquire' | 'sell';
+      amount?: number;
+      id?: number;
+    };
 
 export interface CmdResult {
   ok: boolean;
