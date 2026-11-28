@@ -59,6 +59,27 @@ export function place(cmd: Extract<Cmd, { t: 'place' }>, ctx: CommandContext): C
         : tr('{name}を置きました({cost})。もう1つ置いて、路線でつなぎます', { name: st.name, cost: yen(PRICES.stop) }),
     };
   }
+  if (tool === 'substation') {
+    // An underground station: one tile on a straight subway track (there is no surface rail on the tile)
+    if (!map.inBounds(x, y)) return fail(tr('マップの外です'));
+    const i = map.idx(x, y);
+    if (!(map.subway.get(i) & 0x80) || map.rail.get(i)) return fail(tr('地下鉄の駅は、地下鉄の線路の上に置きます。先に「🚇 地下鉄」の「線路を引く」で線路を引いてください'));
+    const r = map.railAt(i);
+    if ((r & 0xf0) !== 0 || ((r & 15) !== 5 && (r & 15) !== 10)) return fail(tr('駅は、まっすぐな線路の上に置きます(曲がり角・分かれ道・斜めの所には置けません)'));
+    const had = !!t.stopAtTile(x, y, 'rail');
+    const cost = PRICES.stationBase + PRICES.stationTile;
+    if (!had && !co.afford(cost)) return fail(tr('資金が足りません(駅 {cost})', { cost: yen(cost) }));
+    const st = t.addStop(x, y, 'rail');
+    if (!st) return fail(tr('停留所を置けません'));
+    if (!had) co.spend('build', cost);
+    return {
+      ok: true,
+      id: st.id,
+      msg: had
+        ? tr('ここには、すでに{name}があります', { name: st.name })
+        : tr('地下鉄の{name}を置きました({cost})。2つ以上置いて、路線でつなぎます', { name: st.name, cost: yen(cost) }),
+    };
+  }
   if (tool === 'station') {
     const o = cmd.opts;
     if (!o) return fail(tr('駅の設定がありません'));

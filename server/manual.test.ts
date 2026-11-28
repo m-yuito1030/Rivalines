@@ -134,3 +134,16 @@ describe('マニュアル(public/manual.html と manual.en.html)', () => {
     }
   });
 });
+
+describe('マニュアルの地下鉄の章', () => {
+  it('費用が、実際のゲームの値と同じ。駅・車両基地・出入口・斜めの説明がある', async () => {
+    const { subwayCost, PORTAL_COST } = await import('../src/shared/world/subway');
+    for (const html of [ja, en]) {
+      expect(html).toContain(yen(subwayCost(1)));
+      expect(html).toContain(yen(subwayCost(4)));
+      expect(html).toContain(yen(PORTAL_COST));
+    }
+    expect(ja).toMatch(/<h3>地下鉄<\/h3>[\s\S]*斜め[\s\S]*駅[\s\S]*車両基地[\s\S]*出入口/);
+    expect(en).toMatch(/<h3>Subway<\/h3>[\s\S]*diagonal[\s\S]*Station[\s\S]*Depot[\s\S]*Portal/);
+  });
+});

@@ -1,6 +1,6 @@
 import { Graphics } from 'pixi.js';
 import { LEVEL_PX } from '../../shared/world/constants';
-import { DX, DY } from '../../shared/world/directions';
+import { DX8, DY8 } from '../../shared/world/directions';
 import type { GameMap } from '../../shared/world/gameMap';
 import { hasSub, subConn, subDepth } from '../../shared/world/subway';
 import type { View } from './chunkRenderer';
@@ -66,10 +66,11 @@ export class UndergroundView {
         .stroke({ width: 1, color, alpha: 0.6 });
       // Rails from the centre to the middle of each connected edge
       const conn = subConn(v);
-      for (let d = 0; d < 4; d++) {
+      // 8 directions: the four sides and the four diagonals
+      for (let d = 0; d < 8; d++) {
         if (!(conn & (1 << d))) continue;
-        const ex = cx + ((DX[d] - DY[d]) * 32) / 2;
-        const ey = cy + ((DX[d] + DY[d]) * 16) / 2;
+        const ex = cx + ((DX8[d] - DY8[d]) * 32) / 2;
+        const ey = cy + ((DX8[d] + DY8[d]) * 16) / 2;
         g.moveTo(cx, cy).lineTo(ex, ey).stroke({ width: 5, color, alpha: 0.95 });
       }
       g.circle(cx, cy, 4).fill({ color: 0xffffff, alpha: 0.9 });

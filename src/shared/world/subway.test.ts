@@ -56,3 +56,36 @@ describe('subway', () => {
     expect(m2.subway.get(m2.idx(3, 5))).toBe(m.subway.get(m.idx(3, 5)));
   });
 });
+
+describe('subway diagonals', () => {
+  it('a drag at about 45 degrees lays a diagonal track, connected at both ends in the diagonal directions', () => {
+    const m = land();
+    const t = io();
+    layNewSubway(m, { x: 10, y: 10 }, { x: 16, y: 16 }, 2, 2, t.io);
+    const mid = m.subway.get(m.idx(13, 13));
+    expect(hasSub(mid)).toBe(true);
+    // Direction 5 (SE) and 7 (NW): the diagonal bits in the surface rail's layout
+    expect(subConn(mid)).toBe((1 << 5) | (1 << 7));
+    // The simulation sees the same connections through railAt
+    expect(m.railAt(m.idx(13, 13)) & 0xf0).toBe((1 << 5) | (1 << 7));
+    expect(t.log).toEqual([]);
+  });
+
+  it('removing a diagonal track clears the links on the neighbours', () => {
+    const m = land();
+    const t = io();
+    layNewSubway(m, { x: 10, y: 10 }, { x: 16, y: 16 }, 1, 1, t.io);
+    removeSubwayLine(m, { x: 12, y: 12 }, { x: 13, y: 13 }, t.io);
+    expect(hasSub(m.subway.get(m.idx(12, 12)))).toBe(false);
+    expect(subConn(m.subway.get(m.idx(11, 11)))).toBe(1 << 7); // only its link back to (10,10) is left
+  });
+
+  it('saves with diagonal bits survive a round trip', async () => {
+    const m = land();
+    layNewSubway(m, { x: 10, y: 10 }, { x: 16, y: 16 }, 3, 3, io().io);
+    const d = await decodeSave(await encodeSave(m, {} as never));
+    const m2 = land();
+    applyLayers(m2, d);
+    expect(m2.subway.get(m2.idx(13, 13))).toBe(m.subway.get(m.idx(13, 13)));
+  });
+});

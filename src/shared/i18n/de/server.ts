@@ -105,6 +105,11 @@ export const DE_SERVER: Catalog = {
   'ja:「{name}」は他社の停留所です。持ち主の許可がないと使えません': '„{name}“ gehört einer anderen Firma. Du brauchst die Erlaubnis des Eigentümers.',
   'ja:路線「{name}」を作りました。路線パネルの「＋車両」で車両を買うと走り出します':
     'Linie „{name}“ erstellt. Kaufe im Linienfenster mit „+ Fahrzeug“ ein Fahrzeug, dann fährt sie los.',
+  'ja:地下鉄の駅は、地下鉄の線路の上に置きます。先に「🚇 地下鉄」の「線路を引く」で線路を引いてください':
+    'Ein U-Bahn-Bahnhof kommt auf ein U-Bahn-Gleis. Baue zuerst Gleise mit „🚇 U-Bahn“ > „Gleis bauen“.',
+  'ja:駅は、まっすぐな線路の上に置きます(曲がり角・分かれ道・斜めの所には置けません)':
+    'Ein Bahnhof kommt auf ein gerades Gleis (nicht auf eine Kurve, eine Weiche oder eine Diagonale).',
+  'ja:地下鉄の{name}を置きました({cost})。2つ以上置いて、路線でつなぎます': 'U-Bahn-Bahnhof {name} gesetzt ({cost}). Setze zwei oder mehr und verbinde sie mit einer Linie.',
   'ja:マップの外です': 'Das liegt außerhalb der Karte.',
   'ja:橋・トンネルの上には置けません': 'Auf Brücken und Tunneln ist das nicht möglich.',
   'ja:バス停は道路の上に置きます。先に道路を引くか、道路の上をクリックしてください':

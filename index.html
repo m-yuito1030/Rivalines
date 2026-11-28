@@ -69,10 +69,17 @@
               <button data-tool="railauto" title="線路の自動敷設 始点から終点までドラッグすると、既存の線路を活用しながら、障害物や高低差を避けて最短経路で接続します。" data-i18n="ui.tool.railauto" data-i18n-title="ui.tool.railauto.title">🪄 線路を自動敷設</button>
               <button data-tool="signalline" title="信号を並べる 線路をドラッグすると、ドラッグした方向に合わせて一方向の信号を一定間隔で設置します。" data-i18n="ui.tool.signalline" data-i18n-title="ui.tool.signalline.title">🚦 信号を並べる</button>
               <button data-tool="signal" title="信号 (N) 直線の線路をクリックすると、信号の向きを切り替えられます。斜めの線路にも設置できます。なし → 方向1 → 方向2 → なし(複線など、一方向に列車を走らせる場合に使用します)" data-i18n="ui.tool.signal" data-i18n-title="ui.tool.signal.title">🚦 信号 (N)</button>
-              <button data-tool="subway" title="地下鉄 地下の線路を敷設します。始点と終点の深さ(1〜4)を選んでドラッグすると、その間がなだらかに上り下りします。建設中は地下が表示され、地上は暗くなります。" data-i18n="ui.tool.subway" data-i18n-title="ui.tool.subway.title">🚇 地下鉄</button>
-              <button data-tool="portal" title="出入口 深さ1の地下鉄のはしを、となりの地上の線路のはし(行き止まり)につなぎます。地下鉄の駅・車両基地は、地上と同じ「駅」「車両基地」ツールで直線の線路の上に置きます。" data-i18n="ui.tool.portal" data-i18n-title="ui.tool.portal.title">🚇 出入口</button>
-              <button data-tool="subwaydel" title="地下鉄の撤去 ドラッグした範囲の地下の線路を撤去します。" data-i18n="ui.tool.subwaydel" data-i18n-title="ui.tool.subwaydel.title">🚇 地下鉄を撤去</button>
               <button data-tool="railspan" title="線路の橋 / トンネル (H) 両端をドラッグして設置します。" data-i18n="ui.tool.railspan" data-i18n-title="ui.tool.railspan.title">🌉 橋・トンネル (H)</button>
+            </div>
+          </div>
+          <div class="dd">
+            <button class="ddbtn" type="button" data-def="🚇 地下鉄" data-i18n="ui.dd.subway">🚇 地下鉄 ▾</button>
+            <div class="ddmenu">
+              <button data-tool="subway" title="地下鉄の線路を引く 始点と終点の深さ(1〜4)を選び、地面をドラッグします。約45度の角度でドラッグすると斜めにも引けます。深さが違う2点の間は、なだらかに上り下りします。地下鉄の道具を選んでいる間は、地下が見え、地上は暗くなります。" data-i18n="ui.tool.subway" data-i18n-title="ui.tool.subway.title">🚇 線路を引く</button>
+              <button data-tool="substation" title="地下鉄の駅 まっすぐな地下鉄の線路の上をクリックして、駅を置きます。駅を2つ以上置いて、路線パネルでつなぎます。" data-i18n="ui.tool.substation" data-i18n-title="ui.tool.substation.title">🚇 駅</button>
+              <button data-tool="subdepot" title="地下鉄の車両基地 地下鉄の線路の上をクリックして置きます。置いたあと、路線パネルの「＋車両」で電車を買います。" data-i18n="ui.tool.subdepot" data-i18n-title="ui.tool.subdepot.title">🚇 車両基地</button>
+              <button data-tool="portal" title="出入口 深さ1の地下鉄のはしを、となりの地上の線路のはし(行き止まり)につなぎます。地上の線路とつなぎたいときだけ使います。" data-i18n="ui.tool.portal" data-i18n-title="ui.tool.portal.title">🚇 出入口</button>
+              <button data-tool="subwaydel" title="地下鉄の撤去 ドラッグした範囲の地下の線路を撤去します。" data-i18n="ui.tool.subwaydel" data-i18n-title="ui.tool.subwaydel.title">🚇 撤去</button>
             </div>
           </div>
           <button data-tool="airport" title="空港 (P) 大きさ(小・中・大・ハブ)と向きを選んで、平らな空き地に設置します。" data-i18n="ui.tool.airport" data-i18n-title="ui.tool.airport.title">🛫 空港</button>
@@ -149,7 +156,9 @@
       <div id="subwayOpts" hidden><button type="button" class="optx" title="閉じる (Esc)" data-i18n-title="ui.subwayOpts.t1.title">✕</button><span data-i18n="ui.subwayOpts">🚇 地下鉄の深さ</span>
         <label><span data-i18n="ui.subwayOpts.start">始点</span> <select id="optSubZ0"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
         <label><span data-i18n="ui.subwayOpts.end">終点</span> <select id="optSubZ1"><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
-        <span data-i18n="ui.subwayOpts.note">深いほど高くなります。1タイルで深さは1段まで変えられます。</span></div>
+        <span data-i18n="ui.subwayOpts.note">深いほど高くなります。1タイルで深さは1段まで変えられます。</span>
+        <b data-i18n="ui.subwayHow">🚇 地下鉄のつくりかた</b>
+        <ol class="subhow"><li data-i18n="ui.subwayHow.t1">「線路を引く」で、深さを選んで、地面をドラッグ(斜めもOK)</li><li data-i18n="ui.subwayHow.t2">「駅」を、まっすぐな線路の上に2つ以上置く</li><li data-i18n="ui.subwayHow.t3">「車両基地」を、線路の上に1つ置く</li><li data-i18n="ui.subwayHow.t4">路線パネルの「＋🚆」で、駅を順にクリックして Enter</li><li data-i18n="ui.subwayHow.t5">「＋車両」で、車種「地下鉄」の電車を買う</li><li data-i18n="ui.subwayHow.t6">「出入口」は、地上の線路とつなぎたいときだけ</li></ol></div>
       <div id="facilityOpts" hidden><button type="button" class="optx" title="閉じる (Esc)" data-i18n-title="ui.facilityOpts.t1.title">✕</button>
         <b id="facTitle">施設</b>
         <div class="row" id="facSizes"><button type="button" data-fsize="S" data-i18n="ui.facility.size.S">小</button><button type="button" data-fsize="M" data-i18n="ui.facility.size.M">中</button><button type="button" data-fsize="L" data-i18n="ui.facility.size.L">大</button></div>

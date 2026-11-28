@@ -66,6 +66,8 @@ export class TransitLayer {
   private infraKey = '';
   /** Underground view on: only the underground stops, depots and trains are drawn (and none of the surface ones). Off: the underground ones are hidden */
   underground = false;
+  /** While a rail route is being made, stops and trains of both worlds are drawn (the stations to click may be underground or on the surface) */
+  showAll = false;
 
   /** A tile whose rail is a subway (no surface rail on it) */
   private isUnder(idx: number): boolean {
@@ -436,7 +438,7 @@ export class TransitLayer {
     }
     // The static part is redrawn only when the view leaves the drawn area, the structure changes, the selection changes, or 0.25 s passes
     const now = performance.now();
-    const key = [...highlight].join(',') + (this.underground ? 'u' : '');
+    const key = [...highlight].join(',') + (this.underground ? 'u' : '') + (this.showAll ? 'a' : '');
     const iv = this.infraView;
     const inside = iv && view.zoom === iv.zoom && view.left >= iv.left && view.right <= iv.right && view.top >= iv.top && view.bottom <= iv.bottom;
     if (!inside || now - this.infraAt > 250 || this.infraVer !== this.transit.version || key !== this.infraKey) {
@@ -465,7 +467,7 @@ export class TransitLayer {
     const inView = (wx: number, wy: number) => wx > view.left - margin && wx < view.right + margin && wy > view.top - margin * 2 && wy < view.bottom + margin;
     this.stations.begin();
     for (const s of this.transit.stops.values()) {
-      if (this.isUnder(s.idx) !== this.underground) continue;
+      if (!this.showAll && this.isUnder(s.idx) !== this.underground) continue;
       const wx = this.wx(s.x + 0.5, s.y + 0.5);
       const wy = this.wy(s.x + 0.5, s.y + 0.5, 0);
       if (!inView(wx, wy)) continue;
@@ -511,7 +513,7 @@ export class TransitLayer {
 
     // Depots: draw a garage beside the road/rail/airport tile
     for (const d of this.transit.depots.values()) {
-      if (this.isUnder(d.idx) !== this.underground) continue;
+      if (!this.showAll && this.isUnder(d.idx) !== this.underground) continue;
       if (!inView(this.wx(d.x + 0.5, d.y + 0.5), this.wy(d.x + 0.5, d.y + 0.5, 0))) continue;
       const lvl = m.surfaceLevel(d.x, d.y);
       const sel = highlight.has(-d.id);
@@ -628,7 +630,7 @@ export class TransitLayer {
       const route = this.transit.routes.get(v.routeId);
       if (!route) continue;
       // Underground view: only trains on subway tiles. Normal view: everything except those
-      if (this.isUnder(v.mode === 'air' ? -1 : v.path[Math.min(v.pi, v.path.length - 1)]) !== this.underground) continue;
+      if (!this.showAll && this.isUnder(v.mode === 'air' ? -1 : v.path[Math.min(v.pi, v.path.length - 1)]) !== this.underground) continue;
       if (v.mode === 'road') this.drawBus(v, m, inView);
       else if (v.mode === 'rail') this.drawTrain(v, m, inView);
       else this.drawPlane(v, m, inView);

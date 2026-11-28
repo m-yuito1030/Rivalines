@@ -24,6 +24,10 @@ export class StopLabels {
     private transit: Transit,
     private map: GameMap,
     private button: HTMLElement,
+    /** Whether the underground view is on: then only the names of underground stops are shown (and in the normal view, none of them) */
+    private underground: () => boolean = () => false,
+    /** While a rail route is being made, the names of all stops are shown */
+    private showAll: () => boolean = () => false,
   ) {
     this.on = localStorage.getItem(KEY) !== '0';
     this.sync();
@@ -59,7 +63,8 @@ export class StopLabels {
     if (!this.on) return;
     for (const s of this.transit.stops.values()) {
       let label = this.texts.get(s.id);
-      if (s.waypoint || !s.name || !stopLabelVisibleAt(s.kind, camera.zoom)) {
+      const under = this.map.subwayVer !== 0 && (this.map.subway.get(s.idx) & 0x80) !== 0 && this.map.rail.get(s.idx) === 0;
+      if (s.waypoint || !s.name || (!this.showAll() && under !== this.underground()) || !stopLabelVisibleAt(s.kind, camera.zoom)) {
         if (label) label.visible = false;
         continue;
       }

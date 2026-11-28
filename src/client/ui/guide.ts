@@ -98,6 +98,9 @@ export class FirstGuide {
   /** Called every second or two */
   update(): void {
     if (localStorage.getItem(OFF_KEY)) return void (this.el.hidden = true);
+    // A tool's options panel (e.g. the subway how-to) takes the same corner of the screen: step aside while it is open
+    if (document.querySelector('#subwayOpts:not([hidden]), #stationOpts:not([hidden]), #facilityOpts:not([hidden]), #bulldozeOpts:not([hidden]), #signalOpts:not([hidden])'))
+      return void (this.el.hidden = true);
     const steps = this.steps();
     const doneN = steps.filter((s) => s.done).length;
     // Finished: the card has done its job
