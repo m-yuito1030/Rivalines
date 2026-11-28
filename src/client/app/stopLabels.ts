@@ -64,7 +64,7 @@ export class StopLabels {
     for (const s of this.transit.stops.values()) {
       let label = this.texts.get(s.id);
       const under = this.map.subwayVer !== 0 && (this.map.subway.get(s.idx) & 0x80) !== 0 && this.map.rail.get(s.idx) === 0;
-      if (s.waypoint || !s.name || (!this.showAll() && under !== this.underground()) || !stopLabelVisibleAt(s.kind, camera.zoom)) {
+      if (s.waypoint || !s.name || (!this.showAll() && this.underground() && !under) || !stopLabelVisibleAt(s.kind, camera.zoom)) {
         if (label) label.visible = false;
         continue;
       }

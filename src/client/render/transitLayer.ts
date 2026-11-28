@@ -326,6 +326,30 @@ export class TransitLayer {
   }
 
   /** Waypoint: a small sign beside the track (just a marker for passing through) */
+  /**
+   * The surface entrance of an underground station: a concrete stairwell under a blue canopy, with a signpost beside it.
+   * (The station itself is underground, so on the surface only this is seen.)
+   */
+  private drawEntrance(x: number, y: number, lvl: number, sel: boolean): void {
+    const canopy = sel ? 0xff9a2f : 0x2f7dd1;
+    // The stairwell: a low concrete block with a dark opening on the front
+    this.box(x + 0.5, y + 0.5, lvl, 1, 0, 0.56, 0.4, 9, 0x9aa0a8);
+    this.box(x + 0.5, y + 0.64, lvl, 1, 0, 0.36, 0.14, 6, 0x15181d, 2);
+    // The canopy on four posts
+    for (const [du, dv] of [
+      [0.24, 0.3],
+      [0.76, 0.3],
+      [0.24, 0.7],
+      [0.76, 0.7],
+    ])
+      this.box(x + du, y + dv, lvl, 1, 0, 0.05, 0.05, 20, 0xc4c8ce);
+    this.box(x + 0.5, y + 0.5, lvl, 1, 0, 0.66, 0.5, 3, canopy, 20);
+    // The signpost: a blue plate with a white mark
+    this.box(x + 0.12, y + 0.12, lvl, 1, 0, 0.04, 0.04, 30, 0xdde3ea);
+    this.box(x + 0.12, y + 0.12, lvl, 1, 0, 0.22, 0.06, 11, canopy, 26);
+    this.box(x + 0.12, y + 0.12, lvl, 1, 0, 0.12, 0.07, 5, 0xffffff, 29);
+  }
+
   private drawWaypoint(x: number, y: number, lvl: number, col: number): void {
     this.box(x + 0.84, y + 0.16, lvl, 1, 0, 0.05, 0.05, 14, 0x3a3d44);
     this.box(x + 0.84, y + 0.16, lvl, 1, 0, 0.22, 0.22, 4, col === 0xff9a2f ? col : 0x6f8aa6, 14);
@@ -467,11 +491,18 @@ export class TransitLayer {
     const inView = (wx: number, wy: number) => wx > view.left - margin && wx < view.right + margin && wy > view.top - margin * 2 && wy < view.bottom + margin;
     this.stations.begin();
     for (const s of this.transit.stops.values()) {
-      if (!this.showAll && this.isUnder(s.idx) !== this.underground) continue;
+      const under = this.isUnder(s.idx);
+      // On the surface, an underground station shows only its entrance (the stairs down)
+      const entranceOnly = under && !this.underground && !this.showAll;
+      if (!entranceOnly && !this.showAll && under !== this.underground) continue;
       const wx = this.wx(s.x + 0.5, s.y + 0.5);
       const wy = this.wy(s.x + 0.5, s.y + 0.5, 0);
       if (!inView(wx, wy)) continue;
       const lvl = m.surfaceLevel(s.x, s.y);
+      if (entranceOnly) {
+        this.drawEntrance(s.x, s.y, lvl, highlight.has(s.id));
+        continue;
+      }
       if (s.waiting >= 1) {
         // Waiting-count bar: green -> yellow -> red
         const r = Math.min(1, s.waiting / (WAIT_CAP[s.kind] * 0.5));

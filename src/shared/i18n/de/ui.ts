@@ -130,6 +130,8 @@ export const DE_UI: Catalog = {
   'ui.bulldoze.set.all': 'Gesamter Verkehr',
   'ui.bulldoze.set.road': 'Nur Straßen',
   'ui.bulldoze.set.rail': 'Nur Gleise',
+  'ui.bulldozeOpts.sub': 'U-Bahn-Gleise',
+  'ui.bulldoze.set.subway': 'Nur U-Bahn',
   'ui.bulldoze.set.signal': 'Nur Signale',
   'ui.bulldoze.set.none': 'Leeren',
   'ui.dd.subway': '🚇 U-Bahn ▾',
@@ -145,7 +147,7 @@ export const DE_UI: Catalog = {
   'ui.tool.portal.title':
     'Portal Verbindet das Ende einer U-Bahn-Strecke in Tiefe 1 mit dem Stumpfende eines benachbarten Oberflächengleises. Nur nötig, wenn du ein Oberflächengleis anschließen willst.',
   'ui.tool.subwaydel': '🚇 Entfernen',
-  'ui.tool.subwaydel.title': 'U-Bahn entfernen Ziehen, um die unterirdischen Gleise im Bereich zu entfernen.',
+  'ui.tool.subwaydel.title': 'U-Bahn entfernen Ziehen, um deine eigenen unterirdischen Gleise, Bahnhöfe und Depots im Bereich zu entfernen. Die Oberfläche bleibt unberührt.',
   'ui.ugBtn': '👁 Untergrund',
   'ui.ugBtn.title':
     'Zwischen Oberfläche und Untergrund wechseln (Bild ab: Untergrund / Bild auf: Oberfläche). In der Untergrundansicht wird die Oberfläche zu einem durchsichtigen grauen Schatten und die U-Bahn erscheint klar in Farbe.',

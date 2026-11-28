@@ -132,6 +132,8 @@ export const FR_UI: Catalog = {
   'ui.bulldoze.set.all': 'Tous les transports',
   'ui.bulldoze.set.road': 'Routes seulement',
   'ui.bulldoze.set.rail': 'Voies seulement',
+  'ui.bulldozeOpts.sub': 'Voies de métro',
+  'ui.bulldoze.set.subway': 'Métro seulement',
   'ui.bulldoze.set.signal': 'Signaux seulement',
   'ui.bulldoze.set.none': 'Tout décocher',
   'ui.dd.subway': '🚇 Métro ▾',
@@ -147,7 +149,7 @@ export const FR_UI: Catalog = {
   'ui.tool.portal.title':
     "Portail Relie le bout d'une ligne de métro de profondeur 1 au cul-de-sac d'une voie de surface voisine. Utile seulement pour raccorder une voie de surface.",
   'ui.tool.subwaydel': '🚇 Retirer',
-  'ui.tool.subwaydel.title': 'Retirer le métro Faites glisser pour supprimer les voies souterraines de la zone.',
+  'ui.tool.subwaydel.title': "Retirer le métro Faites glisser pour supprimer vos voies, stations et dépôts souterrains de la zone. La surface n'est pas touchée.",
   'ui.ugBtn': '👁 Souterrain',
   'ui.ugBtn.title':
     'Basculer entre la surface et le souterrain (Page suivante : souterrain / Page précédente : surface). En vue souterraine, la surface devient un fantôme gris transparent et le métro apparaît clairement en couleur.',

@@ -24,6 +24,8 @@ export interface BulldozeKinds {
   /** Town buildings */
   building: boolean;
   airport: boolean;
+  /** Subway track (the company's own) */
+  subway?: boolean;
 }
 
 /** Tools that place one tile at a time */
@@ -81,7 +83,8 @@ export type Cmd =
   /** Redesign: change a built facility to another design at the same size (costs money) */
   | { t: 'facRedesign'; facilityId: number; design: number }
   /** Demolish by element: within a rectangle (the dragged area), demolish only the chosen kinds of element */
-  | { t: 'bulldoze'; a: Pt; b: Pt; kinds: BulldozeKinds }
+  /** under: only underground things (the subway track, and the stations and depots on it): used by the underground view's demolition */
+  | { t: 'bulldoze'; a: Pt; b: Pt; kinds: BulldozeKinds; under?: boolean }
   /** Line development: raise the development level of the company's own stop by one */
   | { t: 'develop'; stopId: number }
   /** Bid: bid `amount` yen on auction lotId */
