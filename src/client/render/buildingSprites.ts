@@ -1,4 +1,5 @@
 import atlasUrl from '../assets/buildings.png';
+import danchiUrl from '../assets/danchi.png';
 import offices2Url from '../assets/offices2.png';
 import schoolUrl from '../assets/school.png';
 import cityhallUrl from '../assets/cityhall.png';
@@ -22,7 +23,7 @@ import amusementUrl from '../assets/amusement.png';
 import stadiumUrl from '../assets/stadium.png';
 import sheetInfo from '../../shared/data/facilitySprites.json';
 import { SIZED_TYPES, type Facility, facilityDims } from '../../shared/world/facilities';
-import { buildingLevel, buildingVariant, isOffice } from '../../shared/world/buildings';
+import { DANCHI_DESIGNS, buildingLevel, buildingVariant, isDanchi, isOffice } from '../../shared/world/buildings';
 
 /**
  * Atlas of building sprites (houses and offices x S/M/L x 25 kinds).
@@ -38,9 +39,15 @@ export const SPRITE_W = 128;
 export const SPRITE_H = 192;
 const CX = 64;
 const CY = 150;
+/** Housing-complex blocks (danchi.png): 10 designs per row, a cell is 128x184, the centre of the lawn diamond is at (64,143) */
+export const DANCHI_W = 128;
+export const DANCHI_H = 184;
+const DANCHI_COLS = 10;
+const DANCHI_CY = 143;
 
 let atlas: HTMLImageElement | null = null;
 let atlas2: HTMLImageElement | null = null;
+let atlasDanchi: HTMLImageElement | null = null;
 let atlasSchool: HTMLImageElement | null = null;
 let atlasCityhall: HTMLImageElement | null = null;
 let atlasDepartment: HTMLImageElement | null = null;
@@ -78,9 +85,10 @@ export async function loadBuildingSprites(): Promise<void> {
   if (atlas) return;
   const sized = Object.keys(SIZED_URLS);
   let sizedImgs: (HTMLImageElement | null)[] = [];
-  [atlas, atlas2, atlasSchool, atlasCityhall, atlasDepartment, atlasMall, atlasSights, ...sizedImgs] = await Promise.all([
+  [atlas, atlas2, atlasDanchi, atlasSchool, atlasCityhall, atlasDepartment, atlasMall, atlasSights, ...sizedImgs] = await Promise.all([
     loadImage(atlasUrl),
     loadImage(offices2Url),
+    loadImage(danchiUrl),
     loadImage(schoolUrl),
     loadImage(cityhallUrl),
     loadImage(departmentUrl),
@@ -98,10 +106,29 @@ export const spritesReady = () => atlas !== null;
  * @returns true if drawn
  */
 /** The atlas image and crop position of the sprite for building b (variation hv). null for tiles that draw nothing (attached tiles) */
-export function buildingSpriteRect(b: number, hv = 0): { img: HTMLImageElement; sx: number; sy: number; level: number } | null {
+export interface BuildingRect {
+  img: HTMLImageElement;
+  sx: number;
+  sy: number;
+  /** The size of the cell, and where the centre of the foot is inside it */
+  w: number;
+  h: number;
+  cx: number;
+  cy: number;
+  level: number;
+}
+
+/** Which of the housing-complex designs a block gets: a fixed pick from the tile's variation (so a block never changes its look) */
+export const danchiDesignOf = (hv: number): number => Math.min(DANCHI_DESIGNS - 1, Math.floor(hv * DANCHI_DESIGNS));
+
+export function buildingSpriteRect(b: number, hv = 0): BuildingRect | null {
   if (!atlas) return null;
   const level = buildingLevel(b);
   if (level < 1) return null;
+  if (isDanchi(b) && atlasDanchi) {
+    const i = danchiDesignOf(hv);
+    return { img: atlasDanchi, sx: (i % DANCHI_COLS) * DANCHI_W, sy: Math.floor(i / DANCHI_COLS) * DANCHI_H, w: DANCHI_W, h: DANCHI_H, cx: DANCHI_W / 2, cy: DANCHI_CY, level };
+  }
   let img = atlas;
   let col = (isOffice(b) ? 3 : 0) + (level - 1);
   let row = buildingVariant(b);
@@ -115,7 +142,7 @@ export function buildingSpriteRect(b: number, hv = 0): { img: HTMLImageElement; 
       row = Math.floor(i / 5);
     }
   }
-  return { img, sx: col * SPRITE_W, sy: row * SPRITE_H, level };
+  return { img, sx: col * SPRITE_W, sy: row * SPRITE_H, w: SPRITE_W, h: SPRITE_H, cx: CX, cy: CY, level };
 }
 
 export function drawBuildingSprite(ctx: CanvasRenderingContext2D, px: number, py: number, b: number, hv = 0): boolean {
@@ -126,7 +153,7 @@ export function drawBuildingSprite(ctx: CanvasRenderingContext2D, px: number, py
   const cy = r.level === 3 ? py : py + 16;
   const scale = ctx.getTransform().a;
   ctx.imageSmoothingEnabled = scale < 1; // keep the pixels crisp when enlarged
-  ctx.drawImage(r.img, r.sx, r.sy, SPRITE_W, SPRITE_H, Math.round(px - CX), Math.round(cy - CY), SPRITE_W, SPRITE_H);
+  ctx.drawImage(r.img, r.sx, r.sy, r.w, r.h, Math.round(px - r.cx), Math.round(cy - r.cy), r.w, r.h);
   ctx.imageSmoothingEnabled = true;
   return true;
 }

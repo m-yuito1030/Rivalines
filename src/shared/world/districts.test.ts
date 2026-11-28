@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { generateTerrain } from './terrain';
 import { GameMap } from './gameMap';
 import { Simulation } from '../sim/simulation';
-import { buildingLevel, isOffice } from './buildings';
+import { DANCHI_VARIANT, buildingLevel, isOffice } from './buildings';
 import { DISTRICT_SPEC } from './districts';
 import { townTier, type District, type DistrictKind, type Town } from './town';
 import { SEA_LEVEL } from './constants';
@@ -51,7 +51,8 @@ describe('街の区画と再開発', () => {
             }
             if (d.kind === 'office' && isOffice(b)) office++;
           }
-        if (d.kind === 'danchi') expect(variants.size).toBeLessThanOrEqual(1);
+        // Every block of a housing complex carries the housing-complex mark (its sprite is picked when it is drawn)
+        if (d.kind === 'danchi') expect([...variants].every((v) => v === DANCHI_VARIANT)).toBe(true);
       }
     expect(danchi + office).toBeGreaterThan(0);
   });

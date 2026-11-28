@@ -5,9 +5,17 @@
  */
 export const SPRITE_VARIANTS = 25;
 export const OFFICE_BIT = 128;
+/**
+ * The variant value that marks a block of a housing-complex district (a 2x2 apartment block that has its own sprites: DANCHI_DESIGNS designs, picked
+ * by the tile's variation when drawn). The 25 ordinary variants are 0..24, so 31 never collides with them.
+ */
+export const DANCHI_VARIANT = 31;
+export const DANCHI_DESIGNS = 120;
 export const buildingLevel = (b: number) => b & 3;
 export const buildingVariant = (b: number) => ((b >> 2) & 31) % SPRITE_VARIANTS;
 export const isOffice = (b: number) => (b & OFFICE_BIT) !== 0;
+/** A block of a housing-complex district: a large (2x2) residential building marked with DANCHI_VARIANT */
+export const isDanchi = (b: number) => (b & 3) === 3 && !isOffice(b) && ((b >> 2) & 31) === DANCHI_VARIANT;
 export const makeBuilding = (level: number, variant: number, office: boolean) => level | (variant << 2) | (office ? OFFICE_BIT : 0);
 export const fillerOf = (dxToAnchor: number, dyToAnchor: number) => 0x40 | ((dxToAnchor + 2 * dyToAnchor) << 2);
 export const fillerAnchorOffset = (b: number): [number, number] => {

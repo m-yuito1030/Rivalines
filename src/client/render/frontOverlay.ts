@@ -4,7 +4,7 @@ import type { GameMap } from '../../shared/world/gameMap';
 import { FACILITY_TILE, type Facility, isSpriteFacility } from '../../shared/world/facilities';
 import { stationTiles } from '../../shared/world/stations';
 import { LEVEL_PX } from '../../shared/world/constants';
-import { SPRITE_H, SPRITE_W, buildingSpriteRect, facilitySpriteFrame } from './buildingSprites';
+import { buildingSpriteRect, facilitySpriteFrame } from './buildingSprites';
 import { hash2 } from './terrainDraw';
 import type { View } from './chunkRenderer';
 
@@ -173,7 +173,7 @@ export class FrontOverlay {
       const fk = `${r.img.src}|${r.sx}|${r.sy}`;
       let tex = this.frameTex.get(fk);
       if (!tex) {
-        tex = new Texture({ source: Texture.from(r.img).source, frame: new Rectangle(r.sx, r.sy, SPRITE_W, SPRITE_H) });
+        tex = new Texture({ source: Texture.from(r.img).source, frame: new Rectangle(r.sx, r.sy, r.w, r.h) });
         this.frameTex.set(fk, tex);
       }
       let sp = this.sprites[n];
@@ -185,7 +185,7 @@ export class FrontOverlay {
       n++;
       sp.visible = true;
       sp.texture = tex;
-      sp.position.set(Math.round(px - 64), Math.round(cy - 150));
+      sp.position.set(Math.round(px - r.cx), Math.round(cy - r.cy));
       sp.zIndex = tx + ty;
     }
     // Sprite facilities (ordered with the same front/back relation as town buildings, relative to the site's front tile)
