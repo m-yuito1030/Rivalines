@@ -1,6 +1,7 @@
 import { CONN, OUT, opposite8 } from '../../world/directions';
 import { FARE, fareMulOf } from './fares';
 import { DECEL_TILES, Route, Stop, Vehicle, dirBetween, nearestDiff, todOf } from './types';
+import { flightAt, speedAt } from './flightPath';
 import type { Transit } from './transit';
 
 /** One tick of movement for running vehicles (road, rail, air), plus arrival, alighting, and position computation */
@@ -13,12 +14,10 @@ export class Motion {
       v.state = 'load';
       return true;
     }
-    f.done += v.speed;
+    f.done += v.speed * speedAt(f, f.done);
     if (f.done >= f.dist) {
-      const dest = this.t.stops.get(route.orders[v.order].stopId);
-      v.path = Uint32Array.of(dest ? dest.idx : v.path[0]);
-      v.flight = null;
-      this.arrive(v, route, tick);
+      f.done = f.dist;
+      this.t.air.onFlightEnd(v, route, tick);
     }
     return true;
   }
@@ -236,8 +235,7 @@ export class Motion {
       const i = v.path[0];
       return { x: (i % s) + 0.5, y: Math.floor(i / s) + 0.5, alt: 0, dx: v.hx, dy: v.hy };
     }
-    const k = f.done / f.dist;
-    const alt = Math.max(0, Math.min(1, f.done / 12, (f.dist - f.done) / 12));
-    return { x: f.x0 + (f.x1 - f.x0) * k, y: f.y0 + (f.y1 - f.y0) * k, alt, dx: v.hx, dy: v.hy };
+    const p = flightAt(f, f.done);
+    return { x: p.x, y: p.y, alt: p.z, dx: p.dx, dy: p.dy };
   }
 }

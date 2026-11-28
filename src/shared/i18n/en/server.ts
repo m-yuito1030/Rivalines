@@ -179,4 +179,7 @@ export const EN_SERVER: Catalog = {
   'ja:パスワードの変更は本稼働側で行ってください': 'Please change your password on the live side.',
   'ja:アカウントがありません': 'The account does not exist.',
   'ja:パスワードは6文字以上72文字以下です': 'Passwords must be 6 to 72 characters.',
+  'ja:道路・直線の線路・空港の格納庫(またはターミナル)の上に置いてください': 'Place it on a road, a straight track, or an airport hangar (or terminal).',
+  'ja:空港の大きさに対して、この機体は大きすぎます(小さい空港は小型機、中くらいの空港は中型機まで。大きい空港とハブはすべて)':
+    'This aircraft is too big for the airport: small airports take small aircraft, medium ones up to medium; large airports and hubs take all.',
 };

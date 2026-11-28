@@ -31,9 +31,11 @@ export const PRICES = {
   depotRoad: 100_000,
   depotRail: 150_000,
   depotAir: 400_000,
-  airport: 2_000_000,
   terraform: 800, // per tile per level
 } as const;
+
+/** Airport prices by size (S / M / L / Hub). Bigger ones have more runways and stands and take bigger aircraft */
+export const AIRPORT_PRICES = { S: 6_000_000, M: 20_000_000, L: 70_000_000, H: 250_000_000 } as const;
 
 /** Vehicle prices: per vehicle for road and air, per car for rail (multiplied by the car count) */
 export function vehiclePrice(model: VehicleModel, cars = 1): number {

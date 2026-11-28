@@ -153,9 +153,9 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 #info .ir.tr { grid-template-columns: 10px auto 1fr auto; }
 #info select { background: #1c2c44; color: #eee; border: 1px solid #456; border-radius: 4px; margin: 0 2px; }
 
-#stationOpts, #facilityOpts, #bulldozeOpts, #signalOpts, #subwayOpts { position: absolute; left: 8px; top: 110px; width: 230px; padding: 8px 10px; border-radius: 10px; font-size: 12px; pointer-events: auto; display: grid; gap: 6px; color: #eee;
+#stationOpts, #facilityOpts, #bulldozeOpts, #signalOpts, #subwayOpts, #airportOpts { position: absolute; left: 8px; top: 110px; width: 230px; padding: 8px 10px; border-radius: 10px; font-size: 12px; pointer-events: auto; display: grid; gap: 6px; color: #eee;
   background: linear-gradient(180deg, rgba(24, 40, 62, 0.92), rgba(12, 22, 38, 0.92)); border: 1px solid rgba(140, 180, 230, 0.25); box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4); z-index: 4; }
-#stationOpts[hidden], #facilityOpts[hidden], #bulldozeOpts[hidden], #signalOpts[hidden], #subwayOpts[hidden] { display: none; }
+#stationOpts[hidden], #facilityOpts[hidden], #bulldozeOpts[hidden], #signalOpts[hidden], #subwayOpts[hidden], #airportOpts[hidden] { display: none; }
 #bulldozeOpts label { justify-content: flex-start; }
 #bulldozeOpts .row { display: flex; flex-wrap: wrap; gap: 4px; }
 #bulldozeOpts button { background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
@@ -370,7 +370,7 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 
 /* Close button of the tool option windows (station, facility, demolish, signal): pressing it releases the tool */
 .optx { position: absolute; right: 6px; top: 6px; z-index: 1; width: 28px; height: 28px; padding: 0; background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; cursor: pointer; }
-#stationOpts, #facilityOpts, #bulldozeOpts, #signalOpts, #subwayOpts { padding-right: 40px; }
+#stationOpts, #facilityOpts, #bulldozeOpts, #signalOpts, #subwayOpts, #airportOpts { padding-right: 40px; }
 @media (pointer: coarse), (max-width: 820px) { .optx { width: 36px; height: 36px; } }
 
 /* Language selection */
@@ -398,3 +398,9 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 .pax-badge { position: fixed; left: 0; top: 0; z-index: 25; pointer-events: none; font: 600 11px/1.2 monospace; padding: 1px 6px; border-radius: 6px; background: #000b; color: #fff; white-space: nowrap; will-change: transform; }
 .pax-badge .off { color: #ffb36b; }
 .pax-badge .on { color: #7fd0ff; }
+
+#airportOpts .row { display: flex; gap: 6px; margin: 6px 0; }
+#airportOpts .row button { flex: 1; background: #26384f; color: #eee; border: 1px solid #456; border-radius: 6px; padding: 5px 8px; cursor: pointer; }
+#airportOpts .row button.on { background: #3a6ea5; border-color: #7bd; }
+#airportOpts canvas { display: block; margin: 8px 0; max-width: 100%; border: 1px solid #456; image-rendering: pixelated; }
+#airportOpts small { display: block; color: #9ab; margin-top: 4px; }

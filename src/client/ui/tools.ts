@@ -8,6 +8,7 @@ import { type DragTool, applyBuild, dragRect } from '../../shared/world/buildApp
 import { canConnectRail, railLineTiles } from '../../shared/world/rails';
 import { DX8, DY8 } from '../../shared/world/directions';
 import { canPlaceAirport } from '../../shared/world/airports';
+import { type AirportAxis, type AirportSize, airportFootprint } from '../../shared/world/airportLayout';
 import { planSpan } from '../../shared/world/spans';
 import { canDigAt, subwayLine } from '../../shared/world/subway';
 import { DEPTH_COLORS } from '../render/undergroundView';
@@ -89,6 +90,8 @@ export class ToolController {
   canBuild: () => boolean = () => true;
   /** Checking the placement area of the station tool (set by main) */
   stationPlanner: ((x: number, y: number) => StationPlan) | null = null;
+  /** The chosen airport size and direction, and where its top-left tile is for a click at (x,y) (the airport is centred on the click) */
+  airportSel: { sel: { size: AirportSize; axis: AirportAxis }; origin: (x: number, y: number) => { x: number; y: number } } | null = null;
   /** Checking the placement area of large facilities (set by main) */
   facilityPlanner: ((x: number, y: number, type: FacilityType) => FacilityPlan) | null = null;
   private start: Tile | null = null;
@@ -126,7 +129,7 @@ export class ToolController {
         return;
       }
       const end = this.pick(e.clientX, e.clientY) ?? this.start;
-      if (SINGLE.includes(this.tool)) this.onClickTile(this.tool, this.tool === 'airport' ? { x: end.x - 1, y: end.y - 1 } : end);
+      if (SINGLE.includes(this.tool)) this.onClickTile(this.tool, this.tool === 'airport' && this.airportSel ? this.airportSel.origin(end.x, end.y) : end);
       else this.apply(this.start, end);
       this.start = null;
     });
@@ -270,15 +273,16 @@ export class ToolController {
 
   private drawAirportPreview(g: Graphics): void {
     if (!this.hover) return;
-    const x0 = this.hover.x - 1;
-    const y0 = this.hover.y - 1;
-    const ok = canPlaceAirport(this.map, x0, y0);
+    const sel = this.airportSel?.sel ?? { size: 'S' as AirportSize, axis: 'x' as AirportAxis };
+    const o = this.airportSel ? this.airportSel.origin(this.hover.x, this.hover.y) : { x: this.hover.x - 1, y: this.hover.y - 1 };
+    const { w: fw, h: fh } = airportFootprint(sel.size, sel.axis);
+    const ok = canPlaceAirport(this.map, o.x, o.y, sel.size, sel.axis);
     const color = ok ? 0x66ff99 : 0xff4455;
     const w = 2.5 / this.camera.zoom;
-    for (let j = 0; j < 3; j++) {
-      for (let i = 0; i < 3; i++) {
-        const tx = x0 + i;
-        const ty = y0 + j;
+    for (let j = 0; j < fh; j++) {
+      for (let i = 0; i < fw; i++) {
+        const tx = o.x + i;
+        const ty = o.y + j;
         const lvl = this.map.inBounds(tx, ty) ? this.map.levelAt(tx, ty) : 0;
         const wx = (tx - ty) * 32;
         const wy = (tx + ty) * 16 - lvl * LEVEL_PX;

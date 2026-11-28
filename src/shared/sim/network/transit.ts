@@ -2,10 +2,12 @@ import { SignalSystem } from './signalSystem';
 import { TrainOps } from './trainOps';
 import { OrderEditor } from './orderEditor';
 import { Schedule } from './schedule';
-import { type Mode, clampCars, defaultModel, legacyCarsOf, modelOf } from '../../data/models';
+import { type Mode, type VehicleModel, aircraftClass, clampCars, defaultModel, legacyCarsOf, modelOf } from '../../data/models';
 import { CONN, DX8, DY8 } from '../../world/directions';
 import type { GameMap } from '../../world/gameMap';
-import { findTerminal } from '../../world/airports';
+import { AirTraffic } from './airTraffic';
+import { airportAt, findTerminal } from '../../world/airports';
+import { airportTakes } from '../../world/airportLayout';
 import { disconnectRail } from '../../world/rails';
 import { makeRng } from '../../world/towns';
 import { type StationOptions, layStationTracks, planStation, stationTile, stationTiles } from '../../world/stations';
@@ -47,6 +49,8 @@ export class Transit {
   readonly dispatch = new Dispatcher(this);
   /** One tick of movement for running vehicles (road, rail, air), plus arrival, alighting, and position computation */
   readonly motion = new Motion(this);
+  /** Aircraft on and around airports: runway windows, stands, taxiing, holding */
+  readonly air = new AirTraffic(this);
   /** Passenger generation, waiting counts, boarding/alighting, catchment areas, and facility demand */
   readonly flow = new PassengerFlow(this);
   /** Save/load (turn Transit's state into a form for saving) */
@@ -344,7 +348,11 @@ export class Transit {
   }
 
   dropVehicles(pred: (v: Vehicle) => boolean): void {
-    for (const v of this.vehicles) if (pred(v)) this.releaseAll(v.id);
+    for (const v of this.vehicles)
+      if (pred(v)) {
+        this.releaseAll(v.id);
+        this.air.forget(v.id);
+      }
     this.vehicles = this.vehicles.filter((v) => !pred(v));
   }
 
@@ -443,8 +451,8 @@ export class Transit {
     let kind: Mode | null = null;
     if (m.road.get(idx)) kind = 'road';
     else if ((m.railAt(idx) & 0xf0) === 0 && ((m.railAt(idx) & 15) === 5 || (m.railAt(idx) & 15) === 10)) kind = 'rail';
-    else if (m.air.get(idx) === 3) kind = 'air';
-    if (!kind) return { reason: '道路・直線の線路・空港ターミナルの上に置いてください' };
+    else if (m.air.get(idx) === 3 || m.air.get(idx) === 6) kind = 'air';
+    if (!kind) return { reason: '道路・直線の線路・空港の格納庫(またはターミナル)の上に置いてください' };
     if (this.stopAtTile(x, y, kind)) return { reason: '停留所・駅と同じタイルには置けません' };
     const id = this.nextId++;
     const depot: Depot = { id, kind, idx, x, y, name: `${kind === 'road' ? 'バス' : kind === 'rail' ? '車両' : '格納'}基地${id}`, owner: this.actor || undefined };
@@ -467,7 +475,7 @@ export class Transit {
     if (m.span.get(d.idx)) return false;
     if (d.kind === 'road') return m.road.get(d.idx) !== 0;
     if (d.kind === 'rail') return (m.railAt(d.idx) & 15) !== 0;
-    return m.air.get(d.idx) === 3;
+    return m.air.get(d.idx) === 3 || m.air.get(d.idx) === 6;
   }
 
   /**
@@ -480,12 +488,35 @@ export class Transit {
     if (!d || !r) return { reason: '車両基地または路線がありません' };
     const model = modelOf(modelId);
     if (r.mode !== d.kind || model.mode !== d.kind) return { reason: '車両基地・路線・車種の種類が一致しません' };
+    if (d.kind === 'air') {
+      const why = this.aircraftFits(
+        model,
+        r.orders.map((o) => o.stopId),
+      );
+      if (why) return { reason: why };
+    }
     const first = this.stops.get(r.orders[this.isWay(r, 0) ? this.realAfter(r, 0) : 0]?.stopId);
     if (!first) return { reason: '路線に停留所がありません' };
     if (d.kind !== 'air' && !this.planner.route(d.idx, first.station ? this.docks(first)[0].a : first.idx, d.kind === 'rail'))
       return { reason: '車両基地から最初の停留所へ到達できません(線路・道路をつないでください)' };
     const v = this.addVehicle(routeId, tick, 0, { modelId, cars, tile: d.idx });
     return v ? { vehicle: v } : { reason: '基地の出口が塞がっているか、置けません(少し待って再度お試しください)' };
+  }
+
+  /**
+   * Whether an aircraft model can use the airports at these stops: a small airport takes small aircraft only, a medium one up to medium,
+   * large and hub airports take all. Returns the reason if it cannot. Old 3x3 airports take everything (as before).
+   */
+  aircraftFits(model: VehicleModel, stopIds: number[]): string | undefined {
+    const cls = aircraftClass(model);
+    for (const id of stopIds) {
+      const s = this.stops.get(id);
+      if (!s || s.kind !== 'air') continue;
+      const a = airportAt(this.map, s.idx);
+      if (a && a.size !== 'legacy' && !airportTakes(a.size, cls))
+        return '空港の大きさに対して、この機体は大きすぎます(小さい空港は小型機、中くらいの空港は中型機まで。大きい空港とハブはすべて)';
+    }
+    return undefined;
   }
 
   /** The depot of the same kind nearest to the route's first stop */

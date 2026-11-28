@@ -100,7 +100,7 @@ describe('航空', () => {
       }
     const t1 = placeAirport(m, 10, 5)!;
     const t2 = placeAirport(m, 80, 70)!;
-    expect(t1).toEqual({ x: 11, y: 5 });
+    expect(t1).toEqual({ x: 15, y: 8 }); // the terminal of a small airport (10x4): the middle of its last row
     for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) m.building.set(m.idx(8 + i, 9 + j), 3);
     const tr = new Transit(m);
     const a = tr.addStop(t1.x, t1.y, 'air')!;
@@ -126,10 +126,10 @@ describe('航空', () => {
   it('異なる種別の停留所は同じ路線にできない', () => {
     const m = flat();
     connect(m, 5, 5, 1, false);
-    placeAirport(m, 20, 20);
+    const term = placeAirport(m, 20, 20)!;
     const tr = new Transit(m);
     const a = tr.addStop(5, 5, 'road')!;
-    const b = tr.addStop(21, 20, 'air')!;
+    const b = tr.addStop(term.x, term.y, 'air')!;
     expect(tr.addRoute([a.id, b.id])).toBeNull();
   });
 });

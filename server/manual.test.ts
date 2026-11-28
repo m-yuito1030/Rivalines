@@ -1,11 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { LOAN_STEP, PRICES, START_CASH, TAX_RATE, TOLL, TRAINING, PAYOUT_OPTIONS } from '../src/shared/sim/economy/economy';
+import { AIRPORT_PRICES, LOAN_STEP, PRICES, START_CASH, TAX_RATE, TOLL, TRAINING, PAYOUT_OPTIONS } from '../src/shared/sim/economy/economy';
 import { DEV } from '../src/shared/sim/economy/development';
 import { PACT_DISCOUNTS } from '../src/shared/sim/economy/pacts';
 import { AD_COOLDOWN_DAYS } from '../src/shared/sim/facility/facilityVisitors';
 import { LISTING_DAYS } from '../src/shared/sim/facility/listings';
 import { MAX_ROUTES_PER_PLAYER } from './commands/util';
+import { AIRPORT_SIZES, airportFootprint, buildLayout } from '../src/shared/world/airportLayout';
 import { CHAT_MAX_CHARS, CHAT_KEEP } from './chat';
 
 const read = (p: string) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -54,8 +55,8 @@ describe('マニュアル(public/manual.html と manual.en.html)', () => {
         PRICES.depotRoad,
         PRICES.depotRail,
         PRICES.depotAir,
-        PRICES.airport,
         PRICES.terraform,
+        ...Object.values(AIRPORT_PRICES),
         START_CASH,
         TOLL.rail,
         TOLL.road,
@@ -115,5 +116,21 @@ describe('マニュアル(public/manual.html と manual.en.html)', () => {
     expect(sitemap).toContain('<loc>https://rivalines.com/manual.html</loc>');
     expect(sitemap).toContain('<loc>https://rivalines.com/manual.en.html</loc>');
     for (const html of [ja, en]) expect(html).not.toMatch(/OpenTTD|Transport Tycoon|Simcity|Cities: Skylines|Mini Metro/i);
+  });
+
+  it('空港の表が、実際のレイアウトと同じ(大きさ・滑走路・駐機場・使える機体)', () => {
+    const rows: Record<string, [string, string]> = { S: ['小', 'Small'], M: ['中', 'Medium'], L: ['大', 'Large'], H: ['ハブ', 'Hub'] };
+    for (const size of AIRPORT_SIZES) {
+      const { w, h } = airportFootprint(size, 'x');
+      const lay = buildLayout(size, 'x');
+      for (const [html, label] of [
+        [ja, rows[size][0]],
+        [en, rows[size][1]],
+      ] as const) {
+        const tr = new RegExp(`<tr><td>${label}</td><td>${w}×${h}</td><td>${lay.runways}</td><td>${lay.stands}</td>`);
+        expect(html, `${size}: ${label}`).toMatch(tr);
+        expect(html).toContain(yen(AIRPORT_PRICES[size]));
+      }
+    }
   });
 });

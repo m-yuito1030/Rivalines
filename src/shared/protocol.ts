@@ -49,7 +49,15 @@ export type TxMethod = (typeof TX_METHODS)[number];
 export type Cmd =
   /** z: for the subway tool, the depth (1-4) at the start and at the end of the line */
   | { t: 'build'; tool: DragTool; a: Pt; b: Pt; z?: [number, number] }
-  | { t: 'place'; tool: PlaceTool; x: number; y: number; opts?: StationOptions; fac?: { design: number; size: 'S' | 'M' | 'L' } }
+  | {
+      t: 'place';
+      tool: PlaceTool;
+      x: number;
+      y: number;
+      opts?: StationOptions;
+      fac?: { design: number; size: 'S' | 'M' | 'L' };
+      air?: { size: 'S' | 'M' | 'L' | 'H'; axis: 'x' | 'y' };
+    }
   | { t: 'ensureStop'; x: number; y: number; kind: Mode }
   | { t: 'routeCreate'; stops: number[] }
   | { t: 'tx'; m: TxMethod; a: number[] }
@@ -111,6 +119,14 @@ export type ClientMsg =
   | { type: 'view'; x0: number; y0: number; x1: number; y1: number };
 
 /** Lightweight vehicle data needed for drawing (the path is sent separately, only when it changes) */
+export interface FlightMsg {
+  id: number;
+  done: number;
+  dist?: number;
+  pts?: number[];
+  sp?: number[];
+}
+
 export interface VehMsg {
   id: number;
   routeId: number;
@@ -125,7 +141,8 @@ export interface VehMsg {
   speed: number;
   trail: number[];
   len: number;
-  flight: unknown;
+  /** An aircraft's path: the whole path (pts, sp, dist) is sent once when it changes, afterwards only { id, done } */
+  flight: FlightMsg | null;
   hx: number;
   hy: number;
   dir: number;

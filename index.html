@@ -55,7 +55,7 @@
               <button data-tool="oneway" title="一方通行 (O) ドラッグした方向にだけ通行できる道路を設置します。" data-i18n="ui.tool.oneway" data-i18n-title="ui.tool.oneway.title">➡ 一方通行 (O)</button>
               <button data-tool="twoway" title="双方向に戻す (T) 一方通行を解除して、双方向通行に戻します。" data-i18n="ui.tool.twoway" data-i18n-title="ui.tool.twoway.title">⇄ 双方向に戻す (T)</button>
               <button data-tool="stop" title="バス停 (B) 道路上をクリックして設置します。" data-i18n="ui.tool.stop" data-i18n-title="ui.tool.stop.title">🚏 バス停 (B)</button>
-              <button data-tool="depot" title="車両基地 道路・直線の線路・空港ターミナルの上をクリックして設置します。設置後、基地をクリックすると車両を購入できます。" data-i18n="ui.tool.depot" data-i18n-title="ui.tool.depot.title">🏭 車両基地</button>
+              <button data-tool="depot" title="車両基地 道路・直線の線路・空港の格納庫(またはターミナル)の上をクリックして設置します。設置後、基地をクリックすると車両を購入できます。" data-i18n="ui.tool.depot" data-i18n-title="ui.tool.depot.title">🏭 車両基地</button>
               <button data-tool="roadspan" title="道路の橋 / トンネル (Y) 両端をドラッグして設置します。" data-i18n="ui.tool.roadspan" data-i18n-title="ui.tool.roadspan.title">🌉 橋・トンネル (Y)</button>
             </div>
           </div>
@@ -75,7 +75,7 @@
               <button data-tool="railspan" title="線路の橋 / トンネル (H) 両端をドラッグして設置します。" data-i18n="ui.tool.railspan" data-i18n-title="ui.tool.railspan.title">🌉 橋・トンネル (H)</button>
             </div>
           </div>
-          <button data-tool="airport" title="空港 (P) 3×3の平らな土地に設置します。" data-i18n="ui.tool.airport" data-i18n-title="ui.tool.airport.title">🛫 空港</button>
+          <button data-tool="airport" title="空港 (P) 大きさ(小・中・大・ハブ)と向きを選んで、平らな空き地に設置します。" data-i18n="ui.tool.airport" data-i18n-title="ui.tool.airport.title">🛫 空港</button>
           <div class="dd">
             <button class="ddbtn" type="button" data-def="⛰ 地形" data-i18n="ui.dd.terrain">⛰ 地形 ▾</button>
             <div class="ddmenu">
@@ -153,6 +153,14 @@
         <label><span data-i18n="ui.facilityOpts.t2">デザイン</span> <span class="row"><select id="facDesign"></select><button id="facRand" type="button" title="ランダム" data-i18n-title="ui.facRand.title">🎲</button></span></label>
         <canvas id="facPreview" width="220" height="240"></canvas>
         <small id="facInfo"></small>
+      </div>
+      <div id="airportOpts" hidden><button type="button" class="optx" title="閉じる (Esc)" data-i18n-title="ui.signalOpts.t1.title">✕</button>
+        <b id="airportName">🛫 空港を建てる</b>
+        <div class="row" id="airportSizes"><button type="button" data-asize="S" data-i18n="ui.facility.size.S">小</button><button type="button" data-asize="M" data-i18n="ui.facility.size.M">中</button><button type="button" data-asize="L" data-i18n="ui.facility.size.L">大</button><button type="button" data-asize="H" data-i18n="ui.airport.size.H">ハブ</button></div>
+        <label><span data-i18n="ui.stationOpts.t7">向き</span> <select id="airportAxis"><option value="x" selected data-i18n="ui.optAxis.t1">東西</option><option value="y" data-i18n="ui.optAxis.t2">南北</option></select></label>
+        <canvas id="airportPreview" width="200" height="60"></canvas>
+        <small id="airportInfo"></small>
+        <small data-i18n="ui.airportOpts.note">クリックした位置が中心。平らな空き地が必要です。大きい空港ほど、大きな機体が使え、同時に多くの飛行機をさばけます。</small>
       </div>
       <div id="stationOpts" hidden><button type="button" class="optx" title="閉じる (Esc)" data-i18n-title="ui.stationOpts.t1.title">✕</button>
         <b data-i18n="ui.stationOpts.t2">🚉 駅の設置</b>
