@@ -336,7 +336,7 @@ export class Replicator {
       ]);
     }
     // Route income, profit, and passengers carried change every day, but the structure (struct) is only sent on change, so send them here every time
-    const routeStats: [number, number, number, number][] = [...sim.transit.routes.values()].map((r) => [r.id, r.income ?? 0, r.profit ?? 0, r.carried ?? 0]);
+    const routeStats: [number, number, number, number, number][] = [...sim.transit.routes.values()].map((r) => [r.id, r.income ?? 0, r.profit ?? 0, r.carried ?? 0, r.toll ?? 0]);
     for (const c of clients) {
       this.send(c, {
         type: 'misc',

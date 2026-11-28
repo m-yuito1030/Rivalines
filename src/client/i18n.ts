@@ -122,7 +122,14 @@ export function setCurrencyChoice(code: string): void {
 
 /** Fill the currency selector (.currency-select) and its rate note, and wire it up to switching */
 function syncCurrencySelects(): void {
-  const names = (c: string) => `${c} — ${currencyName(c, current.code === 'ja' ? 'ja' : 'en')}`;
+  const intlName = (c: string): string => {
+    try {
+      return new Intl.DisplayNames([current.tag], { type: 'currency' }).of(c) ?? currencyName(c, 'en');
+    } catch {
+      return currencyName(c, 'en');
+    }
+  };
+  const names = (c: string) => `${c} — ${current.code === 'ja' ? currencyName(c, 'ja') : current.code === 'en' ? currencyName(c, 'en') : intlName(c)}`;
   document.querySelectorAll<HTMLSelectElement>('select.currency-select').forEach((sel) => {
     if (!sel.options.length) {
       for (const c of CURRENCY_CODES) {

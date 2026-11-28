@@ -7,6 +7,9 @@ import { WAIT_CAP, type Transit } from '../network/transit';
 
 /** Management analysis: aggregates profitability per route, stop, and facility of the company (for display; does not change game state) */
 
+/** When tolls take this share of a route's fare income, the screens warn about it */
+export const TOLL_WARN = 0.3;
+
 export interface RouteEcon {
   id: number;
   name: string;
@@ -17,6 +20,8 @@ export interface RouteEcon {
   income: number;
   /** Vehicle running cost per day */
   running: number;
+  /** Tolls paid per day for other companies' roads and tracks */
+  toll: number;
   profit: number;
   loadPct: number | null;
   carried: number;
@@ -60,6 +65,7 @@ export function routeEcon(t: Transit, ownerId?: number): RouteEcon[] {
     const load = vs.reduce((s, v) => s + v.load, 0);
     const running = vs.reduce((s, v) => s + vehiclePrice(modelOf(v.modelId), v.cars) * RUNNING_RATE, 0);
     const income = r.income ?? 0;
+    const toll = r.toll ?? 0;
     out.push({
       id: r.id,
       name: r.name,
@@ -68,7 +74,8 @@ export function routeEcon(t: Transit, ownerId?: number): RouteEcon[] {
       vehicles: vs.length,
       income,
       running,
-      profit: income - running,
+      toll,
+      profit: income - running - toll,
       loadPct: cap ? Math.round((load / cap) * 100) : null,
       carried: Math.floor(r.carried ?? 0),
     });

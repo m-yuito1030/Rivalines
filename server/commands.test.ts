@@ -183,12 +183,13 @@ describe('配信: 路線の経営データ', () => {
     r.income = 1234;
     r.profit = 1000;
     r.carried = 55.7;
+    r.toll = 321;
     repl.misc([c]);
-    expect(sent.find((m) => m.type === 'misc')!.routeStats).toContainEqual([r.id, 1234, 1000, 55.7]);
+    expect(sent.find((m) => m.type === 'misc')!.routeStats).toContainEqual([r.id, 1234, 1000, 55.7, 321]);
     sent.length = 0;
     r.income = 2000; // 構造のバージョンを上げなくても、次の misc に反映される
     repl.misc([c]);
-    expect(sent.find((m) => m.type === 'misc')!.routeStats).toContainEqual([r.id, 2000, 1000, 55.7]);
+    expect(sent.find((m) => m.type === 'misc')!.routeStats).toContainEqual([r.id, 2000, 1000, 55.7, 321]);
   });
 });
 
