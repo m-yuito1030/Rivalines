@@ -208,7 +208,7 @@ export type ServerMsg =
   | { type: 'struct'; nextId: number; routes: unknown[]; stops: unknown[]; depots: unknown[]; signals: [number, number][]; grants?: [number, number[]][] }
   | {
       type: 'misc';
-      routeStats: [number, number, number, number][];
+      routeStats: [number, number, number, number, number][];
       myVehicles: MyVeh[];
       tick: number;
       company: unknown;

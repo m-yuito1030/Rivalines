@@ -104,9 +104,9 @@ export class Mirror {
         sim.transit.delivered = msg.delivered;
         sim.transit.transfers = msg.transfers;
         sim.transit.mirrorWaiting(msg.waiting);
-        for (const [id, income, profit, carried] of msg.routeStats ?? []) {
+        for (const [id, income, profit, carried, toll] of msg.routeStats ?? []) {
           const r = sim.transit.routes.get(id);
-          if (r) Object.assign(r, { income, profit, carried });
+          if (r) Object.assign(r, { income, profit, carried, toll });
         }
         this.players = msg.players;
         this.myVehicles = msg.myVehicles;

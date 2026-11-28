@@ -5,7 +5,7 @@ import type { Facility } from '../../shared/world/facilities';
 import { yen } from '../../shared/sim/economy/economy';
 import { net } from '../connection/net';
 import { DEV } from '../../shared/sim/economy/development';
-import { devRows, facilityEcon, routeEcon, stopEcon, summarize } from '../../shared/sim/economy/analysis';
+import { TOLL_WARN, devRows, facilityEcon, routeEcon, stopEcon, summarize } from '../../shared/sim/economy/analysis';
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
@@ -55,10 +55,10 @@ export class AnalysisPanel extends ModalPanel {
     h += `<div>${tr('赤字の路線')} <b>${s.lossRoutes}</b> ${tr('本 / 車両のない路線')} <b>${s.idleVehicles}</b> ${tr('本')}</div>`;
     h += `<h3>${tr('路線別の採算(赤字が上)')}</h3>`;
     h += routes.length
-      ? `<table><tr><th>${tr('路線')}</th><th>${tr('車両')}</th><th>${tr('運賃収入/日')}</th><th>${tr('運行費/日')}</th><th>${tr('損益/日')}</th><th>${tr('積載')}</th></tr>${routes
+      ? `<table><tr><th>${tr('路線')}</th><th>${tr('車両')}</th><th>${tr('運賃収入/日')}</th><th>${tr('運行費/日')}</th><th>${tr('通行料/日')}</th><th>${tr('損益/日')}</th><th>${tr('積載')}</th></tr>${routes
           .map(
             (r) =>
-              `<tr><td><i style="background:${hex(r.color)}"></i>${ICON[r.mode]} ${esc(r.name)}</td><td>${r.vehicles}</td><td>${yen(r.income)}</td><td>${yen(r.running)}</td><td class="${cls(r.profit)}">${yen(r.profit)}</td><td>${r.loadPct === null ? '-' : r.loadPct + '%'}</td></tr>`,
+              `<tr><td><i style="background:${hex(r.color)}"></i>${ICON[r.mode]} ${esc(r.name)}</td><td>${r.vehicles}</td><td>${yen(r.income)}</td><td>${yen(r.running)}</td><td class="${r.income > 0 && r.toll / r.income >= TOLL_WARN ? 'neg' : ''}">${yen(r.toll)}</td><td class="${cls(r.profit)}">${yen(r.profit)}</td><td>${r.loadPct === null ? '-' : r.loadPct + '%'}</td></tr>`,
           )
           .join('')}</table>`
       : `<div>${tr('自社の路線がありません')}</div>`;
