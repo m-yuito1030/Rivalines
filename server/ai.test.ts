@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { makeWorldMap } from '../src/shared/world/bigTerrain';
 import { Simulation } from '../src/shared/sim/simulation';
 import { AI_ID_BASE, aiProfile, isAiId, AI_PROFILES, AI_MAX } from '../src/shared/sim/economy/aiCompanies';
+import { facilityValue } from '../src/shared/sim/economy/economy';
 import { planRoad } from '../src/shared/sim/ai/roadPlanner';
 import { CONN } from '../src/shared/world/directions';
 import { AiPlanner } from './ai';
@@ -23,6 +24,9 @@ describe('AI 会社の登録', () => {
     expect(AI_PROFILES).toHaveLength(AI_MAX);
     expect(new Set(AI_PROFILES.map((p) => p.name)).size).toBe(AI_MAX);
     expect(aiProfile(AI_ID_BASE)?.name).toBeTruthy();
+    // Each company has a specialty and a style; the first four cover every specialty (so a small number of AI companies still has variety)
+    expect(new Set(AI_PROFILES.slice(0, 4).map((p) => p.kind))).toEqual(new Set(['bus', 'rail', 'estate', 'general']));
+    expect(new Set(AI_PROFILES.map((p) => p.style))).toEqual(new Set(['aggressive', 'cautious']));
     expect(aiProfile(5)).toBeUndefined();
   });
 });
@@ -136,5 +140,58 @@ describe('AI 会社の配信と、アカウントの番号', () => {
     sim.setOnline([...ai.ids, 1]);
     sim.playerCompany(1);
     expect(sim.govInfoFor(1).size).toBe('none'); // only one player: the AI companies do not make "three companies"
+  });
+});
+
+describe('AI 会社の専門と性格', () => {
+  // One shared run (6 companies: bus/aggressive, rail/cautious, estate/aggressive, general/cautious, rail/aggressive, bus/cautious), so the tests stay quick
+  let sim: Simulation;
+  beforeAll(() => {
+    sim = newWorld();
+    const ai = new AiPlanner(sim, 6);
+    ai.init();
+    sim.setOnline(ai.ids);
+    for (let i = 0; i < 22_000; i++) {
+      sim.step();
+      ai.step();
+    }
+  }, 150_000);
+  const routesOf = (id: number) => [...sim.transit.routes.values()].filter((r) => r.owner === id);
+  const facilitiesOf = (id: number) => sim.map.facilities.filter((f) => f.playerId === id && (f.owner ?? 'player') === 'player');
+
+  it('鉄道会社は、駅・線路・車両基地・路線・列車を作り、バスは使わない', () => {
+    const rail = AI_ID_BASE + 1; // 北星鉄道(鉄道専門・慎重)
+    expect(routesOf(rail).length).toBeGreaterThan(0);
+    const stops = [...sim.transit.stops.values()].filter((s) => s.owner === rail);
+    expect(stops.length).toBeGreaterThanOrEqual(2);
+    expect(stops.every((s) => s.kind === 'rail' && s.station)).toBe(true);
+    expect([...sim.transit.depots.values()].some((d) => d.owner === rail && d.kind === 'rail')).toBe(true);
+    const trains = sim.transit.vehicles.filter((v) => sim.transit.routes.get(v.routeId)?.owner === rail);
+    expect(trains.length).toBeGreaterThan(0);
+    expect(trains.every((v) => v.mode === 'rail')).toBe(true);
+  });
+
+  it('不動産会社は、施設を建てたり買ったりして持つ。路線は作らない', () => {
+    const estate = AI_ID_BASE + 2; // 千歳不動産(不動産・施設・積極的)
+    const own = facilitiesOf(estate);
+    expect(own.length).toBeGreaterThan(3);
+    expect(own.every((f) => facilityValue(f) > 0)).toBe(true);
+    expect(routesOf(estate)).toHaveLength(0);
+  });
+
+  it('積極的な会社は、慎重な会社より多く・早く広げる(バスの路線の数・施設の数)', () => {
+    expect(routesOf(AI_ID_BASE).length).toBeGreaterThan(routesOf(AI_ID_BASE + 5).length); // みなと交通(積極的) と あかつきバス(慎重)
+    expect(facilitiesOf(AI_ID_BASE + 2).length).toBeGreaterThan(facilitiesOf(AI_ID_BASE + 3).length); // 千歳不動産(積極的) と 白鷺(総合・慎重)
+  });
+
+  it('慎重な会社は、手元の資金を残す。どの会社も、資金がマイナスにならない', () => {
+    expect(sim.playerCompany(AI_ID_BASE + 5).cash).toBeGreaterThan(9_000_000); // the reserve is 12M
+    for (let i = 0; i < 6; i++) expect(sim.playerCompany(AI_ID_BASE + i).cash).toBeGreaterThanOrEqual(0);
+  });
+
+  it('総合会社は、バス・不動産・鉄道を順にやる(路線と施設の両方を持つ)', () => {
+    const general = AI_ID_BASE + 3; // 白鷺ホールディングス
+    expect(facilitiesOf(general).length).toBeGreaterThan(0);
+    expect(routesOf(general).length).toBeGreaterThan(0);
   });
 });

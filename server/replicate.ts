@@ -332,7 +332,7 @@ export class Replicator {
       company: a ? a.company || a.name : profile!.name,
       bio: a?.bio ?? '',
       color: a?.color ?? profile!.color,
-      ...(profile ? { ai: true } : {}),
+      ...(profile ? { ai: { kind: profile.kind, style: profile.style } } : {}),
       online: sim.online.has(id),
       marketCap: co.marketCap,
       price: co.stock,

@@ -2,6 +2,7 @@ import type { PlayerInfo } from '../../shared/protocol';
 import type { Transit } from '../../shared/sim/network/transit';
 import { yen } from '../../shared/sim/economy/economy';
 import { net, toLoginScreen } from '../connection/net';
+import { AI_KIND_LABEL, AI_STYLE_LABEL } from '../../shared/sim/economy/aiCompanies';
 import { onCurrencyChange, tr } from '../i18n';
 import { $, esc } from './dom';
 
@@ -90,7 +91,7 @@ export class PlayerMenu {
       .players()
       .map(
         (p) =>
-          `<div class="im"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#${p.color.toString(16).padStart(6, '0')}"></i> ${p.online ? '🟢' : '⚪'} ${esc(p.company)}${p.ai ? '' : `<small class="muted"> (${esc(p.name)})</small>`} ・ ${tr('時価総額')} ${yen(p.marketCap)}${p.bio ? `<div class="muted">${esc(p.bio)}</div>` : ''}${p.id === net.id ? ` ${tr('(あなた)')}` : p.ai ? ` <span class="muted">${tr('(コンピューターが運営)')}</span>` : ` <button data-gift="${p.id}">${tr('送金')}</button> <button data-report="${p.id}" title="${tr('迷惑行為・不適切な名前や文章などを運営に知らせます')}">${tr('通報')}</button> <label class="muted" title="${tr('自社の全停留所をこの会社の路線が使えるようにします')}"><input type="checkbox" data-cgrant="${p.id}" ${grants?.has(p.id) ? 'checked' : ''}> ${tr('全駅を許可')}</label>`}</div>`,
+          `<div class="im"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#${p.color.toString(16).padStart(6, '0')}"></i> ${p.online ? '🟢' : '⚪'} ${esc(p.company)}${p.ai ? '' : `<small class="muted"> (${esc(p.name)})</small>`} ・ ${tr('時価総額')} ${yen(p.marketCap)}${p.bio ? `<div class="muted">${esc(p.bio)}</div>` : ''}${p.id === net.id ? ` ${tr('(あなた)')}` : p.ai ? ` <span class="muted">${tr('(コンピューターが運営)')} ${tr(AI_KIND_LABEL[p.ai.kind])}・${tr(AI_STYLE_LABEL[p.ai.style])}</span>` : ` <button data-gift="${p.id}">${tr('送金')}</button> <button data-report="${p.id}" title="${tr('迷惑行為・不適切な名前や文章などを運営に知らせます')}">${tr('通報')}</button> <label class="muted" title="${tr('自社の全停留所をこの会社の路線が使えるようにします')}"><input type="checkbox" data-cgrant="${p.id}" ${grants?.has(p.id) ? 'checked' : ''}> ${tr('全駅を許可')}</label>`}</div>`,
       )
       .join('');
   }
