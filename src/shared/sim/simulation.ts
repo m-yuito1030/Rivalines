@@ -188,9 +188,10 @@ export class Simulation {
     // Running over another company's infrastructure costs a toll (sharing tracks and roads)
     this.transit.onTile = (_v, route, tile) => {
       if (!this.multi || !route.owner) return;
-      const own = this.map.infraOwner.get(tile);
+      // A subway tile (no surface rail on it) belongs to whoever dug it
+      const own = this.map.subwayVer !== 0 && this.map.subway.get(tile) && !this.map.rail.get(tile) ? this.map.subwayOwner.get(tile) : this.map.infraOwner.get(tile);
       if (!own || own === route.owner) return;
-      const toll = (this.map.rail.get(tile) ? TOLL.rail : TOLL.road) * (1 - this.pacts.discountBetween(route.owner, own));
+      const toll = (this.map.railAt(tile) ? TOLL.rail : TOLL.road) * (1 - this.pacts.discountBetween(route.owner, own));
       this.playerCompany(route.owner).pay('toll-out', toll);
       this.playerCompany(own).earn('toll-in', toll);
     };

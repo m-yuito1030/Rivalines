@@ -22,6 +22,8 @@ export function canConnectRail(map: GameMap, x: number, y: number, d: number, sl
   const a = map.idx(x, y);
   const b = map.idx(nx, ny);
   if (map.span.get(a) || map.span.get(b)) return false;
+  // A subway tile cannot also carry a surface rail (the simulation reads both together)
+  if (map.subway.get(a) || map.subway.get(b)) return false;
   if (map.building.get(a) || map.building.get(b) || map.air.get(a) || map.air.get(b)) return false;
   if (isDiag(d)) {
     // Cannot cross a diagonal track that connects the two tiles sharing a corner

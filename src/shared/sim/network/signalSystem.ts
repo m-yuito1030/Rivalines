@@ -9,7 +9,7 @@ export class SignalSystem {
   signalMask(idx: number): number {
     const mk = this.t.signals.get(idx);
     if (!mk) return 0;
-    if (!signalPair(this.t.map.rail.get(idx))) {
+    if (!signalPair(this.t.map.railAt(idx))) {
       this.t.signals.delete(idx);
       return 0;
     }
@@ -24,7 +24,7 @@ export class SignalSystem {
     const m = this.t.map;
     if (!m.inBounds(x, y)) return null;
     const i = m.idx(x, y);
-    const pair = signalPair(m.rail.get(i));
+    const pair = signalPair(m.railAt(i));
     if (!pair || m.span.get(i) || this.t.stopAtTile(x, y, 'rail')) return null;
     const [a, b] = pair;
     const cur = this.signalMask(i);
@@ -41,7 +41,7 @@ export class SignalSystem {
     const m = this.t.map;
     if (!m.inBounds(x, y)) return false;
     const i = m.idx(x, y);
-    const pair = signalPair(m.rail.get(i));
+    const pair = signalPair(m.railAt(i));
     if (!pair || m.span.get(i) || this.t.stopAtTile(x, y, 'rail')) return false;
     if (mask !== pair[0] && mask !== pair[1]) return false;
     this.t.signals.set(i, mask);

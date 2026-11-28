@@ -60,7 +60,8 @@ export function findPath(
   /** Rail: a tile's signal direction bits. Entering from a direction whose bit is not set is forbidden as one-way */
   signalMask?: (idx: number) => number,
 ): Uint32Array | null {
-  const layer = rail ? map.rail : map.road;
+  // Rail searches see the surface rail and the subway together (see GameMap.railAt)
+  const layer = rail ? { get: (i: number) => map.railAt(i) } : map.road;
   if (from === to) return Uint32Array.of(from);
   const s = map.size;
   const tx = to % s;

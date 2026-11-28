@@ -16,7 +16,7 @@ export class TrainOps {
   freeNeighbor(tile: number, avoid: Set<number>): number {
     const s = this.t.map.size;
     for (let d = 0; d < 8; d++) {
-      if (!(this.t.map.rail.get(tile) & CONN(d))) continue;
+      if (!(this.t.map.railAt(tile) & CONN(d))) continue;
       const n = (Math.floor(tile / s) + DY8[d]) * s + (tile % s) + DX8[d];
       if (!avoid.has(n) && !this.t.reserved.has(n)) return n;
     }
@@ -105,7 +105,7 @@ export class TrainOps {
     const s = m.size;
     const adj = (p: number, q: number) => {
       const d = dirBetween(p, q, s);
-      return d >= 0 && (m.rail.get(p) & CONN(d)) !== 0 && (m.rail.get(q) & CONN(opposite8(d))) !== 0;
+      return d >= 0 && (m.railAt(p) & CONN(d)) !== 0 && (m.railAt(q) & CONN(opposite8(d))) !== 0;
     };
     const aEnds: [number, boolean][] = [
       [a.trail[a.trail.length - 1], false],

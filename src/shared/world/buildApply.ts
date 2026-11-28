@@ -4,11 +4,26 @@ import { autoRailPath, canConnectRail, connectRail, railLineTiles } from './rail
 import { CONN, DX8, DY8 } from './directions';
 import { PRICES, yen } from '../sim/economy/economy';
 import { buildSpan, planSpan } from './spans';
-import { layNewSubway, removeSubwayLine } from './subway';
+import { layNewSubway, layPortal, removeSubwayLine } from './subway';
 import { MAX_TERRAFORM_AREA, lower, raise, setLevel } from './terraform';
 
-export type DragTool = 'road' | 'oneway' | 'twoway' | 'bulldoze' | 'rail' | 'railauto' | 'raise' | 'lower' | 'level' | 'roadspan' | 'railspan' | 'subway' | 'subwaydel';
-export const DRAG_TOOLS: readonly string[] = ['road', 'oneway', 'twoway', 'bulldoze', 'rail', 'railauto', 'raise', 'lower', 'level', 'roadspan', 'railspan', 'subway', 'subwaydel'];
+export type DragTool = 'road' | 'oneway' | 'twoway' | 'bulldoze' | 'rail' | 'railauto' | 'raise' | 'lower' | 'level' | 'roadspan' | 'railspan' | 'subway' | 'subwaydel' | 'portal';
+export const DRAG_TOOLS: readonly string[] = [
+  'road',
+  'oneway',
+  'twoway',
+  'bulldoze',
+  'rail',
+  'railauto',
+  'raise',
+  'lower',
+  'level',
+  'roadspan',
+  'railspan',
+  'subway',
+  'subwaydel',
+  'portal',
+];
 export const RECT_TOOLS: readonly string[] = ['raise', 'lower', 'level'];
 type Tile = { x: number; y: number };
 
@@ -54,6 +69,7 @@ export function applyBuild(map: GameMap, tool: DragTool, a: Tile, b: Tile, io: B
     }
     return;
   }
+  if (tool === 'portal') return layPortal(map, a, io);
   if (tool === 'subway' || tool === 'subwaydel') {
     // Subway is its own layer: it does not touch the surface network, so no path needs searching again
     const z = io.z ?? [1, 1];

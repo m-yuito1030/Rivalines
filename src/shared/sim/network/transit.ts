@@ -148,7 +148,7 @@ export class Transit {
   stopValid(s: Stop): boolean {
     if (!s.station) return this.tileValid(s.kind, s.idx);
     // If even one tile of a multi-tile station is destroyed, the whole station is invalid (it is removed entirely)
-    return this.stopTiles(s).every((i) => (this.map.rail.get(i) & 0xf) !== 0 && (this.map.rail.get(i) & 0xf0) === 0);
+    return this.stopTiles(s).every((i) => (this.map.railAt(i) & 0xf) !== 0 && (this.map.railAt(i) & 0xf0) === 0);
   }
 
   /** Candidate "stopping positions" of a station: both end tiles of each platform track. A one-tile station is its own */
@@ -250,7 +250,7 @@ export class Transit {
   tileValid(kind: Mode, idx: number): boolean {
     const m = this.map;
     if (m.span.get(idx)) return false;
-    return kind === 'road' ? m.road.get(idx) !== 0 : kind === 'rail' ? (m.rail.get(idx) & 0xf) !== 0 && (m.rail.get(idx) & 0xf0) === 0 : m.air.get(idx) === 3;
+    return kind === 'road' ? m.road.get(idx) !== 0 : kind === 'rail' ? (m.railAt(idx) & 0xf) !== 0 && (m.railAt(idx) & 0xf0) === 0 : m.air.get(idx) === 3;
   }
 
   addStop(x: number, y: number, kind: Mode = 'road'): Stop | null {
@@ -442,7 +442,7 @@ export class Transit {
     if (m.span.get(idx)) return { reason: '橋・トンネルには置けません' };
     let kind: Mode | null = null;
     if (m.road.get(idx)) kind = 'road';
-    else if ((m.rail.get(idx) & 0xf0) === 0 && ((m.rail.get(idx) & 15) === 5 || (m.rail.get(idx) & 15) === 10)) kind = 'rail';
+    else if ((m.railAt(idx) & 0xf0) === 0 && ((m.railAt(idx) & 15) === 5 || (m.railAt(idx) & 15) === 10)) kind = 'rail';
     else if (m.air.get(idx) === 3) kind = 'air';
     if (!kind) return { reason: '道路・直線の線路・空港ターミナルの上に置いてください' };
     if (this.stopAtTile(x, y, kind)) return { reason: '停留所・駅と同じタイルには置けません' };
@@ -466,7 +466,7 @@ export class Transit {
     const m = this.map;
     if (m.span.get(d.idx)) return false;
     if (d.kind === 'road') return m.road.get(d.idx) !== 0;
-    if (d.kind === 'rail') return (m.rail.get(d.idx) & 15) !== 0;
+    if (d.kind === 'rail') return (m.railAt(d.idx) & 15) !== 0;
     return m.air.get(d.idx) === 3;
   }
 
@@ -516,7 +516,7 @@ export class Transit {
       const cur = trail[trail.length - 1];
       let next = -1;
       for (let d = 0; d < 8 && next < 0; d++) {
-        if (!(m.rail.get(cur) & CONN(d))) continue;
+        if (!(m.railAt(cur) & CONN(d))) continue;
         const n = (Math.floor(cur / s) + DY8[d]) * s + (cur % s) + DX8[d];
         if (!trail.includes(n) && !this.reserved.has(n)) next = n;
       }

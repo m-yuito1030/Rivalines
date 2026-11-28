@@ -64,6 +64,13 @@ export class TransitLayer {
   private shownDt = 0;
   private infraVer = -1;
   private infraKey = '';
+  /** Underground view on: only the underground stops, depots and trains are drawn (and none of the surface ones). Off: the underground ones are hidden */
+  underground = false;
+
+  /** A tile whose rail is a subway (no surface rail on it) */
+  private isUnder(idx: number): boolean {
+    return idx >= 0 && this.map.subwayVer !== 0 && (this.map.subway.get(idx) & 0x80) !== 0 && this.map.rail.get(idx) === 0;
+  }
   /** For each stop, the number of people currently drawn (they increase and decrease smoothly to follow the waiting count) */
   private shown = new Map<number, number>();
   private shownAt = 0;
@@ -330,7 +337,7 @@ export class TransitLayer {
     const m = this.map;
     let info = s.station;
     if (!info) {
-      const alongX = !!(m.rail.get(s.idx) & (CONN(1) | CONN(3)));
+      const alongX = !!(m.railAt(s.idx) & (CONN(1) | CONN(3)));
       info = { axis: alongX ? 1 : 0, len: 1, tracks: 1, design: 6, x0: s.x, y0: s.y };
     }
     const { axis, len, tracks, x0, y0 } = info;
@@ -429,7 +436,7 @@ export class TransitLayer {
     }
     // The static part is redrawn only when the view leaves the drawn area, the structure changes, the selection changes, or 0.25 s passes
     const now = performance.now();
-    const key = [...highlight].join(',');
+    const key = [...highlight].join(',') + (this.underground ? 'u' : '');
     const iv = this.infraView;
     const inside = iv && view.zoom === iv.zoom && view.left >= iv.left && view.right <= iv.right && view.top >= iv.top && view.bottom <= iv.bottom;
     if (!inside || now - this.infraAt > 250 || this.infraVer !== this.transit.version || key !== this.infraKey) {
@@ -458,6 +465,7 @@ export class TransitLayer {
     const inView = (wx: number, wy: number) => wx > view.left - margin && wx < view.right + margin && wy > view.top - margin * 2 && wy < view.bottom + margin;
     this.stations.begin();
     for (const s of this.transit.stops.values()) {
+      if (this.isUnder(s.idx) !== this.underground) continue;
       const wx = this.wx(s.x + 0.5, s.y + 0.5);
       const wy = this.wy(s.x + 0.5, s.y + 0.5, 0);
       if (!inView(wx, wy)) continue;
@@ -503,12 +511,13 @@ export class TransitLayer {
 
     // Depots: draw a garage beside the road/rail/airport tile
     for (const d of this.transit.depots.values()) {
+      if (this.isUnder(d.idx) !== this.underground) continue;
       if (!inView(this.wx(d.x + 0.5, d.y + 0.5), this.wy(d.x + 0.5, d.y + 0.5, 0))) continue;
       const lvl = m.surfaceLevel(d.x, d.y);
       const sel = highlight.has(-d.id);
       const roof = sel ? 0xff9a2f : d.kind === 'rail' ? 0x5d7a99 : d.kind === 'air' ? 0x8896a6 : 0x6a8a6a;
       // Long axis: the direction of the road/rail (the u direction for east-west, the v direction for north-south)
-      const bits = d.kind === 'road' ? m.road.get(d.idx) : m.rail.get(d.idx);
+      const bits = d.kind === 'road' ? m.road.get(d.idx) : m.railAt(d.idx);
       const alongX = d.kind === 'air' ? true : !!(bits & (CONN(1) | CONN(3))) && !(bits & (CONN(0) | CONN(2)));
       const ax = alongX ? 1 : 0;
       const ay = alongX ? 0 : 1;
@@ -613,6 +622,8 @@ export class TransitLayer {
     for (const v of this.transit.vehicles) {
       const route = this.transit.routes.get(v.routeId);
       if (!route) continue;
+      // Underground view: only trains on subway tiles. Normal view: everything except those
+      if (this.isUnder(v.mode === 'air' ? -1 : v.path[Math.min(v.pi, v.path.length - 1)]) !== this.underground) continue;
       if (v.mode === 'road') this.drawBus(v, m, inView);
       else if (v.mode === 'rail') this.drawTrain(v, m, inView);
       else this.drawPlane(v, m, inView);
