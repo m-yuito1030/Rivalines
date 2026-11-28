@@ -135,6 +135,7 @@ html, body { font-family: "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", syste
 @media (pointer: coarse), (max-width: 820px) { .ddmenu button { min-height: 44px; font-size: 14px; } }
 #toast { position: fixed; left: 50%; top: 70px; transform: translateX(-50%); z-index: 30; background: #000d; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 13px; opacity: 0; pointer-events: none; transition: opacity .2s; }
 #toast.show { opacity: 1; }
+#toast.error { background: #8a1f1fee; max-width: min(520px, 92vw); text-align: center; }
 
 /* ---- Info panel for a stop/town ---- */
 #info { position: absolute; left: 8px; top: 110px; width: 340px; max-width: calc(100vw - 16px); max-height: 60vh; overflow: auto; padding: 8px 10px; border-radius: 10px; font-size: 12px; pointer-events: auto;

@@ -27,7 +27,9 @@ export function routeCreate(cmd: Extract<Cmd, { t: 'routeCreate' }>, ctx: Comman
   const foreign = cmd.stops.map((id) => t.stops.get(id)).find((s) => s && !t.mayUse(s, who));
   if (foreign) return fail(tr('「{name}」は他社の停留所です。持ち主の許可がないと路線に使えません', { name: foreign.name }));
   const r = t.addRoute(cmd.stops);
-  return r ? { ok: true, id: r.id } : fail(tr('路線を作れません(同じ種別の停留所を2つ以上選んでください)'));
+  return r
+    ? { ok: true, id: r.id, msg: tr('路線「{name}」を作りました。路線パネルの「＋車両」で車両を買うと走り出します', { name: r.name }) }
+    : fail(tr('路線を作れません(同じ種別の停留所を2つ以上選んでください)'));
 }
 
 /** Argument kinds for tx: id = integer ID/index / dir = +1 or -1 / num = finite number */
