@@ -251,6 +251,16 @@ export class ChunkRenderer {
               if (map.rail.get(k) & (1 << d)) drawRamp(ctx, px, py, d, 'rail');
             }
           }
+          if (map.subwayVer !== 0 && !sp) {
+            // A subway portal: the tile where a subway comes up to a surface rail gets a tunnel mouth facing that rail
+            const sw = map.subway.get(k);
+            if (sw & 0x80 && !map.rail.get(k))
+              for (let d = 0; d < 4; d++) {
+                const nx2 = tx + [0, 1, 0, -1][d];
+                const ny2 = ty + [-1, 0, 1, 0][d];
+                if (sw & (1 << d) && map.inBounds(nx2, ny2) && map.rail.get(map.idx(nx2, ny2)) & (1 << ((d + 2) & 3))) drawTunnelPortal(ctx, px, py, d, LEVEL_PX);
+              }
+          }
           if (map.building.get(k) === FACILITY_TILE) {
             // Schools, town halls, department stores, and malls are sprites (drawn at the front tile of the site). Stadiums and the like are drawn on another layer
             const f = facilityTileMap(map).get(k);

@@ -143,6 +143,40 @@ describe('AI 会社の配信と、アカウントの番号', () => {
   });
 });
 
+describe('AI 会社の地下鉄', () => {
+  it('鉄道会社が、2つの街を地下鉄でつなぎ、地下に駅・基地・列車を作る', () => {
+    const sim = newWorld();
+    const ai = new AiPlanner(sim, 2);
+    ai.init();
+    sim.setOnline(ai.ids);
+    const id = AI_ID_BASE + 1; // the railway company
+    sim.playerCompany(id).earn('toll-in', 200_000_000);
+    const states = (ai as unknown as { states: { id: number; project?: unknown; routes: number; connected: Set<number> }[] }).states;
+    const st = states.find((x) => x.id === id)!;
+    const towns = sim.map.towns.filter((t) => t.roads.length > 3);
+    const pairs: [(typeof towns)[number], (typeof towns)[number]][] = [];
+    for (const a of towns) for (const b of towns) if (a.id < b.id && Math.hypot(a.x - b.x, a.y - b.y) >= 20 && Math.hypot(a.x - b.x, a.y - b.y) <= 80) pairs.push([a, b]);
+    pairs.sort((u, v) => Math.hypot(u[0].x - u[1].x, u[0].y - u[1].y) - Math.hypot(v[0].x - v[1].x, v[0].y - v[1].y));
+    let done = false;
+    for (const [a, b] of pairs.slice(0, 6)) {
+      st.project = { type: 'rail', a, b, stage: 'stations', stations: [], ends: [], edges: [], line: [], cursor: 0, sub: [] };
+      for (let i = 0; i < 6000 && st.project; i++) {
+        sim.step();
+        ai.step();
+      }
+      if (st.routes > 0) {
+        done = true;
+        break;
+      }
+    }
+    expect(done).toBe(true);
+    const stops = [...sim.transit.stops.values()].filter((x) => x.owner === id);
+    expect(stops.length).toBe(2);
+    expect(stops.every((x) => x.kind === 'rail' && sim.map.rail.get(x.idx) === 0 && sim.map.subway.get(x.idx) !== 0)).toBe(true);
+    expect(sim.transit.vehicles.some((v) => sim.transit.routes.get(v.routeId)?.owner === id)).toBe(true);
+  }, 150_000);
+});
+
 describe('AI 会社の専門と性格', () => {
   // One shared run (6 companies: bus/aggressive, rail/cautious, estate/aggressive, general/cautious, rail/aggressive, bus/cautious), so the tests stay quick
   let sim: Simulation;

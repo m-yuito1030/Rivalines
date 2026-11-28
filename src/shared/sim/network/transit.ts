@@ -442,14 +442,15 @@ export class Transit {
   }
 
   /** The depot's kind is decided by the tile: road -> bus / straight rail -> train / airport terminal -> aircraft */
-  addDepot(x: number, y: number): { depot?: Depot; reason?: string } {
+  /** want: the kind to use when the tile could be more than one (a street above a subway) */
+  addDepot(x: number, y: number, want?: Mode): { depot?: Depot; reason?: string } {
     const m = this.map;
     if (!m.inBounds(x, y)) return { reason: '範囲外です' };
     const idx = m.idx(x, y);
     if (this.depotAt.has(idx)) return { reason: 'すでに車両基地があります' };
     if (m.span.get(idx)) return { reason: '橋・トンネルには置けません' };
     let kind: Mode | null = null;
-    if (m.road.get(idx)) kind = 'road';
+    if (m.road.get(idx) && want !== 'rail') kind = 'road';
     else if ((m.railAt(idx) & 0xf0) === 0 && ((m.railAt(idx) & 15) === 5 || (m.railAt(idx) & 15) === 10)) kind = 'rail';
     else if (m.air.get(idx) === 3 || m.air.get(idx) === 6) kind = 'air';
     if (!kind) return { reason: '道路・直線の線路・空港の格納庫(またはターミナル)の上に置いてください' };

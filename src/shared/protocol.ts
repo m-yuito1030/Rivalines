@@ -55,6 +55,7 @@ export type Cmd =
       x: number;
       y: number;
       opts?: StationOptions;
+      /** For depots: which kind when the tile could be either (a street above a subway) */ kind?: Mode;
       fac?: { design: number; size: 'S' | 'M' | 'L' };
       air?: { size: 'S' | 'M' | 'L' | 'H'; axis: 'x' | 'y' };
     }

@@ -83,7 +83,7 @@ export function place(cmd: Extract<Cmd, { t: 'place' }>, ctx: CommandContext): C
     return { ok: true, msg: tr('{name}を建設しました({cost})。{desc}', { name: f.name, cost: yen(cost), desc: spec.desc }) };
   }
   if (tool === 'depot') {
-    const r = t.addDepot(x, y);
+    const r = t.addDepot(x, y, cmd.kind);
     if (!r.depot) return fail(tr('車両基地を置けません: {reason}', { reason: tr(r.reason ?? '') }));
     const cost = r.depot.kind === 'road' ? PRICES.depotRoad : r.depot.kind === 'rail' ? PRICES.depotRail : PRICES.depotAir;
     if (!co.spend('build', cost)) {
