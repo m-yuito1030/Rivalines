@@ -47,6 +47,7 @@ import { ChatPanel } from './ui/chatPanel';
 import { GovPanel } from './ui/govPanel';
 import { NewsPanel } from './ui/newsPanel';
 import { ConstructionFx } from './render/constructionFx';
+import { UndergroundView } from './render/undergroundView';
 import { LEVEL_PX, SEA_LEVEL } from '../shared/world/constants';
 import { TIERS, townTier } from '../shared/world/town';
 import { placeAirport } from '../shared/world/airports';
@@ -184,11 +185,13 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
       if (what.length === 0) go();
       else void confirmDialog(tr('次のものを撤去します: {parts}', { parts: what.join(tr('、')) }) + '\n' + tr('元に戻せません。よろしいですか?')).then((ok) => ok && go());
     } else if ((tool as string) === 'signalline') void run({ t: 'signalLine', a, b, interval: Number($<HTMLInputElement>('optSigInt').value) || 3 });
-    else void run({ t: 'build', tool, a, b });
+    else void run({ t: 'build', tool, a, b, ...(tool === 'subway' ? { z: [...tools.subwayZ] as [number, number] } : {}) });
   };
   tools.onMessage = (msg) => toast.show(msg);
   tools.facilityPlanner = (x, y, type) => facilityPicker.plan(map, x, y, type, facOcc);
   tools.stationPlanner = (x, y) => stationPicker.plan(map, x, y, (i) => !!transit.stopAtTile(i % map.size, Math.floor(i / map.size)));
+  const underground = new UndergroundView(map);
+  worldRoot.addChild(underground.shade, underground.tracks);
   worldRoot.addChild(tools.overlay);
 
   const minimap = new Minimap($<HTMLCanvasElement>('minimap'), map, (tx, ty) => camera.centerOnTile(tx, ty));
@@ -308,11 +311,19 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     stationPicker.setVisible(t === 'station');
     facilityPicker.setTool(t);
     $('signalOpts').hidden = t !== 'signalline';
+    $('subwayOpts').hidden = t !== 'subway' && t !== 'subwaydel';
+    underground.active = t === 'subway' || t === 'subwaydel';
     bulldozeOptions.setVisible(t === 'bulldoze');
     toolbar.highlight(t);
     if (t !== 'route' && (panel.building || panel.inserting)) panel.cancelBuild();
   };
   setToolRef = setTool;
+  // Subway depth selectors (depth at the start and at the end of the line)
+  const syncSubwayZ = () => {
+    tools.subwayZ = [Number($<HTMLSelectElement>('optSubZ0').value) || 1, Number($<HTMLSelectElement>('optSubZ1').value) || 1];
+  };
+  $('optSubZ0').addEventListener('change', syncSubwayZ);
+  $('optSubZ1').addEventListener('change', syncSubwayZ);
   document.querySelectorAll('.optx').forEach((b) => b.addEventListener('click', () => setTool('pan')));
   document.querySelectorAll<HTMLButtonElement>('[data-tool]').forEach((b) =>
     b.addEventListener('click', () => {
@@ -632,6 +643,7 @@ async function startGame(map: GameMap, sim: Simulation, mirror: Mirror, startAt:
     }
     transitLayer.draw(view, new Set(panel.building?.stops ?? []));
     constructionFx.draw(view, performance.now());
+    underground.draw(view);
     const tD = performance.now();
     perfSim = perfSim * 0.9 + (tB - tA) * 0.1;
     perfChunk = perfChunk * 0.9 + (tC - tB) * 0.1;

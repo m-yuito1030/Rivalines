@@ -47,7 +47,8 @@ export const TX_METHODS = [
 export type TxMethod = (typeof TX_METHODS)[number];
 
 export type Cmd =
-  | { t: 'build'; tool: DragTool; a: Pt; b: Pt }
+  /** z: for the subway tool, the depth (1-4) at the start and at the end of the line */
+  | { t: 'build'; tool: DragTool; a: Pt; b: Pt; z?: [number, number] }
   | { t: 'place'; tool: PlaceTool; x: number; y: number; opts?: StationOptions; fac?: { design: number; size: 'S' | 'M' | 'L' } }
   | { t: 'ensureStop'; x: number; y: number; kind: Mode }
   | { t: 'routeCreate'; stops: number[] }
@@ -139,8 +140,8 @@ export interface VehMsg {
   path?: number[];
 }
 
-/** One tile: [index, road, rail, span, air, building, owner, infraOwner, terraform height (-1 = none), under construction (1 = yes)] */
-export type TileRec = [number, number, number, number, number, number, number, number, number, number];
+/** One tile: [index, road, rail, span, air, building, owner, infraOwner, terraform height (-1 = none), under construction (1 = yes), subway, subwayOwner] */
+export type TileRec = [number, number, number, number, number, number, number, number, number, number, number, number];
 
 /** Summary of the company's own vehicles for the list (including out-of-view ones). [id, routeId, modelId, mode, x, y, state (0 moving, 1 stopped, 2 no route, 3 held), load %, car count] */
 export type MyVeh = [number, number, string, Mode, number, number, number, number, number];

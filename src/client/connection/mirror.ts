@@ -36,7 +36,7 @@ export class Mirror {
 
   private setTile(rec: number[]): void {
     const m = this.map;
-    const [i, road, rail, span, air, building, owner, infra, h, con] = rec;
+    const [i, road, rail, span, air, building, owner, infra, h, con, sw, swOwner] = rec;
     m.road.set(i, road);
     m.rail.set(i, rail);
     m.span.set(i, span);
@@ -45,6 +45,9 @@ export class Mirror {
     m.owner.set(i, owner);
     m.infraOwner.set(i, infra);
     m.construction.set(i, con ?? 0);
+    if ((sw ?? 0) !== m.subway.get(i)) m.subwayVer++;
+    m.subway.set(i, sw ?? 0);
+    m.subwayOwner.set(i, swOwner ?? 0);
     if (con && building) m.sites.set(i, 0);
     else m.sites.delete(i);
     if (h !== undefined && h >= 0) m.restoreEdit(i, h);
@@ -58,11 +61,13 @@ export class Mirror {
       case 'chunk': {
         const x0 = msg.cx << CHUNK_SHIFT;
         const y0 = msg.cy << CHUNK_SHIFT;
-        for (const layer of [map.road, map.rail, map.span, map.air, map.building, map.owner, map.infraOwner, map.construction]) layer.clearRect(x0, y0, CHUNK, CHUNK);
-        for (const [l, road, rail, span, air, building, owner, infra, con] of msg.tiles) {
+        for (const layer of [map.road, map.rail, map.span, map.air, map.building, map.owner, map.infraOwner, map.construction, map.subway, map.subwayOwner])
+          layer.clearRect(x0, y0, CHUNK, CHUNK);
+        map.subwayVer++;
+        for (const [l, road, rail, span, air, building, owner, infra, con, sw, swOwner] of msg.tiles) {
           const x = x0 + (l % CHUNK);
           const y = y0 + Math.floor(l / CHUNK);
-          this.setTile([map.idx(x, y), road, rail, span, air, building, owner, infra, -1, con ?? 0]);
+          this.setTile([map.idx(x, y), road, rail, span, air, building, owner, infra, -1, con ?? 0, sw ?? 0, swOwner ?? 0]);
         }
         for (const [i, h] of msg.edits) map.restoreEdit(i, h);
         // Update drawing (every tile in the chunk)
