@@ -238,7 +238,7 @@ export class ChunkRenderer {
           } else {
             if (map.air.get(k)) {
               const at = (x: number, y: number) => (map.inBounds(x, y) ? map.air.get(map.idx(x, y)) : 0);
-              drawAirTile(ctx, px, py, map.air.get(k), { u0: at(tx - 1, ty), u1: at(tx + 1, ty), v0: at(tx, ty - 1), v1: at(tx, ty + 1) });
+              drawAirTile(ctx, px, py, map.air.get(k), { u0: at(tx - 1, ty), u1: at(tx + 1, ty), v0: at(tx, ty - 1), v1: at(tx, ty + 1) }, tx, ty);
             }
             if (map.road.get(k)) drawRoad(ctx, px, py, map.road.get(k), hash2(tx, ty, seed + 13), detail);
             if (map.rail.get(k)) drawRail(ctx, px, py, map.rail.get(k));

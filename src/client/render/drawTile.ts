@@ -1,4 +1,5 @@
 import { TILE_H, TILE_W } from '../../shared/world/constants';
+import { airportSpritesReady, drawAirportSprite } from './airportSprites';
 import { drawBuildingSprite } from './buildingSprites';
 
 const HW = TILE_W / 2;
@@ -305,7 +306,8 @@ function airBox(ctx: CanvasRenderingContext2D, px: number, py: number, nb: AirNe
  * Airport tile. 1 apron, 2 runway, 3 terminal (the stop), 4 taxiway, 5 stand, 6 hangar, 7 terminal building.
  * The runway and taxiway markings follow the neighbouring tiles, so they line up whichever way the airport is turned.
  */
-export function drawAirTile(ctx: CanvasRenderingContext2D, px: number, py: number, kind: number, nb: AirNeighbors = NO_AIR): void {
+export function drawAirTile(ctx: CanvasRenderingContext2D, px: number, py: number, kind: number, nb: AirNeighbors = NO_AIR, tx = 0, ty = 0): void {
+  if (airportSpritesReady()) return drawAirportSprite(ctx, px, py, kind, nb, tx, ty);
   ctx.fillStyle = kind === RUNWAY ? '#43464c' : kind === TAXIWAY ? '#5d6169' : '#80848b';
   poly(ctx, px, py, [
     [0, 0],
